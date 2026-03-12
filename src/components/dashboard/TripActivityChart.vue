@@ -1,73 +1,53 @@
 <template>
   <div class="card-surface chart-card">
     <div class="chart-header">
-      <div>
-        <h2 class="chart-title">Trip Activity</h2>
-        <p class="chart-subtitle">Weekly trip statistics</p>
-      </div>
-      <div class="legend">
-        <div v-for="line in series" :key="line.key" class="legend-item">
-          <span class="legend-dot" :style="{ background: line.color }"></span>
-          <span>{{ line.label }}</span>
-        </div>
-      </div>
+      <h2 class="chart-title">Trip Activity</h2>
+      <p class="chart-subtitle">Weekly trip totals by status</p>
     </div>
 
-    <div class="chart-body" ref="chartBody">
-      <svg :viewBox="`0 0 ${width} ${height}`" class="chart-svg" role="img">
-        <g class="grid">
-          <line
-            v-for="y in gridLines"
-            :key="y"
-            :x1="padding"
-            :x2="width - padding"
-            :y1="y"
-            :y2="y"
-          />
-        </g>
-
-        <g class="axes">
-          <line :x1="padding" :y1="height - padding" :x2="width - padding" :y2="height - padding" />
-          <line :x1="padding" :y1="padding" :x2="padding" :y2="height - padding" />
-        </g>
-
-        <g class="labels">
-          <text
-            v-for="(label, index) in labels"
-            :key="label"
-            :x="xFor(index)"
-            :y="height - 10"
-            text-anchor="middle"
-          >
-            {{ label }}
-          </text>
-        </g>
-
-        <g v-for="line in series" :key="line.key" class="series">
-          <polyline
-            :points="pointsFor(line.data)"
-            :stroke="line.color"
-          />
-          <circle
-            v-for="(value, idx) in line.data"
-            :key="`${line.key}-${idx}`"
-            :cx="xFor(idx)"
-            :cy="yFor(value)"
-            :fill="line.color"
-            r="4"
-            class="data-point"
-            @mouseenter="showTooltip($event, line.label, value, labels[idx])"
-            @mouseleave="hideTooltip"
-          />
-        </g>
+    <div class="donut-wrap" ref="donutWrap">
+      <svg :viewBox="`0 0 ${size} ${size}`" class="donut" role="img" aria-label="Trip activity totals">
+        <circle
+          class="donut-track"
+          :cx="center"
+          :cy="center"
+          :r="radius"
+        />
+        <circle
+          v-for="segment in segments"
+          :key="segment.name"
+          class="donut-segment"
+          :cx="center"
+          :cy="center"
+          :r="radius"
+          :stroke="segment.color"
+          :stroke-dasharray="`${segment.dash} ${circumference - segment.dash}`"
+          :stroke-dashoffset="segment.offset"
+          @mouseenter="showTooltip($event, segment)"
+          @mouseleave="hideTooltip"
+        />
       </svg>
+      <div class="donut-center">
+        <p class="donut-total">{{ total }}</p>
+        <span>Total Trips</span>
+      </div>
       <div
         v-if="tooltip.visible"
         class="tooltip"
         :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }"
       >
         <div class="tooltip-title">{{ tooltip.label }}</div>
-        <div class="tooltip-value">{{ tooltip.day }}: {{ tooltip.value }}</div>
+        <div class="tooltip-value">{{ tooltip.value }} trips • {{ tooltip.percent }}%</div>
+      </div>
+    </div>
+
+    <div class="status-list">
+      <div v-for="item in data" :key="item.name" class="status-item">
+        <div class="status-left">
+          <span class="status-dot" :style="{ background: item.color }"></span>
+          <span class="status-label">{{ item.name }}</span>
+        </div>
+        <span class="status-value">{{ item.value }}</span>
       </div>
     </div>
   </div>
@@ -76,49 +56,53 @@
 <script setup>
 import { reactive, ref } from 'vue'
 
-const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-const series = [
+const weeklySeries = [
   { key: 'completed', label: 'Completed', color: '#2563eb', data: [45, 52, 48, 61, 55, 38, 42] },
   { key: 'ongoing', label: 'Ongoing', color: '#10b981', data: [12, 15, 18, 14, 20, 16, 11] },
   { key: 'cancelled', label: 'Cancelled', color: '#ef4444', data: [2, 1, 3, 2, 1, 2, 1] }
 ]
 
-const width = 640
-const height = 280
-const padding = 36
+const data = weeklySeries.map((series) => ({
+  name: series.label,
+  color: series.color,
+  value: series.data.reduce((sum, value) => sum + value, 0)
+}))
 
-const allValues = series.flatMap((s) => s.data)
-const maxValue = Math.max(...allValues) + 5
-const minValue = 0
+const total = data.reduce((sum, item) => sum + item.value, 0)
+const size = 220
+const center = size / 2
+const radius = 70
+const circumference = 2 * Math.PI * radius
 
-const plotWidth = width - padding * 2
-const plotHeight = height - padding * 2
+let runningOffset = 0
+const segments = data.map((item) => {
+  const dash = (item.value / total) * circumference
+  const segment = {
+    ...item,
+    dash,
+    offset: -runningOffset
+  }
+  runningOffset += dash
+  return segment
+})
 
-const xFor = (index) => padding + (plotWidth / (labels.length - 1)) * index
-const yFor = (value) => padding + ((maxValue - value) / (maxValue - minValue)) * plotHeight
-
-const pointsFor = (data) => data.map((value, index) => `${xFor(index)},${yFor(value)}`).join(' ')
-
-const gridLines = Array.from({ length: 5 }).map((_, idx) => padding + (plotHeight / 4) * idx)
-
-const chartBody = ref(null)
+const donutWrap = ref(null)
 const tooltip = reactive({
   visible: false,
   x: 0,
   y: 0,
   label: '',
   value: 0,
-  day: ''
+  percent: 0
 })
 
-const showTooltip = (event, label, value, day) => {
-  const rect = chartBody.value?.getBoundingClientRect()
+const showTooltip = (event, segment) => {
+  const rect = donutWrap.value?.getBoundingClientRect()
   if (!rect) return
   tooltip.visible = true
-  tooltip.label = label
-  tooltip.value = value
-  tooltip.day = day
+  tooltip.label = segment.name
+  tooltip.value = segment.value
+  tooltip.percent = Math.round((segment.value / total) * 100)
   tooltip.x = event.clientX - rect.left + 12
   tooltip.y = event.clientY - rect.top - 12
 }
@@ -134,11 +118,7 @@ const hideTooltip = () => {
 }
 
 .chart-header {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .chart-title {
@@ -153,59 +133,79 @@ const hideTooltip = () => {
   font-size: 13px;
 }
 
-.legend {
-  display: flex;
-  gap: 16px;
-  align-items: center;
+.donut-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin: 8px 0 16px;
+}
+
+.donut {
+  width: 220px;
+  height: 220px;
+  transform: rotate(-90deg);
+}
+
+.donut-track {
+  fill: none;
+  stroke: #e2e8f0;
+  stroke-width: 14;
+}
+
+.donut-segment {
+  fill: none;
+  stroke-width: 14;
+  stroke-linecap: round;
+  cursor: pointer;
+}
+
+.donut-center {
+  position: absolute;
+  text-align: center;
+}
+
+.donut-total {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.donut-center span {
   font-size: 12px;
   color: var(--fleet-muted);
 }
 
-.legend-item {
+.status-list {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.legend-dot {
+.status-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
 }
 
-.chart-body {
-  width: 100%;
-  overflow-x: auto;
-  position: relative;
+.status-label {
+  color: var(--fleet-muted);
 }
 
-.chart-svg {
-  width: 100%;
-  height: auto;
-}
-
-.grid line {
-  stroke: #eef2f7;
-  stroke-width: 1;
-}
-
-.axes line {
-  stroke: #e2e8f0;
-  stroke-width: 1;
-}
-
-.labels text {
-  fill: #94a3b8;
-  font-size: 12px;
-}
-
-.series polyline {
-  fill: none;
-  stroke-width: 2.5;
-}
-
-.data-point {
-  cursor: pointer;
+.status-value {
+  font-weight: 700;
 }
 
 .tooltip {

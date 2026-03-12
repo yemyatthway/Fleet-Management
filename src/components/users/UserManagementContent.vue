@@ -69,6 +69,16 @@
       @close="dialogOpen = false"
       @add="handleAdd"
     />
+
+    <ConfirmDialog
+      :open="confirmOpen"
+      :title="confirmTitle"
+      :message="confirmMessage"
+      :confirm-text="confirmButton"
+      :tone="confirmTone"
+      @confirm="runConfirm"
+      @cancel="confirmOpen = false"
+    />
   </div>
 </template>
 
@@ -76,6 +86,7 @@
 import { computed, ref } from 'vue'
 import UserTable from './UserTable.vue'
 import AddUserDialog from './AddUserDialog.vue'
+import ConfirmDialog from '../common/ConfirmDialog.vue'
 
 const users = ref([
   {
@@ -173,6 +184,12 @@ const users = ref([
 const searchQuery = ref('')
 const roleFilter = ref('All')
 const dialogOpen = ref(false)
+const confirmOpen = ref(false)
+const confirmTitle = ref('Are you sure?')
+const confirmMessage = ref('')
+const confirmButton = ref('Confirm')
+const confirmTone = ref('danger')
+const pendingAction = ref(() => {})
 
 const filteredUsers = computed(() => {
   const query = searchQuery.value.toLowerCase()
@@ -201,16 +218,49 @@ const handleEdit = (id) => {
   console.log('Edit user:', id)
 }
 
+const openConfirm = ({ title, message, confirmText, tone, action }) => {
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmButton.value = confirmText
+  confirmTone.value = tone
+  pendingAction.value = action
+  confirmOpen.value = true
+}
+
+const runConfirm = () => {
+  pendingAction.value()
+  confirmOpen.value = false
+}
+
 const handleToggle = (id) => {
-  users.value = users.value.map((user) =>
-    user.id === id
-      ? { ...user, status: user.status === 'Active' ? 'Disabled' : 'Active' }
-      : user
-  )
+  const user = users.value.find((item) => item.id === id)
+  if (!user) return
+  const nextStatus = user.status === 'Active' ? 'Disabled' : 'Active'
+  openConfirm({
+    title: `${nextStatus} User?`,
+    message: `This will mark ${user.name} as ${nextStatus.toLowerCase()}.`,
+    confirmText: nextStatus,
+    tone: 'warning',
+    action: () => {
+      users.value = users.value.map((item) =>
+        item.id === id ? { ...item, status: nextStatus } : item
+      )
+    }
+  })
 }
 
 const handleDelete = (id) => {
-  users.value = users.value.filter((user) => user.id !== id)
+  const user = users.value.find((item) => item.id === id)
+  if (!user) return
+  openConfirm({
+    title: 'Delete User?',
+    message: `This will permanently remove ${user.name}.`,
+    confirmText: 'Delete',
+    tone: 'danger',
+    action: () => {
+      users.value = users.value.filter((item) => item.id !== id)
+    }
+  })
 }
 </script>
 

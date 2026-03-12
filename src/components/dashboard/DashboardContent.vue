@@ -12,9 +12,8 @@
       <VehicleStatusChart />
     </div>
 
-    <div class="grid grid-two">
+    <div class="grid">
       <RecentTripsTable />
-      <NotificationsPanel />
     </div>
   </div>
 </template>
@@ -24,7 +23,6 @@ import MetricCards from './MetricCards.vue'
 import TripActivityChart from './TripActivityChart.vue'
 import VehicleStatusChart from './VehicleStatusChart.vue'
 import RecentTripsTable from './RecentTripsTable.vue'
-import NotificationsPanel from './NotificationsPanel.vue'
 </script>
 
 <style scoped>

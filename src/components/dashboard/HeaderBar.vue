@@ -4,30 +4,42 @@
       <v-btn icon variant="text" class="icon-button" @click="$emit('toggle')">
         <v-icon icon="mdi-menu" />
       </v-btn>
-      <div class="search-box">
-        <v-icon icon="mdi-magnify" class="search-icon" />
-        <input
-          class="search-input"
-          type="text"
-          placeholder="Search vehicles, drivers, trips..."
-        />
-      </div>
     </div>
 
     <div class="header-right">
-      <button class="notify-button" type="button">
-        <v-icon icon="mdi-bell-outline" />
-        <span class="notify-dot"></span>
-      </button>
+      <v-menu
+        v-model="menuOpen"
+        location="bottom end"
+        offset="12"
+        :close-on-content-click="false"
+      >
+        <template #activator="{ props }">
+          <button
+            class="notify-button"
+            :class="{ 'is-active': menuOpen }"
+            type="button"
+            v-bind="props"
+          >
+            <v-icon :icon="menuOpen ? 'mdi-bell' : 'mdi-bell-outline'" />
+            <span class="notify-dot" :class="{ 'is-hidden': menuOpen }"></span>
+          </button>
+        </template>
+        <div class="notify-menu">
+          <NotificationsPanel @view-all="menuOpen = false" />
+        </div>
+      </v-menu>
       <div class="date-label">{{ today }}</div>
     </div>
   </v-app-bar>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import NotificationsPanel from './NotificationsPanel.vue'
 
 defineEmits(['toggle'])
+
+const menuOpen = ref(false)
 
 const today = computed(() =>
   new Date().toLocaleDateString('en-US', {
@@ -61,35 +73,6 @@ const today = computed(() =>
   border-radius: 12px;
 }
 
-.search-box {
-  position: relative;
-  max-width: 420px;
-  width: 100%;
-}
-
-.search-input {
-  width: 100%;
-  padding: 10px 16px 10px 44px;
-  border: 1px solid var(--fleet-border);
-  border-radius: 12px;
-  font-size: 14px;
-  background: #fff;
-}
-
-.search-input:focus {
-  outline: 2px solid rgba(37, 99, 235, 0.2);
-  border-color: rgba(37, 99, 235, 0.5);
-}
-
-.search-icon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #94a3b8;
-  font-size: 20px;
-}
-
 .notify-button {
   position: relative;
   border: none;
@@ -100,10 +83,16 @@ const today = computed(() =>
   display: grid;
   place-items: center;
   cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .notify-button:hover {
   background: #f8fafc;
+}
+
+.notify-button.is-active {
+  background: #eef2ff;
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.18);
 }
 
 .notify-dot {
@@ -116,14 +105,27 @@ const today = computed(() =>
   background: var(--fleet-danger);
 }
 
+.notify-dot.is-hidden {
+  display: none;
+}
+
+.notify-menu {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+}
+
+.notify-menu :deep(.card-surface) {
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+}
+
+.notify-menu :deep(.panel-list) {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
 .date-label {
   color: var(--fleet-muted);
   font-size: 14px;
 }
 
-@media (max-width: 900px) {
-  .search-box {
-    display: none;
-  }
-}
 </style>

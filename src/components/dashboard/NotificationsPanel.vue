@@ -21,13 +21,30 @@
       </div>
     </div>
 
-    <div class="panel-footer">
-      <button class="link-button" type="button">View All Notifications →</button>
+    <div v-if="showViewAll" class="panel-footer">
+      <button class="link-button" type="button" @click="handleViewAll">View All Notifications →</button>
     </div>
   </div>
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router'
+
+const emit = defineEmits(['view-all'])
+defineProps({
+  showViewAll: {
+    type: Boolean,
+    default: true
+  }
+})
+
+const router = useRouter()
+
+const handleViewAll = () => {
+  router.push('/notifications')
+  emit('view-all')
+}
+
 const notifications = [
   {
     id: 1,
@@ -170,4 +187,5 @@ const notifications = [
 .link-button:hover {
   color: var(--fleet-primary-dark);
 }
+
 </style>
