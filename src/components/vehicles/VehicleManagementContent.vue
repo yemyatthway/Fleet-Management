@@ -5,7 +5,7 @@
         <h1 class="section-title">Vehicle Management</h1>
         <p class="section-subtitle">Track, assign, and maintain your fleet in one place</p>
       </div>
-      <button class="primary-button" type="button">
+      <button class="primary-button" type="button" @click="openAdd">
         <v-icon icon="mdi-truck-plus" size="18" />
         Add Vehicle
       </button>
@@ -79,7 +79,14 @@
             <tr v-for="vehicle in filteredVehicles" :key="vehicle.id">
               <td>
                 <div class="vehicle-cell">
-                  <img :src="vehicle.image" :alt="vehicle.type" class="vehicle-image" />
+                  <button
+                    class="thumb-button tooltip"
+                    type="button"
+                    @click="openImage(vehicle.image, vehicle.type)"
+                  >
+                    <img :src="vehicle.image" :alt="vehicle.type" class="vehicle-image" />
+                    <span class="tooltip-text">View vehicle image</span>
+                  </button>
                   <div>
                     <strong>{{ vehicle.id }}</strong>
                     <div class="text-muted vehicle-sub">{{ vehicle.model }}</div>
@@ -95,29 +102,42 @@
               </td>
               <td>
                 <div class="driver-cell">
-                  <span class="driver-avatar">{{ initials(vehicle.driver) }}</span>
+                  <button
+                    class="thumb-button tooltip"
+                    type="button"
+                    @click="openImage(vehicle.driverImage, vehicle.driver)"
+                  >
+                    <img :src="vehicle.driverImage" :alt="vehicle.driver" class="driver-photo" />
+                    <span class="tooltip-text">View driver image</span>
+                  </button>
                   <span>{{ vehicle.driver }}</span>
                 </div>
               </td>
               <td class="text-muted">{{ formatDate(vehicle.acquiredDate) }}</td>
               <td class="align-right">
                 <div class="inline-actions">
-                  <button class="icon-button" type="button">
+                  <button class="icon-button tooltip" type="button" @click="openEdit(vehicle)">
                     <v-icon icon="mdi-pencil-outline" size="18" />
+                    <span class="tooltip-text">Edit vehicle</span>
                   </button>
-                  <button class="icon-button" type="button" @click="openDetails(vehicle)">
+                  <button class="icon-button tooltip" type="button" @click="openDetails(vehicle)">
                     <v-icon icon="mdi-eye-outline" size="18" />
+                    <span class="tooltip-text">View details</span>
                   </button>
                   <button
-                    class="icon-button"
+                    class="icon-button tooltip"
                     :class="vehicle.status === 'Active' ? 'warn' : 'good'"
                     type="button"
                     @click="toggleStatus(vehicle.id)"
                   >
                     <v-icon icon="mdi-power" size="18" />
+                    <span class="tooltip-text">
+                      {{ vehicle.status === 'Active' ? 'Set inactive' : 'Set active' }}
+                    </span>
                   </button>
-                  <button class="icon-button danger" type="button" @click="deleteVehicle(vehicle.id)">
+                  <button class="icon-button danger tooltip" type="button" @click="deleteVehicle(vehicle.id)">
                     <v-icon icon="mdi-trash-can-outline" size="18" />
+                    <span class="tooltip-text">Delete vehicle</span>
                   </button>
                 </div>
               </td>
@@ -180,13 +200,170 @@
             <div class="details-row"><span>Service Note</span><strong>{{ selectedVehicle.serviceNote }}</strong></div>
           </div>
 
-          <div class="details-section">
-            <h4>Tracking</h4>
-            <div class="details-row"><span>GPS Device</span><strong>{{ selectedVehicle.gpsId }}</strong></div>
-            <div class="details-row"><span>Last Ping</span><strong>{{ selectedVehicle.lastPing }}</strong></div>
-            <div class="details-row"><span>Last Location</span><strong>{{ selectedVehicle.lastLocation }}</strong></div>
+        </div>
+      </div>
+    </v-dialog>
+
+    <v-dialog v-model="formOpen" max-width="960">
+      <div class="card-surface form-card">
+        <div class="form-header">
+          <div class="form-title">{{ formMode === 'edit' ? 'Edit Vehicle' : 'Add Vehicle' }}</div>
+          <button class="icon-button" type="button" @click="closeForm">
+            <v-icon icon="mdi-close" size="18" />
+          </button>
+        </div>
+
+        <div v-if="formError" class="form-error">{{ formError }}</div>
+
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Plate Number</label>
+            <input v-model="formData.plate" type="text" placeholder="e.g., YGN-7742" />
+          </div>
+          <div class="form-field">
+            <label>Region</label>
+            <input v-model="formData.region" type="text" placeholder="e.g., Yangon" />
+          </div>
+          <div class="form-field">
+            <label>Vehicle Type</label>
+            <input v-model="formData.type" type="text" placeholder="e.g., Box Truck" />
+          </div>
+          <div class="form-field">
+            <label>Model</label>
+            <input v-model="formData.model" type="text" placeholder="e.g., Isuzu FVR" />
+          </div>
+          <div class="form-field">
+            <label>Status</label>
+            <select v-model="formData.status">
+              <option value="Active">Active</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Driver</label>
+            <input v-model="formData.driver" type="text" placeholder="Driver name" />
+          </div>
+          <div class="form-field">
+            <label>
+              Depot
+              <span class="hint tooltip icon-tooltip" tabindex="0" aria-label="Home base or yard">
+                <v-icon icon="mdi-information-outline" size="14" />
+                <span class="tooltip-text">Home base / yard</span>
+              </span>
+            </label>
+            <input v-model="formData.depot" type="text" placeholder="Depot / yard" />
+          </div>
+          <div class="form-field">
+            <label>Capacity</label>
+            <input v-model="formData.capacity" type="text" placeholder="e.g., 6 tons" />
+          </div>
+          <div class="form-field">
+            <label>Fuel Type</label>
+            <input v-model="formData.fuelType" type="text" placeholder="e.g., Diesel" />
+          </div>
+          <div class="form-field">
+            <label>VIN / Chassis</label>
+            <input v-model="formData.vin" type="text" placeholder="VIN / chassis" />
+          </div>
+          <div class="form-field">
+            <label>Engine No.</label>
+            <input v-model="formData.engineNo" type="text" placeholder="Engine number" />
+          </div>
+          <div class="form-field">
+            <label>
+              Odometer
+              <span
+                class="hint tooltip icon-tooltip"
+                tabindex="0"
+                aria-label="Total distance traveled in kilometers"
+              >
+                <v-icon icon="mdi-information-outline" size="14" />
+                <span class="tooltip-text">Total distance (km)</span>
+              </span>
+            </label>
+            <input v-model="formData.odometer" type="text" placeholder="e.g., 120,000 km" />
+          </div>
+          <div class="form-field">
+            <label>Acquired Date</label>
+            <input v-model="formData.acquiredDate" type="date" />
+          </div>
+          <div class="form-field">
+            <label>
+              Registration Expiry
+              <span
+                class="hint tooltip icon-tooltip"
+                tabindex="0"
+                aria-label="Date the registration must be renewed"
+              >
+                <v-icon icon="mdi-information-outline" size="14" />
+                <span class="tooltip-text">Renewal date</span>
+              </span>
+            </label>
+            <input v-model="formData.registrationExpiry" type="date" />
+          </div>
+          <div class="form-field">
+            <label>Road Tax Expiry</label>
+            <input v-model="formData.roadTaxExpiry" type="date" />
+          </div>
+          <div class="form-field">
+            <label>Insurance Expiry</label>
+            <input v-model="formData.insuranceExpiry" type="date" />
+          </div>
+          <div class="form-field">
+            <label>
+              Inspection Due
+              <span
+                class="hint tooltip icon-tooltip"
+                tabindex="0"
+                aria-label="Next required safety inspection"
+              >
+                <v-icon icon="mdi-information-outline" size="14" />
+                <span class="tooltip-text">Next safety check</span>
+              </span>
+            </label>
+            <input v-model="formData.inspectionDue" type="date" />
+          </div>
+          <div class="form-field">
+            <label>Last Service</label>
+            <input v-model="formData.lastService" type="date" />
+          </div>
+          <div class="form-field">
+            <label>Next Service</label>
+            <input v-model="formData.nextService" type="date" />
+          </div>
+          <div class="form-field">
+            <label>Service Note</label>
+            <input v-model="formData.serviceNote" type="text" placeholder="Service note" />
+          </div>
+          <div class="form-field">
+            <label>Vehicle Image URL</label>
+            <input v-model="formData.image" type="url" placeholder="https://..." />
+          </div>
+          <div class="form-field">
+            <label>Driver Image URL</label>
+            <input v-model="formData.driverImage" type="url" placeholder="https://..." />
           </div>
         </div>
+
+        <div class="form-actions">
+          <button class="ghost-button" type="button" @click="closeForm">Cancel</button>
+          <button class="primary-button" type="button" @click="saveForm">
+            {{ formMode === 'edit' ? 'Save Changes' : 'Add Vehicle' }}
+          </button>
+        </div>
+      </div>
+    </v-dialog>
+
+    <v-dialog v-model="imageOpen" max-width="720">
+      <div class="card-surface image-modal">
+        <div class="image-header">
+          <div class="image-title">{{ imageTitle }}</div>
+          <button class="icon-button" type="button" @click="imageOpen = false">
+            <v-icon icon="mdi-close" size="18" />
+          </button>
+        </div>
+        <img v-if="imageSrc" :src="imageSrc" :alt="imageTitle" class="full-image" />
       </div>
     </v-dialog>
 
@@ -215,6 +392,7 @@ const vehicles = ref([
     model: 'Volvo FL 280',
     status: 'Active',
     driver: 'Sarah Johnson',
+    driverImage: 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=800&q=80',
     depot: 'Yangon East Yard',
     capacity: '6 tons',
     fuelType: 'Diesel',
@@ -228,11 +406,8 @@ const vehicles = ref([
     roadTaxExpiry: '2026-06-30',
     insuranceExpiry: '2026-08-15',
     inspectionDue: '2026-05-20',
-    gpsId: 'GPS-00912',
-    lastPing: '5 min ago',
-    lastLocation: 'Hlegu, Yangon',
     acquiredDate: '2017-06-14',
-    image: 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=160&q=80'
+    image: 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80'
   },
   {
     id: 'VH-3054',
@@ -242,6 +417,7 @@ const vehicles = ref([
     model: 'Ford Transit',
     status: 'Maintenance',
     driver: 'Michael Chen',
+    driverImage: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80',
     depot: 'Mandalay Hub',
     capacity: '2 tons',
     fuelType: 'Diesel',
@@ -255,11 +431,8 @@ const vehicles = ref([
     roadTaxExpiry: '2026-07-31',
     insuranceExpiry: '2026-09-02',
     inspectionDue: '2026-04-18',
-    gpsId: 'GPS-01433',
-    lastPing: '12 min ago',
-    lastLocation: 'Amarapura, Mandalay',
     acquiredDate: '2019-03-22',
-    image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=160&q=80'
+    image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80'
   },
   {
     id: 'VH-1987',
@@ -269,6 +442,7 @@ const vehicles = ref([
     model: 'Isuzu FVR',
     status: 'Active',
     driver: 'Emily Davis',
+    driverImage: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=800&q=80',
     depot: 'Thanlyin Cold Chain',
     capacity: '8 tons',
     fuelType: 'Diesel',
@@ -282,11 +456,8 @@ const vehicles = ref([
     roadTaxExpiry: '2026-06-10',
     insuranceExpiry: '2026-07-19',
     inspectionDue: '2026-05-02',
-    gpsId: 'GPS-01788',
-    lastPing: '2 min ago',
-    lastLocation: 'Hlaing, Yangon',
     acquiredDate: '2018-11-08',
-    image: 'https://images.unsplash.com/photo-1517940310602-26535839fe84?auto=format&fit=crop&w=160&q=80'
+    image: 'https://images.unsplash.com/photo-1517940310602-26535839fe84?auto=format&fit=crop&w=1200&q=80'
   },
   {
     id: 'VH-4129',
@@ -296,6 +467,7 @@ const vehicles = ref([
     model: 'Hino 500',
     status: 'Inactive',
     driver: 'Robert Wilson',
+    driverImage: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=800&q=80',
     depot: 'Naypyitaw Central',
     capacity: '10 tons',
     fuelType: 'Diesel',
@@ -309,11 +481,8 @@ const vehicles = ref([
     roadTaxExpiry: '2026-03-31',
     insuranceExpiry: '2026-05-14',
     inspectionDue: '2026-03-20',
-    gpsId: 'GPS-02005',
-    lastPing: '2 days ago',
-    lastLocation: 'Lewe, Naypyitaw',
     acquiredDate: '2016-02-17',
-    image: 'https://images.unsplash.com/photo-1513735717081-8ad5c3c244eb?auto=format&fit=crop&w=160&q=80'
+    image: 'https://images.unsplash.com/photo-1513735717081-8ad5c3c244eb?auto=format&fit=crop&w=1200&q=80'
   },
   {
     id: 'VH-2661',
@@ -323,6 +492,7 @@ const vehicles = ref([
     model: 'Mercedes Sprinter',
     status: 'Active',
     driver: 'John Martinez',
+    driverImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
     depot: 'Bago Cross-Dock',
     capacity: '1.5 tons',
     fuelType: 'Diesel',
@@ -336,11 +506,8 @@ const vehicles = ref([
     roadTaxExpiry: '2026-11-30',
     insuranceExpiry: '2026-12-19',
     inspectionDue: '2026-09-10',
-    gpsId: 'GPS-02311',
-    lastPing: '8 min ago',
-    lastLocation: 'Bago City',
     acquiredDate: '2020-09-30',
-    image: 'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=160&q=80'
+    image: 'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1200&q=80'
   },
   {
     id: 'VH-3775',
@@ -350,6 +517,7 @@ const vehicles = ref([
     model: 'Kenworth T800',
     status: 'Maintenance',
     driver: 'Amanda Taylor',
+    driverImage: 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=800&q=80',
     depot: 'Monywa Depot',
     capacity: '12 tons',
     fuelType: 'Diesel',
@@ -363,11 +531,8 @@ const vehicles = ref([
     roadTaxExpiry: '2026-06-15',
     insuranceExpiry: '2026-08-07',
     inspectionDue: '2026-04-12',
-    gpsId: 'GPS-02645',
-    lastPing: '28 min ago',
-    lastLocation: 'Monywa',
     acquiredDate: '2017-12-05',
-    image: 'https://images.unsplash.com/photo-1517148815978-75f6acaaf32c?auto=format&fit=crop&w=160&q=80'
+    image: 'https://images.unsplash.com/photo-1517148815978-75f6acaaf32c?auto=format&fit=crop&w=1200&q=80'
   }
 ])
 
@@ -381,6 +546,13 @@ const confirmTone = ref('danger')
 const pendingAction = ref(() => {})
 const detailsOpen = ref(false)
 const selectedVehicle = ref(null)
+const imageOpen = ref(false)
+const imageSrc = ref('')
+const imageTitle = ref('')
+const formOpen = ref(false)
+const formMode = ref('add')
+const formError = ref('')
+const formData = ref({})
 
 const filteredVehicles = computed(() => {
   const query = searchQuery.value.toLowerCase()
@@ -404,8 +576,6 @@ const statusClass = (status) => {
   return 'neutral'
 }
 
-const initials = (name) => name.split(' ').map((part) => part[0]).join('')
-
 const formatDate = (value) =>
   value
     ? new Date(value).toLocaleDateString('en-US', {
@@ -418,6 +588,86 @@ const formatDate = (value) =>
 const openDetails = (vehicle) => {
   selectedVehicle.value = vehicle
   detailsOpen.value = true
+}
+
+const openImage = (src, title) => {
+  imageSrc.value = src
+  imageTitle.value = title
+  imageOpen.value = true
+}
+
+const buildEmptyForm = () => ({
+  id: '',
+  plate: '',
+  region: '',
+  type: '',
+  model: '',
+  status: 'Active',
+  driver: '',
+  driverImage: '',
+  depot: '',
+  capacity: '',
+  fuelType: '',
+  vin: '',
+  engineNo: '',
+  odometer: '',
+  lastService: '',
+  nextService: '',
+  serviceNote: '',
+  registrationExpiry: '',
+  roadTaxExpiry: '',
+  insuranceExpiry: '',
+  inspectionDue: '',
+  acquiredDate: '',
+  image: ''
+})
+
+const openAdd = () => {
+  formMode.value = 'add'
+  formData.value = buildEmptyForm()
+  formError.value = ''
+  formOpen.value = true
+}
+
+const openEdit = (vehicle) => {
+  formMode.value = 'edit'
+  formData.value = { ...vehicle }
+  formError.value = ''
+  formOpen.value = true
+}
+
+const closeForm = () => {
+  formOpen.value = false
+}
+
+const saveForm = () => {
+  if (!formData.value.plate || !formData.value.model || !formData.value.driver) {
+    formError.value = 'Plate number, model, and driver are required.'
+    return
+  }
+
+  if (formMode.value === 'add') {
+    const newId = `VH-${Math.floor(1000 + Math.random() * 9000)}`
+    vehicles.value = [
+      {
+        ...formData.value,
+        id: newId,
+        image:
+          formData.value.image ||
+          'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80',
+        driverImage:
+          formData.value.driverImage ||
+          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80'
+      },
+      ...vehicles.value
+    ]
+  } else {
+    vehicles.value = vehicles.value.map((item) =>
+      item.id === formData.value.id ? { ...item, ...formData.value } : item
+    )
+  }
+
+  formOpen.value = false
 }
 
 const openConfirm = ({ title, message, confirmText, tone, action }) => {
@@ -544,12 +794,29 @@ const deleteVehicle = (id) => {
   min-width: 220px;
 }
 
+.toolbar-filter {
+  cursor: pointer;
+}
+
 .toolbar-search input,
 .toolbar-filter select {
   border: none;
   outline: none;
   background: transparent;
   font-size: 14px;
+}
+
+.toolbar-filter select {
+  cursor: pointer;
+}
+
+.toolbar-search {
+  flex: 1 1 320px;
+  max-width: 520px;
+}
+
+.toolbar-search input {
+  width: 100%;
 }
 
 .toolbar-filter select {
@@ -571,6 +838,23 @@ const deleteVehicle = (id) => {
 
 .primary-button:hover {
   background: var(--fleet-primary-dark);
+}
+
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--fleet-border);
+  border-radius: 12px;
+  padding: 10px 16px;
+  background: #fff;
+  color: var(--fleet-text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ghost-button:hover {
+  background: #f8fafc;
 }
 
 .table-wrap {
@@ -606,16 +890,26 @@ const deleteVehicle = (id) => {
   margin-top: 2px;
 }
 
-.driver-avatar {
+.driver-photo {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, #2563eb, #1e40af);
-  font-size: 12px;
+  object-fit: cover;
+  border: 1px solid var(--fleet-border);
+  display: block;
+}
+
+.thumb-button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.thumb-button:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
 }
 
 .icon-button {
@@ -715,5 +1009,177 @@ const deleteVehicle = (id) => {
 
 .details-row:last-child {
   border-bottom: none;
+}
+
+.image-modal {
+  padding: 16px 18px 20px;
+}
+
+.image-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--fleet-border);
+  margin-bottom: 12px;
+}
+
+.image-title {
+  font-weight: 600;
+}
+
+.full-image {
+  width: 100%;
+  height: 420px;
+  border-radius: 14px;
+  border: 1px solid var(--fleet-border);
+  display: block;
+  object-fit: cover;
+}
+
+@media (max-width: 720px) {
+  .full-image {
+    height: 300px;
+  }
+}
+
+.form-card {
+  padding: 18px 20px 22px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--fleet-border);
+}
+
+.form-title {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.form-error {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 16px;
+  margin-top: 16px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.form-field label {
+  color: var(--fleet-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.form-field input,
+.form-field select {
+  border: 1px solid var(--fleet-border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.form-field input:focus,
+.form-field select:focus {
+  outline: 2px solid rgba(37, 99, 235, 0.18);
+  border-color: rgba(37, 99, 235, 0.6);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.hint {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+}
+
+.icon-tooltip {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  color: #64748b;
+}
+
+.tooltip:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
+}
+
+.tooltip-text {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  transform: translate(0, 6px);
+  background: #0f172a;
+  color: #fff;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.2);
+  z-index: 2;
+}
+
+.tooltip:hover .tooltip-text,
+.tooltip:focus-visible .tooltip-text {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+.inline-actions .tooltip-text {
+  left: auto;
+  right: 0;
+  transform: translateY(6px);
+}
+
+.inline-actions .tooltip:hover .tooltip-text,
+.inline-actions .tooltip:focus-visible .tooltip-text {
+  transform: translateY(0);
+}
+
+.thumb-button .tooltip-text {
+  left: 0;
+  right: auto;
 }
 </style>
