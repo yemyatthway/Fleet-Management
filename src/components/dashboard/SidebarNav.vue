@@ -22,6 +22,32 @@
         <v-icon :icon="item.icon" size="20" />
         <span>{{ item.label }}</span>
       </button>
+
+      <div class="nav-group">
+        <button
+          type="button"
+          class="nav-item nav-group-toggle"
+          :class="{ active: route.path.startsWith('/maintenance') }"
+          @click="maintenanceOpen = !maintenanceOpen"
+        >
+          <v-icon icon="mdi-alert-circle-outline" size="20" />
+          <span>Maintenance</span>
+          <v-icon class="chevron" :class="{ open: maintenanceOpen }" icon="mdi-chevron-down" size="18" />
+        </button>
+        <div v-show="maintenanceOpen" class="nav-sublist">
+          <button
+            v-for="item in maintenanceItems"
+            :key="item.label"
+            type="button"
+            class="nav-subitem"
+            :class="{ active: route.path === item.path }"
+            @click="router.push(item.path)"
+          >
+            <v-icon :icon="item.icon" size="18" />
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
+      </div>
     </nav>
 
     <div class="profile-card">
@@ -35,6 +61,7 @@
 </template>
 
 <script setup>
+import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -46,10 +73,25 @@ const menuItems = [
   { icon: 'mdi-map-marker', label: 'Trips', path: '/trips' },
   { icon: 'mdi-account-multiple', label: 'Users', path: '/users' },
   { icon: 'mdi-chart-box', label: 'Analytics', path: '/analytics' },
-  { icon: 'mdi-alert-circle-outline', label: 'Maintenance', path: '/maintenance' },
   { icon: 'mdi-file-document-outline', label: 'Reports', path: '/reports' },
   { icon: 'mdi-cog', label: 'Settings', path: '/settings' }
 ]
+
+const maintenanceItems = [
+  { icon: 'mdi-wrench-outline', label: 'Tickets', path: '/maintenance' },
+  { icon: 'mdi-toolbox-outline', label: 'Inventory & Parts', path: '/maintenance/inventory' }
+]
+
+const maintenanceOpen = ref(route.path.startsWith('/maintenance'))
+
+watch(
+  () => route.path,
+  (path) => {
+    if (path.startsWith('/maintenance')) {
+      maintenanceOpen.value = true
+    }
+  }
+)
 </script>
 
 <style scoped>
@@ -119,6 +161,52 @@ const menuItems = [
 
 .nav-item.active {
   background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chevron {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+  color: #94a3b8;
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
+.nav-sublist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 12px;
+}
+
+.nav-subitem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.nav-subitem:hover {
+  background: #f8fafc;
+}
+
+.nav-subitem.active {
+  background: #eef2ff;
   color: #1d4ed8;
 }
 

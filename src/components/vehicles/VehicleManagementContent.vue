@@ -150,6 +150,76 @@
       </div>
     </div>
 
+    <div class="card-surface section-card">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Accident & Incident Records</div>
+          <div class="text-muted section-subtitle">Track claims, costs, and follow-ups</div>
+        </div>
+        <div class="section-actions">
+          <button class="primary-button" type="button" @click="openIncident">
+            <v-icon icon="mdi-alert-circle-outline" size="18" />
+            Report Incident
+          </button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="table-base">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Vehicle</th>
+              <th>Type</th>
+              <th>Severity</th>
+              <th>Status</th>
+              <th class="align-right">Cost</th>
+              <th class="align-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="incident in incidents" :key="incident.id">
+              <td class="text-muted">{{ formatDate(incident.date) }}</td>
+              <td>
+                <strong>{{ incident.vehicleId }}</strong>
+                <div class="text-muted vehicle-sub">{{ incident.driver }}</div>
+              </td>
+              <td>{{ incident.type }}</td>
+              <td>
+                <span class="badge" :class="severityClass(incident.severity)">
+                  {{ incident.severity }}
+                </span>
+              </td>
+              <td>
+                <span class="badge" :class="incident.status === 'Open' ? 'warning' : 'success'">
+                  {{ incident.status }}
+                </span>
+              </td>
+              <td class="align-right">{{ incident.cost || '—' }}</td>
+              <td class="align-right">
+                <div class="inline-actions">
+                  <button class="icon-button tooltip" type="button" @click="openIncidentDetails(incident)">
+                    <v-icon icon="mdi-eye-outline" size="18" />
+                    <span class="tooltip-text">View details</span>
+                  </button>
+                  <button class="icon-button tooltip" type="button" @click="openIncidentEdit(incident)">
+                    <v-icon icon="mdi-pencil-outline" size="18" />
+                    <span class="tooltip-text">Edit incident</span>
+                  </button>
+                  <button class="icon-button danger tooltip" type="button" @click="deleteIncident(incident.id)">
+                    <v-icon icon="mdi-trash-can-outline" size="18" />
+                    <span class="tooltip-text">Delete incident</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-if="incidents.length === 0" class="empty-state">
+        No incidents recorded yet
+      </div>
+    </div>
+
     <v-dialog v-model="detailsOpen" max-width="960">
       <div v-if="selectedVehicle" class="card-surface details-card">
         <div class="details-header">
@@ -186,10 +256,23 @@
           </div>
 
           <div class="details-section">
+            <h4>Specs & Ownership</h4>
+            <div class="details-row"><span>Make</span><strong>{{ selectedVehicle.make || '—' }}</strong></div>
+            <div class="details-row"><span>Year</span><strong>{{ selectedVehicle.year || '—' }}</strong></div>
+            <div class="details-row"><span>Color</span><strong>{{ selectedVehicle.color || '—' }}</strong></div>
+            <div class="details-row"><span>Ownership</span><strong>{{ selectedVehicle.ownership || '—' }}</strong></div>
+            <div class="details-row"><span>Purchase Cost</span><strong>{{ selectedVehicle.purchaseCost || '—' }}</strong></div>
+            <div class="details-row"><span>Fuel Capacity</span><strong>{{ selectedVehicle.fuelCapacity || '—' }}</strong></div>
+          </div>
+
+          <div class="details-section">
             <h4>Compliance</h4>
+            <div class="details-row"><span>Registration No.</span><strong>{{ selectedVehicle.registrationNo || '—' }}</strong></div>
             <div class="details-row"><span>Registration Expiry</span><strong>{{ formatDate(selectedVehicle.registrationExpiry) }}</strong></div>
             <div class="details-row"><span>Road Tax Expiry</span><strong>{{ formatDate(selectedVehicle.roadTaxExpiry) }}</strong></div>
             <div class="details-row"><span>Insurance Expiry</span><strong>{{ formatDate(selectedVehicle.insuranceExpiry) }}</strong></div>
+            <div class="details-row"><span>Insurance Provider</span><strong>{{ selectedVehicle.insuranceProvider || '—' }}</strong></div>
+            <div class="details-row"><span>Policy No.</span><strong>{{ selectedVehicle.insurancePolicy || '—' }}</strong></div>
             <div class="details-row"><span>Inspection Due</span><strong>{{ formatDate(selectedVehicle.inspectionDue) }}</strong></div>
           </div>
 
@@ -215,25 +298,52 @@
 
         <div v-if="formError" class="form-error">{{ formError }}</div>
 
-        <div class="form-grid">
+        <div class="form-steps">
+          <div
+            v-for="step in formSteps"
+            :key="step.id"
+            class="form-step"
+            :class="{ active: formStep === step.id, done: formStep > step.id }"
+          >
+            <div class="step-index">{{ step.id }}</div>
+            <div>
+              <div class="step-title">{{ step.title }}</div>
+              <div class="text-muted step-subtitle">{{ step.subtitle }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="formStep === 1" class="form-grid">
           <div class="form-field">
-            <label>Plate Number</label>
+            <label>Plate Number <span class="required">*</span></label>
             <input v-model="formData.plate" type="text" placeholder="e.g., YGN-7742" />
           </div>
           <div class="form-field">
-            <label>Region</label>
+            <label>Region <span class="required">*</span></label>
             <input v-model="formData.region" type="text" placeholder="e.g., Yangon" />
           </div>
           <div class="form-field">
-            <label>Vehicle Type</label>
+            <label>Vehicle Type <span class="required">*</span></label>
             <input v-model="formData.type" type="text" placeholder="e.g., Box Truck" />
           </div>
           <div class="form-field">
-            <label>Model</label>
+            <label>Model <span class="required">*</span></label>
             <input v-model="formData.model" type="text" placeholder="e.g., Isuzu FVR" />
           </div>
           <div class="form-field">
-            <label>Status</label>
+            <label>Make</label>
+            <input v-model="formData.make" type="text" placeholder="e.g., Isuzu" />
+          </div>
+          <div class="form-field">
+            <label>Year</label>
+            <input v-model="formData.year" type="number" min="1980" max="2100" placeholder="e.g., 2022" />
+          </div>
+          <div class="form-field">
+            <label>Color</label>
+            <input v-model="formData.color" type="text" placeholder="e.g., White" />
+          </div>
+          <div class="form-field">
+            <label>Status <span class="required">*</span></label>
             <select v-model="formData.status">
               <option value="Active">Active</option>
               <option value="Maintenance">Maintenance</option>
@@ -241,7 +351,14 @@
             </select>
           </div>
           <div class="form-field">
-            <label>Driver</label>
+            <label>Ownership</label>
+            <select v-model="formData.ownership">
+              <option value="Owned">Owned</option>
+              <option value="Leased">Leased</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Driver <span class="required">*</span></label>
             <input v-model="formData.driver" type="text" placeholder="Driver name" />
           </div>
           <div class="form-field">
@@ -259,7 +376,11 @@
             <input v-model="formData.capacity" type="text" placeholder="e.g., 6 tons" />
           </div>
           <div class="form-field">
-            <label>Fuel Type</label>
+            <label>Fuel Capacity</label>
+            <input v-model="formData.fuelCapacity" type="text" placeholder="e.g., 120 L" />
+          </div>
+          <div class="form-field">
+            <label>Fuel Type <span class="required">*</span></label>
             <input v-model="formData.fuelType" type="text" placeholder="e.g., Diesel" />
           </div>
           <div class="form-field">
@@ -288,6 +409,17 @@
             <label>Acquired Date</label>
             <input v-model="formData.acquiredDate" type="date" />
           </div>
+        </div>
+
+        <div v-if="formStep === 2" class="form-grid">
+          <div class="form-field">
+            <label>Purchase Cost</label>
+            <input v-model="formData.purchaseCost" type="text" placeholder="e.g., $48,000" />
+          </div>
+          <div class="form-field">
+            <label>Registration Number</label>
+            <input v-model="formData.registrationNo" type="text" placeholder="Registration number" />
+          </div>
           <div class="form-field">
             <label>
               Registration Expiry
@@ -309,6 +441,14 @@
           <div class="form-field">
             <label>Insurance Expiry</label>
             <input v-model="formData.insuranceExpiry" type="date" />
+          </div>
+          <div class="form-field">
+            <label>Insurance Provider</label>
+            <input v-model="formData.insuranceProvider" type="text" placeholder="Provider name" />
+          </div>
+          <div class="form-field">
+            <label>Policy Number</label>
+            <input v-model="formData.insurancePolicy" type="text" placeholder="Policy / certificate no." />
           </div>
           <div class="form-field">
             <label>
@@ -336,6 +476,9 @@
             <label>Service Note</label>
             <input v-model="formData.serviceNote" type="text" placeholder="Service note" />
           </div>
+        </div>
+
+        <div v-if="formStep === 3" class="form-grid">
           <div class="form-field">
             <label>Vehicle Image URL</label>
             <input v-model="formData.image" type="url" placeholder="https://..." />
@@ -348,9 +491,125 @@
 
         <div class="form-actions">
           <button class="ghost-button" type="button" @click="closeForm">Cancel</button>
-          <button class="primary-button" type="button" @click="saveForm">
+          <button class="ghost-button" type="button" @click="prevFormStep" :disabled="formStep === 1">
+            Back
+          </button>
+          <button
+            v-if="formStep < formSteps.length"
+            class="primary-button"
+            type="button"
+            @click="nextFormStep"
+            :disabled="!canGoNext"
+          >
+            Next
+          </button>
+          <button
+            v-else
+            class="primary-button"
+            type="button"
+            @click="saveForm"
+            :disabled="!canSubmit"
+          >
             {{ formMode === 'edit' ? 'Save Changes' : 'Add Vehicle' }}
           </button>
+        </div>
+      </div>
+    </v-dialog>
+
+    <v-dialog v-model="incidentOpen" max-width="720">
+      <div class="card-surface form-card">
+        <div class="form-header">
+        <div class="form-title">{{ incidentMode === 'edit' ? 'Edit Incident' : 'Report Incident' }}</div>
+          <button class="icon-button" type="button" @click="incidentOpen = false">
+            <v-icon icon="mdi-close" size="18" />
+          </button>
+        </div>
+
+        <div v-if="incidentError" class="form-error">{{ incidentError }}</div>
+
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Vehicle</label>
+            <select v-model="incidentForm.vehicleId">
+              <option disabled value="">Select vehicle</option>
+              <option v-for="vehicle in vehicles" :key="vehicle.id" :value="vehicle.id">
+                {{ vehicle.id }} • {{ vehicle.model }}
+              </option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Driver</label>
+            <input v-model="incidentForm.driver" type="text" placeholder="Driver name" />
+          </div>
+          <div class="form-field">
+            <label>Date</label>
+            <input v-model="incidentForm.date" type="date" />
+          </div>
+          <div class="form-field">
+            <label>Type</label>
+            <input v-model="incidentForm.type" type="text" placeholder="e.g., Collision" />
+          </div>
+          <div class="form-field">
+            <label>Severity</label>
+            <select v-model="incidentForm.severity">
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Status</label>
+            <select v-model="incidentForm.status">
+              <option value="Open">Open</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Cost</label>
+            <input v-model="incidentForm.cost" type="text" placeholder="e.g., $1,250" />
+          </div>
+          <div class="form-field">
+            <label>Notes</label>
+            <input v-model="incidentForm.notes" type="text" placeholder="Summary of incident" />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="ghost-button" type="button" @click="incidentOpen = false">Cancel</button>
+          <button class="primary-button" type="button" @click="saveIncident">
+            {{ incidentMode === 'edit' ? 'Save Changes' : 'Save Incident' }}
+          </button>
+        </div>
+      </div>
+    </v-dialog>
+
+    <v-dialog v-model="incidentDetailsOpen" max-width="720">
+      <div v-if="selectedIncident" class="card-surface details-card">
+        <div class="details-header">
+          <div>
+            <div class="details-title">Incident {{ selectedIncident.id }}</div>
+            <div class="details-subtitle text-muted">
+              {{ selectedIncident.vehicleId }} • {{ selectedIncident.type }}
+            </div>
+          </div>
+          <button class="icon-button" type="button" @click="incidentDetailsOpen = false">
+            <v-icon icon="mdi-close" size="18" />
+          </button>
+        </div>
+
+        <div class="details-grid">
+          <div class="details-section">
+            <h4>Overview</h4>
+            <div class="details-row"><span>Date</span><strong>{{ formatDate(selectedIncident.date) }}</strong></div>
+            <div class="details-row"><span>Driver</span><strong>{{ selectedIncident.driver || '—' }}</strong></div>
+            <div class="details-row"><span>Status</span><strong>{{ selectedIncident.status }}</strong></div>
+            <div class="details-row"><span>Severity</span><strong>{{ selectedIncident.severity }}</strong></div>
+          </div>
+          <div class="details-section">
+            <h4>Claims</h4>
+            <div class="details-row"><span>Cost</span><strong>{{ selectedIncident.cost || '—' }}</strong></div>
+            <div class="details-row"><span>Notes</span><strong>{{ selectedIncident.notes || '—' }}</strong></div>
+          </div>
         </div>
       </div>
     </v-dialog>
@@ -536,6 +795,32 @@ const vehicles = ref([
   }
 ])
 
+const incidents = ref([
+  {
+    id: 'INC-1024',
+    vehicleId: 'VH-2048',
+    driver: 'Sarah Johnson',
+    date: '2026-01-24',
+    type: 'Minor collision',
+    severity: 'Low',
+    status: 'Closed',
+    cost: '$580',
+    notes: 'Rear bumper repair'
+  },
+  {
+    id: 'INC-1091',
+    vehicleId: 'VH-3054',
+    driver: 'Michael Chen',
+    date: '2026-02-18',
+    type: 'Windshield crack',
+    severity: 'Medium',
+    status: 'Open',
+    cost: '$1,220',
+    notes: 'Awaiting glass replacement'
+  }
+])
+
+
 const searchQuery = ref('')
 const statusFilter = ref('All')
 const confirmOpen = ref(false)
@@ -553,6 +838,18 @@ const formOpen = ref(false)
 const formMode = ref('add')
 const formError = ref('')
 const formData = ref({})
+const formStep = ref(1)
+const formSteps = [
+  { id: 1, title: 'Core Info', subtitle: 'Identity, ownership, assignment' },
+  { id: 2, title: 'Compliance', subtitle: 'Registration, insurance, service' },
+  { id: 3, title: 'Images', subtitle: 'Vehicle and driver photos' }
+]
+const incidentOpen = ref(false)
+const incidentMode = ref('add')
+const incidentError = ref('')
+const incidentForm = ref({})
+const incidentDetailsOpen = ref(false)
+const selectedIncident = ref(null)
 
 const filteredVehicles = computed(() => {
   const query = searchQuery.value.toLowerCase()
@@ -570,10 +867,31 @@ const activeCount = computed(() => vehicles.value.filter((v) => v.status === 'Ac
 const maintenanceCount = computed(() => vehicles.value.filter((v) => v.status === 'Maintenance').length)
 const inactiveCount = computed(() => vehicles.value.filter((v) => v.status === 'Inactive').length)
 
+const stepOneValid = computed(
+  () =>
+    !!formData.value.plate &&
+    !!formData.value.region &&
+    !!formData.value.type &&
+    !!formData.value.model &&
+    !!formData.value.status &&
+    !!formData.value.driver &&
+    !!formData.value.fuelType
+)
+
+const canGoNext = computed(() => (formStep.value === 1 ? stepOneValid.value : true))
+
+const canSubmit = computed(() => stepOneValid.value)
+
 const statusClass = (status) => {
   if (status === 'Active') return 'success'
   if (status === 'Maintenance') return 'warning'
   return 'neutral'
+}
+
+const severityClass = (severity) => {
+  if (severity === 'High') return 'danger'
+  if (severity === 'Medium') return 'warning'
+  return 'success'
 }
 
 const formatDate = (value) =>
@@ -602,11 +920,16 @@ const buildEmptyForm = () => ({
   region: '',
   type: '',
   model: '',
+  make: '',
+  year: '',
+  color: '',
   status: 'Active',
+  ownership: 'Owned',
   driver: '',
   driverImage: '',
   depot: '',
   capacity: '',
+  fuelCapacity: '',
   fuelType: '',
   vin: '',
   engineNo: '',
@@ -614,25 +937,44 @@ const buildEmptyForm = () => ({
   lastService: '',
   nextService: '',
   serviceNote: '',
+  purchaseCost: '',
+  registrationNo: '',
   registrationExpiry: '',
   roadTaxExpiry: '',
   insuranceExpiry: '',
+  insuranceProvider: '',
+  insurancePolicy: '',
   inspectionDue: '',
   acquiredDate: '',
   image: ''
 })
 
+const buildEmptyIncident = () => ({
+  id: '',
+  vehicleId: '',
+  driver: '',
+  date: '',
+  type: '',
+  severity: 'Low',
+  status: 'Open',
+  cost: '',
+  notes: ''
+})
+
+
 const openAdd = () => {
   formMode.value = 'add'
   formData.value = buildEmptyForm()
   formError.value = ''
+  formStep.value = 1
   formOpen.value = true
 }
 
 const openEdit = (vehicle) => {
   formMode.value = 'edit'
-  formData.value = { ...vehicle }
+  formData.value = { ...buildEmptyForm(), ...vehicle }
   formError.value = ''
+  formStep.value = 1
   formOpen.value = true
 }
 
@@ -640,9 +982,88 @@ const closeForm = () => {
   formOpen.value = false
 }
 
+const nextFormStep = () => {
+  if (formStep.value < formSteps.length && canGoNext.value) {
+    formStep.value += 1
+  } else if (!canGoNext.value) {
+    formError.value = 'Plate, region, type, model, status, driver, and fuel type are required to continue.'
+  }
+}
+
+const prevFormStep = () => {
+  if (formStep.value > 1) {
+    formStep.value -= 1
+  }
+}
+
+const openIncident = () => {
+  incidentMode.value = 'add'
+  incidentForm.value = buildEmptyIncident()
+  incidentError.value = ''
+  incidentOpen.value = true
+}
+
+const openIncidentEdit = (incident) => {
+  incidentMode.value = 'edit'
+  incidentForm.value = { ...buildEmptyIncident(), ...incident }
+  incidentError.value = ''
+  incidentOpen.value = true
+}
+
+const openIncidentDetails = (incident) => {
+  selectedIncident.value = incident
+  incidentDetailsOpen.value = true
+}
+
+const saveIncident = () => {
+  if (!incidentForm.value.vehicleId || !incidentForm.value.type || !incidentForm.value.date) {
+    incidentError.value = 'Vehicle, date, and type are required.'
+    return
+  }
+  if (incidentMode.value === 'add') {
+    const newId = `INC-${Math.floor(1000 + Math.random() * 9000)}`
+    incidents.value = [
+      {
+        ...incidentForm.value,
+        id: newId
+      },
+      ...incidents.value
+    ]
+  } else {
+    incidents.value = incidents.value.map((item) =>
+      item.id === incidentForm.value.id ? { ...item, ...incidentForm.value } : item
+    )
+  }
+  incidentOpen.value = false
+}
+
+const deleteIncident = (id) => {
+  const incident = incidents.value.find((item) => item.id === id)
+  if (!incident) return
+  openConfirm({
+    title: 'Delete Incident?',
+    message: `This will permanently remove ${incident.id}.`,
+    confirmText: 'Delete',
+    tone: 'danger',
+    action: () => {
+      incidents.value = incidents.value.filter((item) => item.id !== id)
+    }
+  })
+}
+
+
 const saveForm = () => {
-  if (!formData.value.plate || !formData.value.model || !formData.value.driver) {
-    formError.value = 'Plate number, model, and driver are required.'
+  if (
+    !formData.value.plate ||
+    !formData.value.region ||
+    !formData.value.type ||
+    !formData.value.model ||
+    !formData.value.status ||
+    !formData.value.driver ||
+    !formData.value.fuelType
+  ) {
+    formError.value = 'Plate, region, type, model, status, driver, and fuel type are required.'
+    formStep.value = 1
     return
   }
 
@@ -956,6 +1377,36 @@ const deleteVehicle = (id) => {
   color: var(--fleet-muted);
 }
 
+.section-card {
+  padding: 18px 20px 22px;
+}
+
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--fleet-border);
+  margin-bottom: 14px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.section-subtitle {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.section-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .details-card {
   padding: 20px 22px 24px;
 }
@@ -1048,6 +1499,7 @@ const deleteVehicle = (id) => {
   padding: 18px 20px 22px;
   max-height: 80vh;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .form-header {
@@ -1073,6 +1525,63 @@ const deleteVehicle = (id) => {
   font-size: 13px;
 }
 
+.form-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.form-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--fleet-border);
+  background: #fff;
+}
+
+.form-step.active {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: #eff6ff;
+}
+
+.form-step.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.step-index {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.form-step.active .step-index {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.form-step.done .step-index {
+  background: #16a34a;
+  color: #fff;
+}
+
+.step-title {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.step-subtitle {
+  font-size: 12px;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1093,6 +1602,11 @@ const deleteVehicle = (id) => {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.required {
+  color: #dc2626;
+  font-weight: 700;
 }
 
 .form-field input,
@@ -1159,6 +1673,14 @@ const deleteVehicle = (id) => {
   transition: opacity 0.15s ease, transform 0.15s ease;
   box-shadow: 0 8px 16px rgba(15, 23, 42, 0.2);
   z-index: 2;
+}
+
+.form-card .tooltip-text {
+  left: auto;
+  right: 0;
+  max-width: 200px;
+  white-space: normal;
+  text-align: left;
 }
 
 .tooltip:hover .tooltip-text,

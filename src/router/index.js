@@ -10,6 +10,7 @@ const routes = [
   { path: '/trips', component: () => import('../pages/Placeholder.vue') },
   { path: '/analytics', component: () => import('../pages/Placeholder.vue') },
   { path: '/maintenance', component: () => import('../pages/MaintenanceTickets.vue') },
+  { path: '/maintenance/inventory', component: () => import('../pages/InventorySpareParts.vue') },
   { path: '/reports', component: () => import('../pages/Placeholder.vue') },
   { path: '/settings', component: () => import('../pages/Placeholder.vue') }
 ]
