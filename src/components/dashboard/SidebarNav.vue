@@ -57,7 +57,7 @@
           @click="userOpen = !userOpen"
         >
           <v-icon icon="mdi-account-group" size="20" />
-          <span>Users</span>
+          <span>User Management</span>
           <v-icon class="chevron" :class="{ open: userOpen }" icon="mdi-chevron-down" size="18" />
         </button>
         <div v-show="userOpen" class="nav-sublist">
@@ -187,10 +187,17 @@ watch(
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
+  text-align: left;
 }
 
 .nav-item:hover {
   background: #f8fafc;
+}
+
+.nav-item span {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .nav-item.active {
