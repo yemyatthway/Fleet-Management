@@ -57,117 +57,105 @@
       </div>
 
       <div class="toolbar-count text-muted">
-        Showing {{ pagedVehicles.length }} of {{ filteredVehicles.length }} vehicles
+        Showing {{ filteredVehicles.length }} of {{ vehicles.length }} vehicles
       </div>
     </div>
 
     <div class="card-surface table-card">
       <div class="table-wrap">
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Vehicle</th>
-              <th>Plate Number</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Driver Assigned</th>
-              <th>Acquired Date</th>
-              <th class="align-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="vehicle in pagedVehicles" :key="vehicle.id">
-              <td data-label="Vehicle">
-                <div class="vehicle-cell">
-                  <button
-                    class="thumb-button tooltip"
-                    type="button"
-                    @click="openImage(vehicle.image, vehicle.type)"
-                  >
-                    <img :src="vehicle.image" :alt="vehicle.type" class="vehicle-image" />
-                    <span class="tooltip-text">View vehicle image</span>
-                  </button>
-                  <div>
-                    <strong>{{ vehicle.id }}</strong>
-                    <div class="text-muted vehicle-sub">{{ vehicle.model }}</div>
-                  </div>
-                </div>
-              </td>
-              <td class="text-muted" data-label="Plate Number">{{ vehicle.plate }}</td>
-              <td data-label="Type">{{ vehicle.type }}</td>
-              <td data-label="Status">
-                <span class="badge" :class="statusClass(vehicle.status)">
-                  {{ vehicle.status }}
+        <v-data-table
+          class="table-base vehicle-table"
+          :headers="vehicleHeaders"
+          :items="filteredVehicles"
+          :items-per-page="10"
+          :items-per-page-options="[10, 20, 30]"
+          :mobile-breakpoint="0"
+          :mobile="false"
+          fixed-header
+          height="520"
+          density="comfortable"
+        >
+          <template #item.vehicle="{ item }">
+            <div class="vehicle-cell">
+              <button
+                class="thumb-button tooltip"
+                type="button"
+                @click="openImage(item.image, item.type)"
+              >
+                <img :src="item.image" :alt="item.type" class="vehicle-image" />
+                <span class="tooltip-text">View vehicle image</span>
+              </button>
+              <div>
+                <strong>{{ item.id }}</strong>
+                <div class="text-muted vehicle-sub">{{ item.model }}</div>
+              </div>
+            </div>
+          </template>
+
+          <template #item.plate="{ item }">
+            <span class="text-muted">{{ item.plate }}</span>
+          </template>
+
+          <template #item.type="{ item }">
+            <span>{{ item.type }}</span>
+          </template>
+
+          <template #item.status="{ item }">
+            <span class="badge" :class="statusClass(item.status)">
+              {{ item.status }}
+            </span>
+          </template>
+
+          <template #item.driver="{ item }">
+            <div class="driver-cell">
+              <button
+                class="thumb-button tooltip"
+                type="button"
+                @click="openImage(item.driverImage, item.driver)"
+              >
+                <img :src="item.driverImage" :alt="item.driver" class="driver-photo" />
+                <span class="tooltip-text">View driver image</span>
+              </button>
+              <span>{{ item.driver }}</span>
+            </div>
+          </template>
+
+          <template #item.acquiredDate="{ item }">
+            <span class="text-muted">{{ formatDate(item.acquiredDate) }}</span>
+          </template>
+
+          <template #item.actions="{ item }">
+            <div class="inline-actions">
+              <button class="icon-button tooltip" type="button" @click="openEdit(item)">
+                <v-icon icon="mdi-pencil-outline" size="18" />
+                <span class="tooltip-text">Edit vehicle</span>
+              </button>
+              <button class="icon-button tooltip" type="button" @click="openDetails(item)">
+                <v-icon icon="mdi-eye-outline" size="18" />
+                <span class="tooltip-text">View details</span>
+              </button>
+              <button
+                class="icon-button tooltip"
+                :class="item.status === 'Active' ? 'warn' : 'good'"
+                type="button"
+                @click="toggleStatus(item.id)"
+              >
+                <v-icon icon="mdi-power" size="18" />
+                <span class="tooltip-text">
+                  {{ item.status === 'Active' ? 'Set inactive' : 'Set active' }}
                 </span>
-              </td>
-              <td data-label="Driver Assigned">
-                <div class="driver-cell">
-                  <button
-                    class="thumb-button tooltip"
-                    type="button"
-                    @click="openImage(vehicle.driverImage, vehicle.driver)"
-                  >
-                    <img :src="vehicle.driverImage" :alt="vehicle.driver" class="driver-photo" />
-                    <span class="tooltip-text">View driver image</span>
-                  </button>
-                  <span>{{ vehicle.driver }}</span>
-                </div>
-              </td>
-              <td class="text-muted" data-label="Acquired Date">{{ formatDate(vehicle.acquiredDate) }}</td>
-              <td class="align-right" data-label="Actions">
-                <div class="inline-actions">
-                  <button class="icon-button tooltip" type="button" @click="openEdit(vehicle)">
-                    <v-icon icon="mdi-pencil-outline" size="18" />
-                    <span class="tooltip-text">Edit vehicle</span>
-                  </button>
-                  <button class="icon-button tooltip" type="button" @click="openDetails(vehicle)">
-                    <v-icon icon="mdi-eye-outline" size="18" />
-                    <span class="tooltip-text">View details</span>
-                  </button>
-                  <button
-                    class="icon-button tooltip"
-                    :class="vehicle.status === 'Active' ? 'warn' : 'good'"
-                    type="button"
-                    @click="toggleStatus(vehicle.id)"
-                  >
-                    <v-icon icon="mdi-power" size="18" />
-                    <span class="tooltip-text">
-                      {{ vehicle.status === 'Active' ? 'Set inactive' : 'Set active' }}
-                    </span>
-                  </button>
-                  <button class="icon-button danger tooltip" type="button" @click="deleteVehicle(vehicle.id)">
-                    <v-icon icon="mdi-trash-can-outline" size="18" />
-                    <span class="tooltip-text">Delete vehicle</span>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div v-if="vehicleTotalPages > 1" class="table-footer">
-        <span class="pager-info text-muted">Page {{ vehicleSafePage }} of {{ vehicleTotalPages }}</span>
-        <div class="pager-actions">
-          <button
-            class="pager-button"
-            type="button"
-            :disabled="vehicleSafePage === 1"
-            @click="vehiclePage = vehicleSafePage - 1"
-          >
-            Prev
-          </button>
-          <button
-            class="pager-button"
-            type="button"
-            :disabled="vehicleSafePage === vehicleTotalPages"
-            @click="vehiclePage = vehicleSafePage + 1"
-          >
-            Next
-          </button>
-        </div>
-      </div>
-      <div v-if="filteredVehicles.length === 0" class="empty-state">
-        No vehicles found matching your criteria
+              </button>
+              <button class="icon-button danger tooltip" type="button" @click="deleteVehicle(item.id)">
+                <v-icon icon="mdi-trash-can-outline" size="18" />
+                <span class="tooltip-text">Delete vehicle</span>
+              </button>
+            </div>
+          </template>
+
+          <template #no-data>
+            <div class="empty-state">No vehicles found matching your criteria</div>
+          </template>
+        </v-data-table>
       </div>
     </div>
 
@@ -681,7 +669,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
 
 const vehicles = ref([
@@ -887,8 +875,6 @@ const incidents = ref([
   }
 ])
 
-const vehiclePage = ref(1)
-const vehiclePageSize = 6
 const incidentPage = ref(1)
 const incidentPageSize = 5
 
@@ -935,14 +921,15 @@ const filteredVehicles = computed(() => {
   })
 })
 
-const vehicleTotalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredVehicles.value.length / vehiclePageSize))
-)
-const vehicleSafePage = computed(() => Math.min(vehiclePage.value, vehicleTotalPages.value))
-const pagedVehicles = computed(() => {
-  const start = (vehicleSafePage.value - 1) * vehiclePageSize
-  return filteredVehicles.value.slice(start, start + vehiclePageSize)
-})
+const vehicleHeaders = [
+  { title: 'Vehicle', key: 'vehicle' },
+  { title: 'Plate Number', key: 'plate' },
+  { title: 'Type', key: 'type' },
+  { title: 'Status', key: 'status' },
+  { title: 'Driver Assigned', key: 'driver' },
+  { title: 'Acquired Date', key: 'acquiredDate' },
+  { title: 'Actions', key: 'actions', align: 'end', sortable: false }
+]
 
 const incidentTotalPages = computed(() =>
   Math.max(1, Math.ceil(incidents.value.length / incidentPageSize))
@@ -953,9 +940,6 @@ const pagedIncidents = computed(() => {
   return incidents.value.slice(start, start + incidentPageSize)
 })
 
-watch([searchQuery, statusFilter], () => {
-  vehiclePage.value = 1
-})
 
 const activeCount = computed(() => vehicles.value.filter((v) => v.status === 'Active').length)
 const maintenanceCount = computed(() => vehicles.value.filter((v) => v.status === 'Maintenance').length)
@@ -1832,6 +1816,102 @@ const deleteVehicle = (id) => {
 .thumb-button .tooltip-text {
   left: 0;
   right: auto;
+}
+
+.vehicle-table :deep(.v-table__wrapper) {
+  background: #fff;
+}
+
+.vehicle-table :deep(table) {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.vehicle-table :deep(thead th) {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 14px 16px;
+}
+
+.vehicle-table :deep(tbody td) {
+  padding: 14px 16px;
+  background: #fff;
+}
+
+.vehicle-table :deep(tbody tr) {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.vehicle-table :deep(tbody tr td) {
+  border-bottom: 10px solid transparent;
+}
+
+.vehicle-table :deep(tbody tr:last-child td) {
+  border-bottom: 0;
+}
+
+.vehicle-table :deep(tbody tr:nth-child(even) td) {
+  background: #f8fafc;
+}
+
+.vehicle-table :deep(tbody tr td:first-child) {
+  border-radius: 12px 0 0 12px;
+}
+
+.vehicle-table :deep(tbody tr td:last-child) {
+  border-radius: 0 12px 12px 0;
+}
+
+.vehicle-table :deep(thead th:first-child) {
+  border-radius: 12px 0 0 12px;
+}
+
+.vehicle-table :deep(thead th:last-child) {
+  border-radius: 0 12px 12px 0;
+}
+
+.vehicle-table :deep(thead th:nth-child(1)),
+.vehicle-table :deep(tbody td:nth-child(1)) {
+  width: 260px;
+}
+
+.vehicle-table :deep(thead th:nth-child(2)),
+.vehicle-table :deep(tbody td:nth-child(2)) {
+  width: 160px;
+}
+
+.vehicle-table :deep(thead th:nth-child(3)),
+.vehicle-table :deep(tbody td:nth-child(3)) {
+  width: 140px;
+}
+
+.vehicle-table :deep(thead th:nth-child(4)),
+.vehicle-table :deep(tbody td:nth-child(4)) {
+  width: 140px;
+}
+
+.vehicle-table :deep(thead th:nth-child(5)),
+.vehicle-table :deep(tbody td:nth-child(5)) {
+  width: 220px;
+}
+
+.vehicle-table :deep(thead th:nth-child(6)),
+.vehicle-table :deep(tbody td:nth-child(6)) {
+  width: 150px;
+}
+
+.vehicle-table :deep(thead th:nth-child(7)),
+.vehicle-table :deep(tbody td:nth-child(7)) {
+  width: 180px;
+}
+
+.vehicle-table :deep(thead th.align-right),
+.vehicle-table :deep(tbody td.align-right) {
+  text-align: right;
 }
 
 @media (max-width: 980px) {
