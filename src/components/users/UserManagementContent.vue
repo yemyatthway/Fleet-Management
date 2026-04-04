@@ -31,8 +31,17 @@
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Search by namse or email..."
+            placeholder="Search by name or email..."
           />
+          <button
+            v-if="searchQuery"
+            class="clear-button"
+            type="button"
+            aria-label="Clear search"
+            @click="searchQuery = ''"
+          >
+            <v-icon icon="mdi-close-circle" size="18" />
+          </button>
         </div>
 
         <div class="toolbar-actions">
@@ -115,7 +124,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import UserTable from "./UserTable.vue";
 import AddUserDialog from "./AddUserDialog.vue";
 import EditUserDialog from "./EditUserDialog.vue";
@@ -124,6 +133,7 @@ import { roleNames } from "../../data/roles";
 import { users } from "../../data/users";
 
 const searchQuery = ref("");
+const debouncedQuery = ref("");
 const roleFilter = ref("All");
 const dialogOpen = ref(false);
 const editOpen = ref(false);
@@ -139,7 +149,7 @@ const avatarUrl = ref("");
 const avatarName = ref("");
 
 const filteredUsers = computed(() => {
-  const query = searchQuery.value.toLowerCase();
+  const query = debouncedQuery.value.toLowerCase();
   return users.value.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(query) ||
@@ -154,6 +164,22 @@ const filteredUsers = computed(() => {
       roleFilter.value === "All" || user.role === roleFilter.value;
     return matchesSearch && matchesRole;
   });
+});
+
+let searchTimer = null;
+watch(
+  () => searchQuery.value,
+  (value) => {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      debouncedQuery.value = value;
+    }, 350);
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer);
 });
 
 const activeCount = computed(
@@ -317,6 +343,19 @@ const handleUpdate = (payload) => {
   background: transparent;
   font-size: 14px;
   width: 100%;
+}
+
+.clear-button {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.clear-button:hover {
+  color: #475569;
 }
 
 .toolbar-filter select {

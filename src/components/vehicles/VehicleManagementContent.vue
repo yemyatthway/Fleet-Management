@@ -5,10 +5,6 @@
         <h1 class="section-title">Vehicle Management</h1>
         <p class="section-subtitle">Track, assign, and maintain your fleet in one place</p>
       </div>
-      <button class="primary-button" type="button" @click="openAdd">
-        <v-icon icon="mdi-truck-plus" size="18" />
-        Add Vehicle
-      </button>
     </div>
 
     <div class="stats-grid">
@@ -43,16 +39,32 @@
             type="text"
             placeholder="Search by vehicle ID, plate, or driver..."
           />
+          <button
+            v-if="searchQuery"
+            class="clear-button"
+            type="button"
+            aria-label="Clear search"
+            @click="searchQuery = ''"
+          >
+            <v-icon icon="mdi-close-circle" size="18" />
+          </button>
         </div>
 
-        <div class="toolbar-filter">
-          <v-icon icon="mdi-filter-variant" />
-          <select v-model="statusFilter">
-            <option value="All">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Maintenance">Maintenance</option>
-            <option value="Inactive">Inactive</option>
-          </select>
+        <div class="toolbar-actions">
+          <div class="toolbar-filter">
+            <v-icon icon="mdi-filter-variant" />
+            <select v-model="statusFilter">
+              <option value="All">All Status</option>
+              <option value="Active">Active</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+
+          <button class="primary-button" type="button" @click="openAdd">
+            <v-icon icon="mdi-truck-plus" size="18" />
+            Add Vehicle
+          </button>
         </div>
       </div>
 
@@ -669,7 +681,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
 
 const vehicles = ref([
@@ -880,6 +892,7 @@ const incidentPageSize = 5
 
 
 const searchQuery = ref('')
+const debouncedVehicleQuery = ref('')
 const statusFilter = ref('All')
 const confirmOpen = ref(false)
 const confirmTitle = ref('Are you sure?')
@@ -910,7 +923,7 @@ const incidentDetailsOpen = ref(false)
 const selectedIncident = ref(null)
 
 const filteredVehicles = computed(() => {
-  const query = searchQuery.value.toLowerCase()
+  const query = debouncedVehicleQuery.value.toLowerCase()
   return vehicles.value.filter((vehicle) => {
     const matchesSearch =
       vehicle.id.toLowerCase().includes(query) ||
@@ -919,6 +932,22 @@ const filteredVehicles = computed(() => {
     const matchesStatus = statusFilter.value === 'All' || vehicle.status === statusFilter.value
     return matchesSearch && matchesStatus
   })
+})
+
+let vehicleSearchTimer = null
+watch(
+  () => searchQuery.value,
+  (value) => {
+    if (vehicleSearchTimer) clearTimeout(vehicleSearchTimer)
+    vehicleSearchTimer = setTimeout(() => {
+      debouncedVehicleQuery.value = value
+    }, 350)
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  if (vehicleSearchTimer) clearTimeout(vehicleSearchTimer)
 })
 
 const vehicleHeaders = [
@@ -1307,11 +1336,12 @@ const deleteVehicle = (id) => {
 
 .toolbar-filter select {
   cursor: pointer;
+  width: 100%;
 }
 
 .toolbar-search {
-  flex: 1 1 320px;
-  max-width: 520px;
+  flex: 1;
+  min-width: 320px;
 }
 
 .toolbar-search input {
@@ -1320,6 +1350,25 @@ const deleteVehicle = (id) => {
 
 .toolbar-filter select {
   appearance: none;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.clear-button {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.clear-button:hover {
+  color: #475569;
 }
 
 .primary-button {
@@ -1950,6 +1999,32 @@ const deleteVehicle = (id) => {
   }
 
   .section-actions .primary-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 720px) {
+  .toolbar-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-search {
+    width: 100%;
+  }
+
+  .toolbar-filter {
+    width: 100%;
+  }
+
+  .toolbar-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .primary-button {
     width: 100%;
     justify-content: center;
   }

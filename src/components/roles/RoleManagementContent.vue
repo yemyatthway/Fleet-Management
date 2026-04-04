@@ -31,6 +31,15 @@
         <div class="toolbar-search">
           <v-icon icon="mdi-magnify" />
           <input v-model="searchQuery" type="text" placeholder="Search roles or descriptions..." />
+          <button
+            v-if="searchQuery"
+            class="clear-button"
+            type="button"
+            aria-label="Clear search"
+            @click="searchQuery = ''"
+          >
+            <v-icon icon="mdi-close-circle" size="18" />
+          </button>
         </div>
 
         <div class="toolbar-filter">
@@ -89,8 +98,17 @@
         <div class="dialog-body">
           <div class="toolbar-search">
             <v-icon icon="mdi-magnify" />
-            <input v-model="memberSearch" type="text" placeholder="Search members..." />
-          </div>
+          <input v-model="memberSearch" type="text" placeholder="Search members..." />
+          <button
+            v-if="memberSearch"
+            class="clear-button"
+            type="button"
+            aria-label="Clear member search"
+            @click="memberSearch = ''"
+          >
+            <v-icon icon="mdi-close-circle" size="18" />
+          </button>
+        </div>
 
           <div class="card-surface table-card">
             <div class="table-wrap">
@@ -166,7 +184,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import RoleTable from './RoleTable.vue'
 import RoleDialog from './RoleDialog.vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
@@ -216,6 +234,7 @@ const roles = ref(
 const roleTabs = computed(() => [...new Set(roles.value.map((role) => role.name))])
 const activeTab = ref('All')
 const searchQuery = ref('')
+const debouncedRoleQuery = ref('')
 const dialogOpen = ref(false)
 const dialogMode = ref('add')
 const selectedRole = ref(null)
@@ -227,6 +246,7 @@ const confirmTone = ref('danger')
 const pendingAction = ref(() => {})
 const membersOpen = ref(false)
 const memberSearch = ref('')
+const debouncedMemberQuery = ref('')
 const memberAvatarOpen = ref(false)
 const memberAvatarUrl = ref('')
 const memberAvatarName = ref('')
@@ -243,7 +263,7 @@ const rolesWithMembers = computed(() => {
 })
 
 const filteredRoles = computed(() => {
-  const query = searchQuery.value.toLowerCase()
+  const query = debouncedRoleQuery.value.toLowerCase()
   return rolesWithMembers.value.filter((role) => {
     const matchesSearch =
       role.name.toLowerCase().includes(query) ||
@@ -296,7 +316,7 @@ const roleMembers = computed(() => {
 })
 
 const filteredMembers = computed(() => {
-  const query = memberSearch.value.toLowerCase()
+  const query = debouncedMemberQuery.value.toLowerCase()
   return roleMembers.value.filter((member) => {
     return (
       member.name.toLowerCase().includes(query) ||
@@ -304,6 +324,35 @@ const filteredMembers = computed(() => {
       member.phone.toLowerCase().includes(query)
     )
   })
+})
+
+let roleSearchTimer = null
+watch(
+  () => searchQuery.value,
+  (value) => {
+    if (roleSearchTimer) clearTimeout(roleSearchTimer)
+    roleSearchTimer = setTimeout(() => {
+      debouncedRoleQuery.value = value
+    }, 350)
+  },
+  { immediate: true }
+)
+
+let memberSearchTimer = null
+watch(
+  () => memberSearch.value,
+  (value) => {
+    if (memberSearchTimer) clearTimeout(memberSearchTimer)
+    memberSearchTimer = setTimeout(() => {
+      debouncedMemberQuery.value = value
+    }, 350)
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  if (roleSearchTimer) clearTimeout(roleSearchTimer)
+  if (memberSearchTimer) clearTimeout(memberSearchTimer)
 })
 
 
@@ -495,6 +544,19 @@ const memberHeaders = [
   background: transparent;
   font-size: 14px;
   width: 100%;
+}
+
+.clear-button {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.clear-button:hover {
+  color: #475569;
 }
 
 .primary-button {

@@ -9,168 +9,194 @@
       </div>
 
       <form class="dialog-body" @submit.prevent="submit">
-        <div class="field">
-          <label class="required">Full Name</label>
-          <input v-model="form.name" type="text" placeholder="John Doe" required />
+        <div class="form-steps">
+          <button
+            v-for="step in formSteps"
+            :key="step.id"
+            type="button"
+            class="step-button"
+            :class="{ active: formStep === step.id }"
+            @click="goToStep(step.id)"
+          >
+            <span class="step-id">{{ step.id }}</span>
+            <span>{{ step.title }}</span>
+          </button>
         </div>
-        <div class="field">
-          <label class="required">Employee ID</label>
-          <input v-model="form.employeeId" type="text" placeholder="EMP-1021" required />
-        </div>
-        <div class="field">
-          <label class="required">NRC</label>
-          <div class="nrc-row">
-            <select v-model="form.nrcState" required>
-              <option v-for="code in nrcStateCodes" :key="code" :value="code">
-                {{ code }}/
+
+        <div v-if="formStep === 1" class="form-section form-grid">
+          <div class="field">
+            <label class="required">Full Name</label>
+            <input v-model="form.name" type="text" placeholder="John Doe" required />
+          </div>
+          <div class="field">
+            <label class="required">Employee ID</label>
+            <input v-model="form.employeeId" type="text" placeholder="EMP-1021" required />
+          </div>
+          <div class="field full">
+            <label class="required">NRC</label>
+            <div class="nrc-row">
+              <select v-model="form.nrcState" required>
+                <option v-for="code in nrcStateCodes" :key="code" :value="code">
+                  {{ code }}/
+                </option>
+              </select>
+              <select v-model="form.nrcTownship" required>
+                <option v-for="code in nrcTownships" :key="code" :value="code">
+                  {{ code }}
+                </option>
+              </select>
+              <select v-model="form.nrcType" required>
+                <option v-for="code in nrcTypes" :key="code" :value="code">
+                  ({{ code }})
+                </option>
+              </select>
+              <input
+                v-model="form.nrcSerial"
+                type="text"
+                inputmode="numeric"
+                pattern="\\d{6}"
+                maxlength="6"
+                placeholder="123456"
+                required
+              />
+            </div>
+            <div class="nrc-preview text-muted">NRC: {{ nrcPreview }}</div>
+          </div>
+          <div class="field">
+            <label class="required">Email Address</label>
+            <input v-model="form.email" type="email" placeholder="john.doe@fleet.com" required />
+          </div>
+          <div class="field">
+            <label class="required">Phone Number</label>
+            <input v-model="form.phone" type="tel" placeholder="+1 (555) 123-4567" required />
+          </div>
+          <div class="field">
+            <label class="required">Role</label>
+            <select v-model="form.role" required>
+              <option v-for="role in roleNames" :key="role" :value="role">
+                {{ role }}
               </option>
             </select>
-            <select v-model="form.nrcTownship" required>
-              <option v-for="code in nrcTownships" :key="code" :value="code">
-                {{ code }}
-              </option>
+          </div>
+          <div class="field">
+            <label>Status</label>
+            <select v-model="form.status">
+              <option value="Active">Active</option>
+              <option value="Disabled">Disabled</option>
             </select>
-            <select v-model="form.nrcType" required>
-              <option v-for="code in nrcTypes" :key="code" :value="code">
-                ({{ code }})
-              </option>
-            </select>
-            <input
-              v-model="form.nrcSerial"
-              type="text"
-              inputmode="numeric"
-              pattern="\\d{6}"
-              maxlength="6"
-              placeholder="123456"
-              required
-            />
-          </div>
-          <div class="nrc-preview text-muted">NRC: {{ nrcPreview }}</div>
-        </div>
-        <div class="field">
-          <label class="required">Email Address</label>
-          <input v-model="form.email" type="email" placeholder="john.doe@fleet.com" required />
-        </div>
-        <div class="field">
-          <label class="required">Phone Number</label>
-          <input v-model="form.phone" type="tel" placeholder="+1 (555) 123-4567" required />
-        </div>
-        <div class="field">
-          <label class="required">Job Title</label>
-          <input v-model="form.title" type="text" placeholder="Dispatcher" required />
-        </div>
-        <div class="field">
-          <label class="required">Department</label>
-          <input v-model="form.department" type="text" placeholder="Dispatch" required />
-        </div>
-        <div class="field">
-          <label class="required">Location / Depot</label>
-          <input v-model="form.location" type="text" placeholder="Central Hub" required />
-        </div>
-        <div class="field">
-          <label class="required">Manager</label>
-          <input v-model="form.manager" type="text" placeholder="Sarah Johnson" required />
-        </div>
-        <div class="field">
-          <label class="required">Upload Profile Image</label>
-          <div class="file-row">
-            <input ref="fileInput" type="file" accept="image/*" @change="handleAvatarUpload" />
-            <button
-              v-if="form.avatar"
-              class="icon-button ghost"
-              type="button"
-              @click="handleAvatarRemove"
-            >
-              <v-icon icon="mdi-close" size="16" />
-            </button>
           </div>
         </div>
-        <div class="field">
-          <label class="required">Upload NRC Front</label>
-          <div class="file-row">
-            <input ref="nrcFrontInput" type="file" accept="image/*" @change="handleNrcFrontUpload" />
-            <button
-              v-if="form.nrcFront"
-              class="icon-button ghost"
-              type="button"
-              @click="handleNrcFrontRemove"
-            >
-              <v-icon icon="mdi-close" size="16" />
-            </button>
+
+        <div v-if="formStep === 2" class="form-section form-grid">
+          <div class="field">
+            <label class="required">Job Title</label>
+            <input v-model="form.title" type="text" placeholder="Dispatcher" required />
+          </div>
+          <div class="field">
+            <label class="required">Department</label>
+            <input v-model="form.department" type="text" placeholder="Dispatch" required />
+          </div>
+          <div class="field">
+            <label class="required">Location / Depot</label>
+            <input v-model="form.location" type="text" placeholder="Central Hub" required />
+          </div>
+          <div class="field">
+            <label class="required">Manager</label>
+            <input v-model="form.manager" type="text" placeholder="Sarah Johnson" required />
+          </div>
+          <div v-if="form.role === 'Driver'" class="field">
+            <label class="required">License Number</label>
+            <input v-model="form.licenseNumber" type="text" placeholder="D1234567" required />
+          </div>
+          <div v-if="form.role === 'Driver'" class="field">
+            <label class="required">License Class</label>
+            <input v-model="form.licenseClass" type="text" placeholder="A" required />
+          </div>
+          <div v-if="form.role === 'Driver'" class="field">
+            <label class="required">License Expiry</label>
+            <input v-model="form.licenseExpiry" type="date" required />
           </div>
         </div>
-        <div class="field">
-          <label class="required">Upload NRC Back</label>
-          <div class="file-row">
-            <input ref="nrcBackInput" type="file" accept="image/*" @change="handleNrcBackUpload" />
-            <button
-              v-if="form.nrcBack"
-              class="icon-button ghost"
-              type="button"
-              @click="handleNrcBackRemove"
-            >
-              <v-icon icon="mdi-close" size="16" />
-            </button>
+
+        <div v-if="formStep === 3" class="form-section form-grid">
+          <div class="field">
+            <label class="required">Emergency Contact Name</label>
+            <input v-model="form.emergencyContactName" type="text" placeholder="Jane Doe" required />
           </div>
-        </div>
-        <div class="field">
-          <label class="required">Role</label>
-          <select v-model="form.role" required>
-            <option v-for="role in roleNames" :key="role" :value="role">
-              {{ role }}
-            </option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Status</label>
-          <select v-model="form.status">
-            <option value="Active">Active</option>
-            <option value="Disabled">Disabled</option>
-          </select>
-        </div>
-        <div v-if="form.role === 'Driver'" class="field">
-          <label class="required">License Number</label>
-          <input v-model="form.licenseNumber" type="text" placeholder="D1234567" required />
-        </div>
-        <div v-if="form.role === 'Driver'" class="field">
-          <label class="required">License Class</label>
-          <input v-model="form.licenseClass" type="text" placeholder="A" required />
-        </div>
-        <div v-if="form.role === 'Driver'" class="field">
-          <label class="required">License Expiry</label>
-          <input v-model="form.licenseExpiry" type="date" required />
-        </div>
-        <div class="field">
-          <label class="required">Emergency Contact Name</label>
-          <input v-model="form.emergencyContactName" type="text" placeholder="Jane Doe" required />
-        </div>
-        <div class="field">
-          <label class="required">Emergency Contact Relation</label>
-          <input v-model="form.emergencyContactRelation" type="text" placeholder="Spouse" required />
-        </div>
-        <div class="field">
-          <label class="required">Emergency Contact Phone</label>
-          <input v-model="form.emergencyContactPhone" type="tel" placeholder="+1 (555) 222-3344" required />
-        </div>
-        <div class="field">
-          <label class="required">Address</label>
-          <input v-model="form.address" type="text" placeholder="120 Market St, Springfield, IL" required />
-        </div>
-        <div class="field checkbox-field">
-          <label>
-            <input v-model="form.twoFactorEnabled" type="checkbox" />
-            Two-factor enabled
-          </label>
-        </div>
-        <div class="field">
-          <label>Notes</label>
-          <textarea v-model="form.notes" rows="3" placeholder="Optional notes"></textarea>
+          <div class="field">
+            <label class="required">Emergency Contact Relation</label>
+            <input v-model="form.emergencyContactRelation" type="text" placeholder="Spouse" required />
+          </div>
+          <div class="field">
+            <label class="required">Emergency Contact Phone</label>
+            <input v-model="form.emergencyContactPhone" type="tel" placeholder="+1 (555) 222-3344" required />
+          </div>
+          <div class="field">
+            <label class="required">Address</label>
+            <input v-model="form.address" type="text" placeholder="120 Market St, Springfield, IL" required />
+          </div>
+          <div class="field checkbox-field">
+            <label>
+              <input v-model="form.twoFactorEnabled" type="checkbox" />
+              Two-factor enabled
+            </label>
+          </div>
+          <div class="field">
+            <label>Notes</label>
+            <textarea v-model="form.notes" rows="3" placeholder="Optional notes"></textarea>
+          </div>
+          <div class="field full">
+            <label class="required">Upload Profile Image</label>
+            <div class="file-row">
+              <input ref="fileInput" type="file" accept="image/*" @change="handleAvatarUpload" />
+              <button
+                v-if="form.avatar"
+                class="icon-button ghost"
+                type="button"
+                @click="handleAvatarRemove"
+              >
+                <v-icon icon="mdi-close" size="16" />
+              </button>
+            </div>
+          </div>
+          <div class="field full">
+            <label class="required">Upload NRC Front</label>
+            <div class="file-row">
+              <input ref="nrcFrontInput" type="file" accept="image/*" @change="handleNrcFrontUpload" />
+              <button
+                v-if="form.nrcFront"
+                class="icon-button ghost"
+                type="button"
+                @click="handleNrcFrontRemove"
+              >
+                <v-icon icon="mdi-close" size="16" />
+              </button>
+            </div>
+          </div>
+          <div class="field full">
+            <label class="required">Upload NRC Back</label>
+            <div class="file-row">
+              <input ref="nrcBackInput" type="file" accept="image/*" @change="handleNrcBackUpload" />
+              <button
+                v-if="form.nrcBack"
+                class="icon-button ghost"
+                type="button"
+                @click="handleNrcBackRemove"
+              >
+                <v-icon icon="mdi-close" size="16" />
+              </button>
+            </div>
+          </div>
         </div>
 
         <p v-if="formError" class="form-error">{{ formError }}</p>
         <div class="dialog-actions">
           <button class="ghost" type="button" @click="close">Cancel</button>
-          <button class="primary" type="submit">Add User</button>
+          <button v-if="formStep > 1" class="ghost" type="button" @click="formStep -= 1">Back</button>
+          <button v-if="formStep < formSteps.length" class="primary" type="button" @click="goNext">
+            Next
+          </button>
+          <button v-else class="primary" type="submit">Add User</button>
         </div>
       </form>
     </v-card>
@@ -228,6 +254,13 @@ const form = reactive({
   notes: ''
 })
 
+const formStep = ref(1)
+const formSteps = [
+  { id: 1, title: 'Profile' },
+  { id: 2, title: 'Work' },
+  { id: 3, title: 'Contacts & Docs' }
+]
+
 const fileInput = ref(null)
 const nrcFrontInput = ref(null)
 const nrcBackInput = ref(null)
@@ -263,6 +296,8 @@ const reset = () => {
   if (fileInput.value) fileInput.value.value = ''
   if (nrcFrontInput.value) nrcFrontInput.value.value = ''
   if (nrcBackInput.value) nrcBackInput.value.value = ''
+  formStep.value = 1
+  formError.value = ''
 }
 
 watch(
@@ -285,6 +320,31 @@ const submit = () => {
   reset()
 }
 
+const goNext = () => {
+  const error = validateStep(formStep.value)
+  if (error) {
+    formError.value = error
+    return
+  }
+  formError.value = ''
+  formStep.value = Math.min(formStep.value + 1, formSteps.length)
+}
+
+const goToStep = (target) => {
+  if (target <= formStep.value) {
+    formStep.value = target
+    formError.value = ''
+    return
+  }
+  const error = validateStep(formStep.value)
+  if (error) {
+    formError.value = error
+    return
+  }
+  formError.value = ''
+  formStep.value = target
+}
+
 const nrcStateCodes = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14']
 const nrcTownships = [
   'ZaYaTha',
@@ -304,27 +364,47 @@ const nrcPreview = computed(() => {
 })
 
 const validate = () => {
-  if (!form.name) return 'Full name is required.'
-  if (!form.employeeId) return 'Employee ID is required.'
-  if (!form.nrcSerial || form.nrcSerial.length !== 6) return 'NRC serial must be 6 digits.'
-  if (!form.email) return 'Email is required.'
-  if (!form.phone) return 'Phone number is required.'
-  if (!form.title) return 'Job title is required.'
-  if (!form.department) return 'Department is required.'
-  if (!form.location) return 'Location is required.'
-  if (!form.manager) return 'Manager is required.'
-  if (form.role === 'Driver') {
-    if (!form.licenseNumber) return 'License number is required for drivers.'
-    if (!form.licenseClass) return 'License class is required for drivers.'
-    if (!form.licenseExpiry) return 'License expiry is required for drivers.'
+  const step1 = validateStep(1)
+  if (step1) return step1
+  const step2 = validateStep(2)
+  if (step2) return step2
+  const step3 = validateStep(3)
+  if (step3) return step3
+  return ''
+}
+
+const validateStep = (step) => {
+  if (step === 1) {
+    if (!form.name) return 'Full name is required.'
+    if (!form.employeeId) return 'Employee ID is required.'
+    if (!form.nrcSerial || form.nrcSerial.length !== 6) return 'NRC serial must be 6 digits.'
+    if (!form.email) return 'Email is required.'
+    if (!form.phone) return 'Phone number is required.'
+    if (!form.role) return 'Role is required.'
+    return ''
   }
-  if (!form.emergencyContactName) return 'Emergency contact name is required.'
-  if (!form.emergencyContactRelation) return 'Emergency contact relation is required.'
-  if (!form.emergencyContactPhone) return 'Emergency contact phone is required.'
-  if (!form.address) return 'Address is required.'
-  if (!form.avatar) return 'Profile image is required.'
-  if (!form.nrcFront) return 'NRC front image is required.'
-  if (!form.nrcBack) return 'NRC back image is required.'
+  if (step === 2) {
+    if (!form.title) return 'Job title is required.'
+    if (!form.department) return 'Department is required.'
+    if (!form.location) return 'Location is required.'
+    if (!form.manager) return 'Manager is required.'
+    if (form.role === 'Driver') {
+      if (!form.licenseNumber) return 'License number is required for drivers.'
+      if (!form.licenseClass) return 'License class is required for drivers.'
+      if (!form.licenseExpiry) return 'License expiry is required for drivers.'
+    }
+    return ''
+  }
+  if (step === 3) {
+    if (!form.emergencyContactName) return 'Emergency contact name is required.'
+    if (!form.emergencyContactRelation) return 'Emergency contact relation is required.'
+    if (!form.emergencyContactPhone) return 'Emergency contact phone is required.'
+    if (!form.address) return 'Address is required.'
+    if (!form.avatar) return 'Profile image is required.'
+    if (!form.nrcFront) return 'NRC front image is required.'
+    if (!form.nrcBack) return 'NRC back image is required.'
+    return ''
+  }
   return ''
 }
 
@@ -378,6 +458,7 @@ const handleNrcBackRemove = () => {
 .dialog-card {
   border-radius: 16px;
   padding: 0;
+  width: min(92vw, 520px);
 }
 
 .dialog-header {
@@ -398,6 +479,9 @@ const handleNrcBackRemove = () => {
   flex-direction: column;
   gap: 14px;
   padding: 20px 24px 24px;
+  max-height: 70vh;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .field label {
@@ -421,8 +505,13 @@ const handleNrcBackRemove = () => {
 
 .nrc-row {
   display: grid;
-  grid-template-columns: 90px 1fr 90px 140px;
+  grid-template-columns: 90px minmax(0, 1fr) 80px minmax(0, 1fr);
   gap: 10px;
+  width: 100%;
+}
+
+.nrc-row > * {
+  min-width: 0;
 }
 
 .nrc-preview {
@@ -458,6 +547,110 @@ const handleNrcBackRemove = () => {
 
 .dialog-actions .primary:hover {
   background: var(--fleet-primary-dark);
+}
+
+.form-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.step-button {
+  border: 1px solid var(--fleet-border);
+  background: #fff;
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.step-button.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.step-id {
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 12px;
+}
+
+.step-button.active .step-id {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.form-section {
+  display: grid;
+  gap: 14px;
+}
+
+.form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field.full {
+  grid-column: 1 / -1;
+}
+
+.field {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .dialog-header {
+    padding: 16px 18px;
+  }
+
+  .dialog-header h2 {
+    font-size: 16px;
+  }
+
+  .dialog-body {
+    padding: 16px 18px 20px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nrc-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .form-steps {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .step-button {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 420px) {
+  .step-button {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  .step-id {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    font-size: 11px;
+  }
 }
 
 .file-row {
