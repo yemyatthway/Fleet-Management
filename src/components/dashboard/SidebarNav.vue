@@ -48,6 +48,32 @@
           </button>
         </div>
       </div>
+
+      <div class="nav-group">
+        <button
+          type="button"
+          class="nav-item nav-group-toggle"
+          :class="{ active: route.path.startsWith('/users') || route.path.startsWith('/roles') }"
+          @click="userOpen = !userOpen"
+        >
+          <v-icon icon="mdi-account-group" size="20" />
+          <span>Users</span>
+          <v-icon class="chevron" :class="{ open: userOpen }" icon="mdi-chevron-down" size="18" />
+        </button>
+        <div v-show="userOpen" class="nav-sublist">
+          <button
+            v-for="item in userItems"
+            :key="item.label"
+            type="button"
+            class="nav-subitem"
+            :class="{ active: route.path === item.path }"
+            @click="router.push(item.path)"
+          >
+            <v-icon :icon="item.icon" size="18" />
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
+      </div>
     </nav>
 
     <div class="profile-card">
