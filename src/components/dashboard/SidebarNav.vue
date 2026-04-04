@@ -109,7 +109,8 @@ const userItems = [
 
 const maintenanceItems = [
   { icon: 'mdi-wrench-outline', label: 'Tickets', path: '/maintenance' },
-  { icon: 'mdi-toolbox-outline', label: 'Inventory & Parts', path: '/maintenance/inventory' }
+  { icon: 'mdi-toolbox-outline', label: 'Inventory & Parts', path: '/maintenance/inventory' },
+  { icon: 'mdi-clipboard-alert-outline', label: 'Incidents', path: '/incidents' }
 ]
 
 const maintenanceOpen = ref(route.path.startsWith('/maintenance'))

@@ -171,97 +171,6 @@
       </div>
     </div>
 
-    <div class="card-surface section-card table-card">
-      <div class="section-header">
-        <div>
-          <div class="section-title">Accident & Incident Records</div>
-          <div class="text-muted section-subtitle">Track claims, costs, and follow-ups</div>
-        </div>
-        <div class="section-actions">
-          <button class="primary-button" type="button" @click="openIncident">
-            <v-icon icon="mdi-alert-circle-outline" size="18" />
-            Report Incident
-          </button>
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Vehicle</th>
-              <th>Type</th>
-              <th>Severity</th>
-              <th>Status</th>
-              <th class="align-right">Cost</th>
-              <th class="align-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="incident in pagedIncidents" :key="incident.id">
-              <td class="text-muted" data-label="Date">{{ formatDate(incident.date) }}</td>
-              <td data-label="Vehicle">
-                <strong>{{ incident.vehicleId }}</strong>
-                <div class="text-muted vehicle-sub">{{ incident.driver }}</div>
-              </td>
-              <td data-label="Type">{{ incident.type }}</td>
-              <td data-label="Severity">
-                <span class="badge" :class="severityClass(incident.severity)">
-                  {{ incident.severity }}
-                </span>
-              </td>
-              <td data-label="Status">
-                <span class="badge" :class="incident.status === 'Open' ? 'warning' : 'success'">
-                  {{ incident.status }}
-                </span>
-              </td>
-              <td class="align-right" data-label="Cost">{{ incident.cost || '—' }}</td>
-              <td class="align-right" data-label="Actions">
-                <div class="inline-actions">
-                  <button class="icon-button tooltip" type="button" @click="openIncidentDetails(incident)">
-                    <v-icon icon="mdi-eye-outline" size="18" />
-                    <span class="tooltip-text">View details</span>
-                  </button>
-                  <button class="icon-button tooltip" type="button" @click="openIncidentEdit(incident)">
-                    <v-icon icon="mdi-pencil-outline" size="18" />
-                    <span class="tooltip-text">Edit incident</span>
-                  </button>
-                  <button class="icon-button danger tooltip" type="button" @click="deleteIncident(incident.id)">
-                    <v-icon icon="mdi-trash-can-outline" size="18" />
-                    <span class="tooltip-text">Delete incident</span>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div v-if="incidentTotalPages > 1" class="table-footer">
-        <span class="pager-info text-muted">Page {{ incidentSafePage }} of {{ incidentTotalPages }}</span>
-        <div class="pager-actions">
-          <button
-            class="pager-button"
-            type="button"
-            :disabled="incidentSafePage === 1"
-            @click="incidentPage = incidentSafePage - 1"
-          >
-            Prev
-          </button>
-          <button
-            class="pager-button"
-            type="button"
-            :disabled="incidentSafePage === incidentTotalPages"
-            @click="incidentPage = incidentSafePage + 1"
-          >
-            Next
-          </button>
-        </div>
-      </div>
-      <div v-if="incidents.length === 0" class="empty-state">
-        No incidents recorded yet
-      </div>
-    </div>
-
     <v-dialog v-model="detailsOpen" max-width="960">
       <div v-if="selectedVehicle" class="card-surface details-card">
         <div class="details-header">
@@ -558,104 +467,6 @@
       </div>
     </v-dialog>
 
-    <v-dialog v-model="incidentOpen" max-width="720">
-      <div class="card-surface form-card">
-        <div class="form-header">
-        <div class="form-title">{{ incidentMode === 'edit' ? 'Edit Incident' : 'Report Incident' }}</div>
-          <button class="icon-button" type="button" @click="incidentOpen = false">
-            <v-icon icon="mdi-close" size="18" />
-          </button>
-        </div>
-
-        <div v-if="incidentError" class="form-error">{{ incidentError }}</div>
-
-        <div class="form-grid">
-          <div class="form-field">
-            <label>Vehicle</label>
-            <select v-model="incidentForm.vehicleId">
-              <option disabled value="">Select vehicle</option>
-              <option v-for="vehicle in vehicles" :key="vehicle.id" :value="vehicle.id">
-                {{ vehicle.id }} • {{ vehicle.model }}
-              </option>
-            </select>
-          </div>
-          <div class="form-field">
-            <label>Driver</label>
-            <input v-model="incidentForm.driver" type="text" placeholder="Driver name" />
-          </div>
-          <div class="form-field">
-            <label>Date</label>
-            <input v-model="incidentForm.date" type="date" />
-          </div>
-          <div class="form-field">
-            <label>Type</label>
-            <input v-model="incidentForm.type" type="text" placeholder="e.g., Collision" />
-          </div>
-          <div class="form-field">
-            <label>Severity</label>
-            <select v-model="incidentForm.severity">
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-            </select>
-          </div>
-          <div class="form-field">
-            <label>Status</label>
-            <select v-model="incidentForm.status">
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-            </select>
-          </div>
-          <div class="form-field">
-            <label>Cost</label>
-            <input v-model="incidentForm.cost" type="text" placeholder="e.g., $1,250" />
-          </div>
-          <div class="form-field">
-            <label>Notes</label>
-            <input v-model="incidentForm.notes" type="text" placeholder="Summary of incident" />
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <button class="ghost-button" type="button" @click="incidentOpen = false">Cancel</button>
-          <button class="primary-button" type="button" @click="saveIncident">
-            {{ incidentMode === 'edit' ? 'Save Changes' : 'Save Incident' }}
-          </button>
-        </div>
-      </div>
-    </v-dialog>
-
-    <v-dialog v-model="incidentDetailsOpen" max-width="720">
-      <div v-if="selectedIncident" class="card-surface details-card">
-        <div class="details-header">
-          <div>
-            <div class="details-title">Incident {{ selectedIncident.id }}</div>
-            <div class="details-subtitle text-muted">
-              {{ selectedIncident.vehicleId }} • {{ selectedIncident.type }}
-            </div>
-          </div>
-          <button class="icon-button" type="button" @click="incidentDetailsOpen = false">
-            <v-icon icon="mdi-close" size="18" />
-          </button>
-        </div>
-
-        <div class="details-grid">
-          <div class="details-section">
-            <h4>Overview</h4>
-            <div class="details-row"><span>Date</span><strong>{{ formatDate(selectedIncident.date) }}</strong></div>
-            <div class="details-row"><span>Driver</span><strong>{{ selectedIncident.driver || '—' }}</strong></div>
-            <div class="details-row"><span>Status</span><strong>{{ selectedIncident.status }}</strong></div>
-            <div class="details-row"><span>Severity</span><strong>{{ selectedIncident.severity }}</strong></div>
-          </div>
-          <div class="details-section">
-            <h4>Claims</h4>
-            <div class="details-row"><span>Cost</span><strong>{{ selectedIncident.cost || '—' }}</strong></div>
-            <div class="details-row"><span>Notes</span><strong>{{ selectedIncident.notes || '—' }}</strong></div>
-          </div>
-        </div>
-      </div>
-    </v-dialog>
-
     <v-dialog v-model="imageOpen" max-width="720">
       <div class="card-surface image-modal">
         <div class="image-header">
@@ -862,35 +673,6 @@ const vehicles = ref([
   }
 ])
 
-const incidents = ref([
-  {
-    id: 'INC-1024',
-    vehicleId: 'VH-2048',
-    driver: 'Sarah Johnson',
-    date: '2026-01-24',
-    type: 'Minor collision',
-    severity: 'Low',
-    status: 'Closed',
-    cost: '$580',
-    notes: 'Rear bumper repair'
-  },
-  {
-    id: 'INC-1091',
-    vehicleId: 'VH-3054',
-    driver: 'Michael Chen',
-    date: '2026-02-18',
-    type: 'Windshield crack',
-    severity: 'Medium',
-    status: 'Open',
-    cost: '$1,220',
-    notes: 'Awaiting glass replacement'
-  }
-])
-
-const incidentPage = ref(1)
-const incidentPageSize = 5
-
-
 const searchQuery = ref('')
 const debouncedVehicleQuery = ref('')
 const statusFilter = ref('All')
@@ -915,13 +697,6 @@ const formSteps = [
   { id: 2, title: 'Compliance', subtitle: 'Registration, insurance, service' },
   { id: 3, title: 'Images', subtitle: 'Vehicle and driver photos' }
 ]
-const incidentOpen = ref(false)
-const incidentMode = ref('add')
-const incidentError = ref('')
-const incidentForm = ref({})
-const incidentDetailsOpen = ref(false)
-const selectedIncident = ref(null)
-
 const filteredVehicles = computed(() => {
   const query = debouncedVehicleQuery.value.toLowerCase()
   return vehicles.value.filter((vehicle) => {
@@ -960,16 +735,6 @@ const vehicleHeaders = [
   { title: 'Actions', key: 'actions', align: 'end', sortable: false }
 ]
 
-const incidentTotalPages = computed(() =>
-  Math.max(1, Math.ceil(incidents.value.length / incidentPageSize))
-)
-const incidentSafePage = computed(() => Math.min(incidentPage.value, incidentTotalPages.value))
-const pagedIncidents = computed(() => {
-  const start = (incidentSafePage.value - 1) * incidentPageSize
-  return incidents.value.slice(start, start + incidentPageSize)
-})
-
-
 const activeCount = computed(() => vehicles.value.filter((v) => v.status === 'Active').length)
 const maintenanceCount = computed(() => vehicles.value.filter((v) => v.status === 'Maintenance').length)
 const inactiveCount = computed(() => vehicles.value.filter((v) => v.status === 'Inactive').length)
@@ -993,12 +758,6 @@ const statusClass = (status) => {
   if (status === 'Active') return 'success'
   if (status === 'Maintenance') return 'warning'
   return 'neutral'
-}
-
-const severityClass = (severity) => {
-  if (severity === 'High') return 'danger'
-  if (severity === 'Medium') return 'warning'
-  return 'success'
 }
 
 const formatDate = (value) =>
@@ -1056,19 +815,6 @@ const buildEmptyForm = () => ({
   image: ''
 })
 
-const buildEmptyIncident = () => ({
-  id: '',
-  vehicleId: '',
-  driver: '',
-  date: '',
-  type: '',
-  severity: 'Low',
-  status: 'Open',
-  cost: '',
-  notes: ''
-})
-
-
 const openAdd = () => {
   formMode.value = 'add'
   formData.value = buildEmptyForm()
@@ -1102,62 +848,6 @@ const prevFormStep = () => {
     formStep.value -= 1
   }
 }
-
-const openIncident = () => {
-  incidentMode.value = 'add'
-  incidentForm.value = buildEmptyIncident()
-  incidentError.value = ''
-  incidentOpen.value = true
-}
-
-const openIncidentEdit = (incident) => {
-  incidentMode.value = 'edit'
-  incidentForm.value = { ...buildEmptyIncident(), ...incident }
-  incidentError.value = ''
-  incidentOpen.value = true
-}
-
-const openIncidentDetails = (incident) => {
-  selectedIncident.value = incident
-  incidentDetailsOpen.value = true
-}
-
-const saveIncident = () => {
-  if (!incidentForm.value.vehicleId || !incidentForm.value.type || !incidentForm.value.date) {
-    incidentError.value = 'Vehicle, date, and type are required.'
-    return
-  }
-  if (incidentMode.value === 'add') {
-    const newId = `INC-${Math.floor(1000 + Math.random() * 9000)}`
-    incidents.value = [
-      {
-        ...incidentForm.value,
-        id: newId
-      },
-      ...incidents.value
-    ]
-  } else {
-    incidents.value = incidents.value.map((item) =>
-      item.id === incidentForm.value.id ? { ...item, ...incidentForm.value } : item
-    )
-  }
-  incidentOpen.value = false
-}
-
-const deleteIncident = (id) => {
-  const incident = incidents.value.find((item) => item.id === id)
-  if (!incident) return
-  openConfirm({
-    title: 'Delete Incident?',
-    message: `This will permanently remove ${incident.id}.`,
-    confirmText: 'Delete',
-    tone: 'danger',
-    action: () => {
-      incidents.value = incidents.value.filter((item) => item.id !== id)
-    }
-  })
-}
-
 
 const saveForm = () => {
   if (

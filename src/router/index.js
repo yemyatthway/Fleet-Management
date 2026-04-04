@@ -8,6 +8,7 @@ const routes = [
   { path: '/users', component: () => import('../pages/UserManagement.vue') },
   { path: '/roles', component: () => import('../pages/RoleManagement.vue') },
   { path: '/vehicles', component: () => import('../pages/VehicleManagement.vue') },
+  { path: '/incidents', component: () => import('../pages/IncidentManagement.vue') },
   { path: '/trips', component: () => import('../pages/Placeholder.vue') },
   { path: '/analytics', component: () => import('../pages/Placeholder.vue') },
   { path: '/maintenance', component: () => import('../pages/MaintenanceTickets.vue') },
