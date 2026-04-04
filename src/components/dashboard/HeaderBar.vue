@@ -128,4 +128,18 @@ const today = computed(() =>
   font-size: 14px;
 }
 
+@media (max-width: 720px) {
+  .header-bar {
+    padding: 0 16px;
+  }
+
+  .header-right {
+    gap: 10px;
+  }
+
+  .date-label {
+    display: none;
+  }
+}
+
 </style>

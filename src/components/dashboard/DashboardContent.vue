@@ -46,4 +46,14 @@ import RecentTripsTable from './RecentTripsTable.vue'
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 900px) {
+  .dashboard-content {
+    gap: 18px;
+  }
+
+  .grid {
+    gap: 18px;
+  }
+}
 </style>

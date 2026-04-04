@@ -2,7 +2,7 @@
   <v-dialog v-model="internalOpen" max-width="480">
     <v-card class="dialog-card">
       <div class="dialog-header">
-        <h2>Add New User</h2>
+        <h2>Edit User</h2>
         <button class="icon-button" type="button" @click="close">
           <v-icon icon="mdi-close" />
         </button>
@@ -72,48 +72,6 @@
           <input v-model="form.manager" type="text" placeholder="Sarah Johnson" required />
         </div>
         <div class="field">
-          <label class="required">Upload Profile Image</label>
-          <div class="file-row">
-            <input ref="fileInput" type="file" accept="image/*" @change="handleAvatarUpload" />
-            <button
-              v-if="form.avatar"
-              class="icon-button ghost"
-              type="button"
-              @click="handleAvatarRemove"
-            >
-              <v-icon icon="mdi-close" size="16" />
-            </button>
-          </div>
-        </div>
-        <div class="field">
-          <label class="required">Upload NRC Front</label>
-          <div class="file-row">
-            <input ref="nrcFrontInput" type="file" accept="image/*" @change="handleNrcFrontUpload" />
-            <button
-              v-if="form.nrcFront"
-              class="icon-button ghost"
-              type="button"
-              @click="handleNrcFrontRemove"
-            >
-              <v-icon icon="mdi-close" size="16" />
-            </button>
-          </div>
-        </div>
-        <div class="field">
-          <label class="required">Upload NRC Back</label>
-          <div class="file-row">
-            <input ref="nrcBackInput" type="file" accept="image/*" @change="handleNrcBackUpload" />
-            <button
-              v-if="form.nrcBack"
-              class="icon-button ghost"
-              type="button"
-              @click="handleNrcBackRemove"
-            >
-              <v-icon icon="mdi-close" size="16" />
-            </button>
-          </div>
-        </div>
-        <div class="field">
           <label class="required">Role</label>
           <select v-model="form.role" required>
             <option v-for="role in roleNames" :key="role" :value="role">
@@ -156,6 +114,10 @@
           <label class="required">Address</label>
           <input v-model="form.address" type="text" placeholder="120 Market St, Springfield, IL" required />
         </div>
+        <div class="field">
+          <label>Last Login</label>
+          <input v-model="form.lastLogin" type="datetime-local" disabled />
+        </div>
         <div class="field checkbox-field">
           <label>
             <input v-model="form.twoFactorEnabled" type="checkbox" />
@@ -166,11 +128,53 @@
           <label>Notes</label>
           <textarea v-model="form.notes" rows="3" placeholder="Optional notes"></textarea>
         </div>
+        <div class="field">
+          <label class="required">Upload Profile Image</label>
+          <div class="file-row">
+            <input ref="fileInput" type="file" accept="image/*" @change="handleAvatarUpload" />
+            <button
+              v-if="form.avatar"
+              class="icon-button ghost"
+              type="button"
+              @click="handleAvatarRemove"
+            >
+              <v-icon icon="mdi-close" size="16" />
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="required">Upload NRC Front</label>
+          <div class="file-row">
+            <input ref="nrcFrontInput" type="file" accept="image/*" @change="handleNrcFrontUpload" />
+            <button
+              v-if="form.nrcFront"
+              class="icon-button ghost"
+              type="button"
+              @click="handleNrcFrontRemove"
+            >
+              <v-icon icon="mdi-close" size="16" />
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="required">Upload NRC Back</label>
+          <div class="file-row">
+            <input ref="nrcBackInput" type="file" accept="image/*" @change="handleNrcBackUpload" />
+            <button
+              v-if="form.nrcBack"
+              class="icon-button ghost"
+              type="button"
+              @click="handleNrcBackRemove"
+            >
+              <v-icon icon="mdi-close" size="16" />
+            </button>
+          </div>
+        </div>
 
         <p v-if="formError" class="form-error">{{ formError }}</p>
         <div class="dialog-actions">
           <button class="ghost" type="button" @click="close">Cancel</button>
-          <button class="primary" type="submit">Add User</button>
+          <button class="primary" type="submit">Save Changes</button>
         </div>
       </form>
     </v-card>
@@ -181,16 +185,18 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { roleNames } from '../../data/roles'
 
-const defaultRole = roleNames.includes('Driver') ? 'Driver' : roleNames[0] || 'Driver'
-
 const props = defineProps({
   open: {
     type: Boolean,
     default: false
+  },
+  user: {
+    type: Object,
+    default: null
   }
 })
 
-const emit = defineEmits(['close', 'add'])
+const emit = defineEmits(['close', 'save'])
 
 const internalOpen = computed({
   get: () => props.open,
@@ -200,6 +206,7 @@ const internalOpen = computed({
 })
 
 const form = reactive({
+  id: '',
   name: '',
   employeeId: '',
   nrcState: '12',
@@ -207,7 +214,7 @@ const form = reactive({
   nrcType: 'N',
   nrcSerial: '',
   email: '',
-  role: defaultRole,
+  role: roleNames.includes('Driver') ? 'Driver' : roleNames[0] || 'Driver',
   status: 'Active',
   phone: '',
   avatar: '',
@@ -224,6 +231,7 @@ const form = reactive({
   emergencyContactRelation: '',
   emergencyContactPhone: '',
   address: '',
+  lastLogin: '',
   twoFactorEnabled: false,
   notes: ''
 })
@@ -234,32 +242,35 @@ const nrcBackInput = ref(null)
 const formError = ref('')
 
 const reset = () => {
-  form.name = ''
-  form.employeeId = ''
-  form.nrcState = '12'
-  form.nrcTownship = 'ZaYaTha'
-  form.nrcType = 'N'
-  form.nrcSerial = ''
-  form.email = ''
-  form.role = defaultRole
-  form.status = 'Active'
-  form.phone = ''
-  form.avatar = ''
-  form.nrcFront = ''
-  form.nrcBack = ''
-  form.department = ''
-  form.title = ''
-  form.location = ''
-  form.manager = ''
-  form.licenseNumber = ''
-  form.licenseClass = ''
-  form.licenseExpiry = ''
-  form.emergencyContactName = ''
-  form.emergencyContactRelation = ''
-  form.emergencyContactPhone = ''
-  form.address = ''
-  form.twoFactorEnabled = false
-  form.notes = ''
+  form.id = props.user?.id || ''
+  form.name = props.user?.name || ''
+  form.employeeId = props.user?.employeeId || ''
+  const parsed = parseNrc(props.user?.nrcNumber || '')
+  form.nrcState = parsed.state
+  form.nrcTownship = parsed.township
+  form.nrcType = parsed.type
+  form.nrcSerial = parsed.serial
+  form.email = props.user?.email || ''
+  form.role = props.user?.role || (roleNames.includes('Driver') ? 'Driver' : roleNames[0] || 'Driver')
+  form.status = props.user?.status || 'Active'
+  form.phone = props.user?.phone || ''
+  form.avatar = props.user?.avatar || ''
+  form.nrcFront = props.user?.nrcFront || ''
+  form.nrcBack = props.user?.nrcBack || ''
+  form.department = props.user?.department || ''
+  form.title = props.user?.title || ''
+  form.location = props.user?.location || ''
+  form.manager = props.user?.manager || ''
+  form.licenseNumber = props.user?.licenseNumber || ''
+  form.licenseClass = props.user?.licenseClass || ''
+  form.licenseExpiry = props.user?.licenseExpiry || ''
+  form.emergencyContactName = props.user?.emergencyContactName || ''
+  form.emergencyContactRelation = props.user?.emergencyContactRelation || ''
+  form.emergencyContactPhone = props.user?.emergencyContactPhone || ''
+  form.address = props.user?.address || ''
+  form.lastLogin = props.user?.lastLogin ? props.user.lastLogin.replace('Z', '') : ''
+  form.twoFactorEnabled = props.user?.twoFactorEnabled || false
+  form.notes = props.user?.notes || ''
   if (fileInput.value) fileInput.value.value = ''
   if (nrcFrontInput.value) nrcFrontInput.value.value = ''
   if (nrcBackInput.value) nrcBackInput.value.value = ''
@@ -281,8 +292,7 @@ const submit = () => {
     return
   }
   formError.value = ''
-  emit('add', { ...form, nrcNumber: nrcPreview.value })
-  reset()
+  emit('save', { ...form, nrcNumber: nrcPreview.value })
 }
 
 const nrcStateCodes = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14']
@@ -302,6 +312,14 @@ const nrcPreview = computed(() => {
   const serial = form.nrcSerial || '______'
   return `${form.nrcState}/${form.nrcTownship}(${form.nrcType})${serial}`
 })
+
+const parseNrc = (value) => {
+  const match = value.match(/^(\d{1,2})\/(.+)\(([A-Z])\)(\d{6})$/)
+  if (!match) {
+    return { state: '12', township: 'ZaYaTha', type: 'N', serial: '' }
+  }
+  return { state: match[1], township: match[2], type: match[3], serial: match[4] }
+}
 
 const validate = () => {
   if (!form.name) return 'Full name is required.'
@@ -479,6 +497,19 @@ const handleNrcBackRemove = () => {
   background: #f1f5f9;
 }
 
+.icon-button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+}
+
+.icon-button:hover {
+  background: #f1f5f9;
+}
+
 .checkbox-field label {
   display: flex;
   align-items: center;
@@ -502,18 +533,5 @@ const handleNrcBackRemove = () => {
   margin: 6px 0 0;
   font-size: 12px;
   color: #dc2626;
-}
-
-.icon-button {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 10px;
-  width: 36px;
-  height: 36px;
-}
-
-.icon-button:hover {
-  background: #f1f5f9;
 }
 </style>

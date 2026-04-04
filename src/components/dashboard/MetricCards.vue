@@ -121,4 +121,31 @@ const metrics = [
   display: grid;
   place-items: center;
 }
+
+@media (max-width: 900px) {
+  .metric-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+  }
+
+  .metric-card {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .metric-value {
+    font-size: 24px;
+  }
+
+  .metric-icon {
+    width: 42px;
+    height: 42px;
+  }
+}
+
+@media (max-width: 560px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

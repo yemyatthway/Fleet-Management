@@ -57,11 +57,11 @@
       </div>
 
       <div class="toolbar-count text-muted">
-        Showing {{ filteredVehicles.length }} of {{ vehicles.length }} vehicles
+        Showing {{ pagedVehicles.length }} of {{ filteredVehicles.length }} vehicles
       </div>
     </div>
 
-    <div class="card-surface">
+    <div class="card-surface table-card">
       <div class="table-wrap">
         <table class="table-base">
           <thead>
@@ -76,8 +76,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="vehicle in filteredVehicles" :key="vehicle.id">
-              <td>
+            <tr v-for="vehicle in pagedVehicles" :key="vehicle.id">
+              <td data-label="Vehicle">
                 <div class="vehicle-cell">
                   <button
                     class="thumb-button tooltip"
@@ -93,14 +93,14 @@
                   </div>
                 </div>
               </td>
-              <td class="text-muted">{{ vehicle.plate }}</td>
-              <td>{{ vehicle.type }}</td>
-              <td>
+              <td class="text-muted" data-label="Plate Number">{{ vehicle.plate }}</td>
+              <td data-label="Type">{{ vehicle.type }}</td>
+              <td data-label="Status">
                 <span class="badge" :class="statusClass(vehicle.status)">
                   {{ vehicle.status }}
                 </span>
               </td>
-              <td>
+              <td data-label="Driver Assigned">
                 <div class="driver-cell">
                   <button
                     class="thumb-button tooltip"
@@ -113,8 +113,8 @@
                   <span>{{ vehicle.driver }}</span>
                 </div>
               </td>
-              <td class="text-muted">{{ formatDate(vehicle.acquiredDate) }}</td>
-              <td class="align-right">
+              <td class="text-muted" data-label="Acquired Date">{{ formatDate(vehicle.acquiredDate) }}</td>
+              <td class="align-right" data-label="Actions">
                 <div class="inline-actions">
                   <button class="icon-button tooltip" type="button" @click="openEdit(vehicle)">
                     <v-icon icon="mdi-pencil-outline" size="18" />
@@ -145,12 +145,33 @@
           </tbody>
         </table>
       </div>
+      <div v-if="vehicleTotalPages > 1" class="table-footer">
+        <span class="pager-info text-muted">Page {{ vehicleSafePage }} of {{ vehicleTotalPages }}</span>
+        <div class="pager-actions">
+          <button
+            class="pager-button"
+            type="button"
+            :disabled="vehicleSafePage === 1"
+            @click="vehiclePage = vehicleSafePage - 1"
+          >
+            Prev
+          </button>
+          <button
+            class="pager-button"
+            type="button"
+            :disabled="vehicleSafePage === vehicleTotalPages"
+            @click="vehiclePage = vehicleSafePage + 1"
+          >
+            Next
+          </button>
+        </div>
+      </div>
       <div v-if="filteredVehicles.length === 0" class="empty-state">
         No vehicles found matching your criteria
       </div>
     </div>
 
-    <div class="card-surface section-card">
+    <div class="card-surface section-card table-card">
       <div class="section-header">
         <div>
           <div class="section-title">Accident & Incident Records</div>
@@ -177,25 +198,25 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="incident in incidents" :key="incident.id">
-              <td class="text-muted">{{ formatDate(incident.date) }}</td>
-              <td>
+            <tr v-for="incident in pagedIncidents" :key="incident.id">
+              <td class="text-muted" data-label="Date">{{ formatDate(incident.date) }}</td>
+              <td data-label="Vehicle">
                 <strong>{{ incident.vehicleId }}</strong>
                 <div class="text-muted vehicle-sub">{{ incident.driver }}</div>
               </td>
-              <td>{{ incident.type }}</td>
-              <td>
+              <td data-label="Type">{{ incident.type }}</td>
+              <td data-label="Severity">
                 <span class="badge" :class="severityClass(incident.severity)">
                   {{ incident.severity }}
                 </span>
               </td>
-              <td>
+              <td data-label="Status">
                 <span class="badge" :class="incident.status === 'Open' ? 'warning' : 'success'">
                   {{ incident.status }}
                 </span>
               </td>
-              <td class="align-right">{{ incident.cost || '—' }}</td>
-              <td class="align-right">
+              <td class="align-right" data-label="Cost">{{ incident.cost || '—' }}</td>
+              <td class="align-right" data-label="Actions">
                 <div class="inline-actions">
                   <button class="icon-button tooltip" type="button" @click="openIncidentDetails(incident)">
                     <v-icon icon="mdi-eye-outline" size="18" />
@@ -214,6 +235,27 @@
             </tr>
           </tbody>
         </table>
+      </div>
+      <div v-if="incidentTotalPages > 1" class="table-footer">
+        <span class="pager-info text-muted">Page {{ incidentSafePage }} of {{ incidentTotalPages }}</span>
+        <div class="pager-actions">
+          <button
+            class="pager-button"
+            type="button"
+            :disabled="incidentSafePage === 1"
+            @click="incidentPage = incidentSafePage - 1"
+          >
+            Prev
+          </button>
+          <button
+            class="pager-button"
+            type="button"
+            :disabled="incidentSafePage === incidentTotalPages"
+            @click="incidentPage = incidentSafePage + 1"
+          >
+            Next
+          </button>
+        </div>
       </div>
       <div v-if="incidents.length === 0" class="empty-state">
         No incidents recorded yet
@@ -639,7 +681,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
 
 const vehicles = ref([
@@ -649,6 +691,31 @@ const vehicles = ref([
     region: 'Bago',
     type: 'Box Truck',
     model: 'Volvo FL 280',
+    status: 'Active',
+    driver: 'Sarah Johnson',
+    driverImage: 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=800&q=80',
+    depot: 'Yangon East Yard',
+    capacity: '6 tons',
+    fuelType: 'Diesel',
+    vin: 'MMTFL280X7A2048',
+    engineNo: 'ENG-2048-XY',
+    odometer: '182,450 km',
+    lastService: '2025-11-10',
+    nextService: '2026-04-10',
+    serviceNote: 'Brake pads replaced',
+    registrationExpiry: '2026-09-30',
+    roadTaxExpiry: '2026-06-30',
+    insuranceExpiry: '2026-08-15',
+    inspectionDue: '2026-05-20',
+    acquiredDate: '2017-06-14',
+    image: 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80'
+  },
+  {
+    id: 'MM-3047',
+    plate: 'YGN-1187',
+    region: 'Nay Pyi Taw',
+    type: 'Alphard',
+    model: 'Alphard FL 280',
     status: 'Active',
     driver: 'Sarah Johnson',
     driverImage: 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=800&q=80',
@@ -820,6 +887,11 @@ const incidents = ref([
   }
 ])
 
+const vehiclePage = ref(1)
+const vehiclePageSize = 6
+const incidentPage = ref(1)
+const incidentPageSize = 5
+
 
 const searchQuery = ref('')
 const statusFilter = ref('All')
@@ -861,6 +933,28 @@ const filteredVehicles = computed(() => {
     const matchesStatus = statusFilter.value === 'All' || vehicle.status === statusFilter.value
     return matchesSearch && matchesStatus
   })
+})
+
+const vehicleTotalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredVehicles.value.length / vehiclePageSize))
+)
+const vehicleSafePage = computed(() => Math.min(vehiclePage.value, vehicleTotalPages.value))
+const pagedVehicles = computed(() => {
+  const start = (vehicleSafePage.value - 1) * vehiclePageSize
+  return filteredVehicles.value.slice(start, start + vehiclePageSize)
+})
+
+const incidentTotalPages = computed(() =>
+  Math.max(1, Math.ceil(incidents.value.length / incidentPageSize))
+)
+const incidentSafePage = computed(() => Math.min(incidentPage.value, incidentTotalPages.value))
+const pagedIncidents = computed(() => {
+  const start = (incidentSafePage.value - 1) * incidentPageSize
+  return incidents.value.slice(start, start + incidentPageSize)
+})
+
+watch([searchQuery, statusFilter], () => {
+  vehiclePage.value = 1
 })
 
 const activeCount = computed(() => vehicles.value.filter((v) => v.status === 'Active').length)
@@ -1280,6 +1374,41 @@ const deleteVehicle = (id) => {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+.table-card {
+  overflow: hidden;
+}
+
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--fleet-border);
+  flex-wrap: wrap;
+}
+
+.pager-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.pager-button {
+  border: 1px solid var(--fleet-border);
+  background: #fff;
+  color: var(--fleet-text);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.pager-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .align-right {
@@ -1703,5 +1832,137 @@ const deleteVehicle = (id) => {
 .thumb-button .tooltip-text {
   left: 0;
   right: auto;
+}
+
+@media (max-width: 980px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-header .primary-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .toolbar-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-search,
+  .toolbar-filter {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .section-actions {
+    width: 100%;
+  }
+
+  .section-actions .primary-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 720px) {
+  .vehicle-page {
+    gap: 18px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar {
+    padding: 10px;
+  }
+
+  .toolbar-row {
+    gap: 8px;
+  }
+
+  .toolbar-search,
+  .toolbar-filter {
+    padding: 8px 10px;
+    border-radius: 12px;
+    min-height: 38px;
+  }
+
+  .toolbar-search v-icon,
+  .toolbar-filter v-icon {
+    font-size: 18px;
+    color: var(--fleet-muted);
+  }
+
+  .toolbar-search input,
+  .toolbar-filter select {
+    font-size: 12px;
+  }
+
+  .toolbar-filter select {
+    width: 100%;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  .table-base {
+    width: 100%;
+    min-width: 980px;
+  }
+
+  .table-base th,
+  .table-base td {
+    padding: 10px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .details-card,
+  .form-card,
+  .image-modal {
+    padding: 16px;
+  }
+
+  .details-grid,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-actions .ghost-button,
+  .form-actions .primary-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .full-image {
+    height: 240px;
+  }
+
+  :deep(.v-overlay__content) {
+    max-width: calc(100% - 24px) !important;
+    margin: 12px;
+  }
 }
 </style>

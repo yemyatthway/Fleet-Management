@@ -71,10 +71,14 @@ const menuItems = [
   { icon: 'mdi-view-dashboard', label: 'Dashboard', path: '/dashboard' },
   { icon: 'mdi-truck', label: 'Vehicles', path: '/vehicles' },
   { icon: 'mdi-map-marker', label: 'Trips', path: '/trips' },
-  { icon: 'mdi-account-multiple', label: 'Users', path: '/users' },
   { icon: 'mdi-chart-box', label: 'Analytics', path: '/analytics' },
   { icon: 'mdi-file-document-outline', label: 'Reports', path: '/reports' },
   { icon: 'mdi-cog', label: 'Settings', path: '/settings' }
+]
+
+const userItems = [
+  { icon: 'mdi-account-multiple', label: 'Users', path: '/users' },
+  { icon: 'mdi-shield-account', label: 'Roles', path: '/roles' }
 ]
 
 const maintenanceItems = [
@@ -83,12 +87,16 @@ const maintenanceItems = [
 ]
 
 const maintenanceOpen = ref(route.path.startsWith('/maintenance'))
+const userOpen = ref(route.path.startsWith('/users') || route.path.startsWith('/roles'))
 
 watch(
   () => route.path,
   (path) => {
     if (path.startsWith('/maintenance')) {
       maintenanceOpen.value = true
+    }
+    if (path.startsWith('/users') || path.startsWith('/roles')) {
+      userOpen.value = true
     }
   }
 )

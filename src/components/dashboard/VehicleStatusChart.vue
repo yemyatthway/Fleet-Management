@@ -218,4 +218,19 @@ const hideTooltip = () => {
   font-weight: 700;
   margin-bottom: 2px;
 }
+
+@media (max-width: 900px) {
+  .chart-card {
+    padding: 16px;
+  }
+
+  .donut {
+    width: clamp(160px, 60vw, 220px);
+    height: clamp(160px, 60vw, 220px);
+  }
+
+  .status-item {
+    font-size: 13px;
+  }
+}
 </style>
