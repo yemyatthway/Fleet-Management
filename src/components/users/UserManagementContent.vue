@@ -149,7 +149,7 @@ const avatarUrl = ref("");
 const avatarName = ref("");
 
 const filteredUsers = computed(() => {
-  const query = debouncedQuery.val ue.toLowerCase();
+  const query = debouncedQuery.value.toLowerCase();
   return users.value.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(query) ||
