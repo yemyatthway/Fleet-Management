@@ -59,8 +59,15 @@
       </div>
 
       <div class="toolbar-count text-muted">
-        Showing {{ filteredRoles.length }} of {{ roles.length }} roles
+        {{ loadingRoles ? 'Loading roles...' : `Showing ${filteredRoles.length} of ${roles.length} roles` }}
       </div>
+    </div>
+
+    <div v-if="pageError" class="page-error" role="alert">
+      <span>{{ pageError }}</span>
+      <button class="page-error-close" type="button" aria-label="Close error message" @click="pageError = ''">
+        <v-icon icon="mdi-close" size="18" />
+      </button>
     </div>
 
     <RoleTable :roles="filteredRoles" @view="openMembers" @edit="openEdit" @remove="handleDelete" />
@@ -88,6 +95,7 @@
       :role="selectedRole"
       :members="filteredMembers"
       :headers="memberHeaders"
+      :loading="loadingMembers"
       :search="memberSearch"
       @update:open="membersOpen = $event"
       @update:search="memberSearch = $event"
@@ -104,46 +112,22 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import RoleTable from './RoleTable.vue'
 import RoleDialog from './RoleDialog.vue'
 import RoleMembersDialog from './RoleMembersDialog.vue'
 import MemberAvatarDialog from './MemberAvatarDialog.vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
-import { roleCatalog } from '../../data/roles'
-import { users } from '../../data/users'
+import {
+  createRole,
+  deleteRole,
+  getRoleMembers,
+  getRoles,
+  updateRole
+} from '../../services/rolesApi'
 
 const ALL_ROLES_FILTER = 'All'
-const ACTIVE_STATUS = 'Active'
-const DEFAULT_ROLE_CREATED_AT = '2024-03-01'
 const SEARCH_DELAY_MS = 350
-
-const roleSeed = [
-  {
-    name: 'Admin',
-    permissions: ['Full access', 'Manage users', 'View reports', 'Edit settings'],
-    status: ACTIVE_STATUS,
-    createdAt: '2024-03-18'
-  },
-  {
-    name: 'Dispatcher',
-    permissions: ['Assign routes', 'Monitor trips', 'Manage drivers'],
-    status: ACTIVE_STATUS,
-    createdAt: '2024-02-28'
-  },
-  {
-    name: 'Driver',
-    permissions: ['View schedule', 'Update status', 'Log issues'],
-    status: ACTIVE_STATUS,
-    createdAt: DEFAULT_ROLE_CREATED_AT
-  },
-  {
-    name: 'Mechanic',
-    permissions: ['Maintenance tickets', 'Update inspections', 'Log repairs'],
-    status: 'Disabled',
-    createdAt: '2024-01-22'
-  }
-]
 
 const memberHeaders = [
   { title: 'Name', key: 'name' },
@@ -153,54 +137,13 @@ const memberHeaders = [
   { title: 'Joined', key: 'joinDate' }
 ]
 
-const ROLE_SEED_BY_NAME = new Map(roleSeed.map((role) => [role.name, role]))
 const SEARCHABLE_ROLE_FIELDS = ['name', 'description']
 const SEARCHABLE_MEMBER_FIELDS = ['name', 'email', 'phone']
 
-const todayIsoDate = () => new Date().toISOString().split('T')[0]
-
 const normalizeText = (value) => String(value ?? '').toLowerCase()
-
-const createRoleId = (name) => normalizeText(name).trim().replace(/\s+/g, '-')
 
 const matchesSearch = (item, fields, query) =>
   !query || fields.some((field) => normalizeText(item[field]).includes(query))
-
-const createRoleRecord = (role) => {
-  const seed = ROLE_SEED_BY_NAME.get(role.name)
-
-  return {
-    id: role.id,
-    name: role.name,
-    description: role.description,
-    permissions: seed?.permissions || [],
-    status: seed?.status || ACTIVE_STATUS,
-    createdAt: seed?.createdAt || DEFAULT_ROLE_CREATED_AT
-  }
-}
-
-const createRoleFromPayload = (payload) => ({
-  ...payload,
-  id: createRoleId(payload.name),
-  permissions: [],
-  createdAt: todayIsoDate()
-})
-
-const mergeRoleUpdate = (role, payload) =>
-  role.id === payload.id
-    ? {
-        ...role,
-        ...payload,
-        permissions: role.permissions || [],
-        updatedAt: todayIsoDate()
-      }
-    : role
-
-const countUsersByRole = (userList) =>
-  userList.reduce((counts, user) => {
-    counts.set(user.role, (counts.get(user.role) || 0) + 1)
-    return counts
-  }, new Map())
 
 const useDebouncedRef = (source, delay = SEARCH_DELAY_MS) => {
   const debounced = ref(source.value)
@@ -226,9 +169,19 @@ const useDebouncedRef = (source, delay = SEARCH_DELAY_MS) => {
   return debounced
 }
 
-const roles = ref(roleCatalog.map(createRoleRecord))
+const toRoleRequest = (payload) => ({
+  name: payload.name,
+  description: payload.description,
+  status: payload.status || 'Active'
+})
+
+const roles = ref([])
+const roleMembers = ref([])
 const activeTab = ref(ALL_ROLES_FILTER)
 const searchQuery = ref('')
+const pageError = ref('')
+const loadingRoles = ref(false)
+const loadingMembers = ref(false)
 const dialogOpen = ref(false)
 const dialogMode = ref('add')
 const selectedRole = ref(null)
@@ -248,34 +201,20 @@ const debouncedRoleQuery = useDebouncedRef(searchQuery)
 const debouncedMemberQuery = useDebouncedRef(memberSearch)
 
 const roleTabs = computed(() => [...new Set(roles.value.map((role) => role.name))])
-const userRoleCounts = computed(() => countUsersByRole(users.value))
-
-const rolesWithMembers = computed(() => {
-  return roles.value.map((role) => ({
-    ...role,
-    members: userRoleCounts.value.get(role.name) || 0
-  }))
-})
 
 const filteredRoles = computed(() => {
   const query = debouncedRoleQuery.value.toLowerCase()
-  return rolesWithMembers.value.filter((role) => {
+  return roles.value.filter((role) => {
     const matchesTab = activeTab.value === ALL_ROLES_FILTER || role.name === activeTab.value
     return matchesTab && matchesSearch(role, SEARCHABLE_ROLE_FIELDS, query)
   })
 })
 
-const totalMembers = computed(() => users.value.length)
-const driverMembers = computed(() => userRoleCounts.value.get('Driver') || 0)
-const adminMembers = computed(() => userRoleCounts.value.get('Admin') || 0)
-
-const roleMembers = computed(() => {
-  if (!selectedRole.value) return []
-
-  return users.value.filter(
-    (user) => user.role === selectedRole.value.name && user.status === ACTIVE_STATUS
-  )
-})
+const totalMembers = computed(() =>
+  roles.value.reduce((total, role) => total + (role.members || 0), 0)
+)
+const driverMembers = computed(() => roles.value.find((role) => role.name === 'Driver')?.members || 0)
+const adminMembers = computed(() => roles.value.find((role) => role.name === 'Admin')?.members || 0)
 
 const filteredMembers = computed(() => {
   const query = debouncedMemberQuery.value.toLowerCase()
@@ -283,6 +222,19 @@ const filteredMembers = computed(() => {
     matchesSearch(member, SEARCHABLE_MEMBER_FIELDS, query)
   )
 })
+
+const loadRoles = async () => {
+  loadingRoles.value = true
+  pageError.value = ''
+
+  try {
+    roles.value = await getRoles()
+  } catch (error) {
+    pageError.value = error.message
+  } finally {
+    loadingRoles.value = false
+  }
+}
 
 const openAdd = () => {
   dialogMode.value = 'add'
@@ -296,20 +248,42 @@ const openEdit = (role) => {
   dialogOpen.value = true
 }
 
-const handleSave = (payload) => {
-  if (dialogMode.value === 'edit') {
-    roles.value = roles.value.map((role) => mergeRoleUpdate(role, payload))
-  } else {
-    roles.value.unshift(createRoleFromPayload(payload))
-  }
+const handleSave = async (payload) => {
+  pageError.value = ''
 
-  dialogOpen.value = false
+  try {
+    const savedRole =
+      dialogMode.value === 'edit'
+        ? await updateRole(payload.id, toRoleRequest(payload))
+        : await createRole(toRoleRequest(payload))
+
+    if (dialogMode.value === 'edit') {
+      roles.value = roles.value.map((role) => (role.id === savedRole.id ? savedRole : role))
+    } else {
+      roles.value.unshift(savedRole)
+    }
+
+    dialogOpen.value = false
+  } catch (error) {
+    pageError.value = error.message
+  }
 }
 
-const openMembers = (role) => {
+const openMembers = async (role) => {
   selectedRole.value = role
   memberSearch.value = ''
+  roleMembers.value = []
   membersOpen.value = true
+  loadingMembers.value = true
+  pageError.value = ''
+
+  try {
+    roleMembers.value = await getRoleMembers(role.id)
+  } catch (error) {
+    pageError.value = error.message
+  } finally {
+    loadingMembers.value = false
+  }
 }
 
 const openConfirm = ({ title, message, confirmText, tone, action }) => {
@@ -321,8 +295,8 @@ const openConfirm = ({ title, message, confirmText, tone, action }) => {
   confirmOpen.value = true
 }
 
-const runConfirm = () => {
-  pendingAction.value()
+const runConfirm = async () => {
+  await pendingAction.value()
   confirmOpen.value = false
 }
 
@@ -332,8 +306,15 @@ const handleDelete = (role) => {
     message: `This will permanently remove ${role.name}.`,
     confirmText: 'Delete',
     tone: 'danger',
-    action: () => {
-      roles.value = roles.value.filter((item) => item.id !== role.id)
+    action: async () => {
+      pageError.value = ''
+
+      try {
+        await deleteRole(role.id)
+        roles.value = roles.value.filter((item) => item.id !== role.id)
+      } catch (error) {
+        pageError.value = error.message
+      }
     }
   })
 }
@@ -344,9 +325,8 @@ const openMemberAvatar = (member) => {
   memberAvatarName.value = member.name
   memberAvatarOpen.value = true
 }
+
+onMounted(loadRoles)
 </script>
 
 <style scoped src="./roles_styles/RoleManagementContent.css"></style>
-
-
-

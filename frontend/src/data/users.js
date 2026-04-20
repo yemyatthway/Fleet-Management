@@ -10,7 +10,7 @@ export const users = ref([
     phone: '+1 (555) 123-4567',
     avatar:
       'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)123456',
+    nrcNumber: '12/ZaYaTha/123456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1001',
@@ -39,7 +39,7 @@ export const users = ref([
     phone: '+1 (555) 234-5678',
     avatar:
       'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)223456',
+    nrcNumber: '12/ZaYaTha/223456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1002',
@@ -68,7 +68,7 @@ export const users = ref([
     phone: '+1 (555) 345-6789',
     avatar:
       'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)323456',
+    nrcNumber: '12/ZaYaTha/323456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1003',
@@ -97,7 +97,7 @@ export const users = ref([
     phone: '+1 (555) 456-7890',
     avatar:
       'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)423456',
+    nrcNumber: '12/ZaYaTha/423456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1004',
@@ -126,7 +126,7 @@ export const users = ref([
     phone: '+1 (555) 567-8901',
     avatar:
       'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)523456',
+    nrcNumber: '12/ZaYaTha/523456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1005',
@@ -155,7 +155,7 @@ export const users = ref([
     phone: '+1 (555) 678-9012',
     avatar:
       'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)623456',
+    nrcNumber: '12/ZaYaTha/623456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1006',
@@ -184,7 +184,7 @@ export const users = ref([
     phone: '+1 (555) 789-0123',
     avatar:
       'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)723456',
+    nrcNumber: '12/ZaYaTha/723456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1007',
@@ -213,7 +213,7 @@ export const users = ref([
     phone: '+1 (555) 890-1234',
     avatar:
       'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)823456',
+    nrcNumber: '12/ZaYaTha/823456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1008',
@@ -242,7 +242,7 @@ export const users = ref([
     phone: '+1 (555) 901-2345',
     avatar:
       'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)923456',
+    nrcNumber: '12/ZaYaTha/923456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1009',
@@ -271,7 +271,7 @@ export const users = ref([
     phone: '+1 (555) 012-3456',
     avatar:
       'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)103456',
+    nrcNumber: '12/ZaYaTha/103456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1010',
@@ -300,7 +300,7 @@ export const users = ref([
     phone: '+1 (555) 111-2233',
     avatar:
       'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)113456',
+    nrcNumber: '12/ZaYaTha/113456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1011',
@@ -329,7 +329,7 @@ export const users = ref([
     phone: '+1 (555) 222-3344',
     avatar:
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)123457',
+    nrcNumber: '12/ZaYaTha/123457',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1012',
@@ -358,7 +358,7 @@ export const users = ref([
     phone: '+1 (555) 333-4455',
     avatar:
       'https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)133456',
+    nrcNumber: '12/ZaYaTha/133456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1013',
@@ -387,7 +387,7 @@ export const users = ref([
     phone: '+1 (555) 444-5566',
     avatar:
       'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)143456',
+    nrcNumber: '12/ZaYaTha/143456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1014',
@@ -416,7 +416,7 @@ export const users = ref([
     phone: '+1 (555) 555-6677',
     avatar:
       'https://images.unsplash.com/photo-1521119989659-a83eee488004?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)153456',
+    nrcNumber: '12/ZaYaTha/153456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1015',
@@ -445,7 +445,7 @@ export const users = ref([
     phone: '+1 (555) 666-7788',
     avatar:
       'https://images.unsplash.com/photo-1520813792240-56fc4a3765a7?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)163456',
+    nrcNumber: '12/ZaYaTha/163456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1016',
@@ -474,7 +474,7 @@ export const users = ref([
     phone: '+1 (555) 777-8899',
     avatar:
       'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)173456',
+    nrcNumber: '12/ZaYaTha/173456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1017',
@@ -503,7 +503,7 @@ export const users = ref([
     phone: '+1 (555) 888-9900',
     avatar:
       'https://images.unsplash.com/photo-1525134479668-1bee5c7c6845?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)183456',
+    nrcNumber: '12/ZaYaTha/183456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1018',
@@ -532,7 +532,7 @@ export const users = ref([
     phone: '+1 (555) 999-1010',
     avatar:
       'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)193456',
+    nrcNumber: '12/ZaYaTha/193456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1019',
@@ -561,7 +561,7 @@ export const users = ref([
     phone: '+1 (555) 101-1121',
     avatar:
       'https://images.unsplash.com/photo-1500917293891-ef795e70e1f6?auto=format&fit=facearea&w=160&h=160&q=80',
-    nrcNumber: '12/ZaYaTha(N)203456',
+    nrcNumber: '12/ZaYaTha/203456',
     nrcFront: '',
     nrcBack: '',
     employeeId: 'EMP-1020',

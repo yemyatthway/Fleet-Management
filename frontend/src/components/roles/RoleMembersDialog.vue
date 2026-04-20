@@ -4,7 +4,7 @@
       <div class="dialog-header">
         <div>
           <h2>{{ role?.name }} Members</h2>
-          <p class="text-muted">{{ members.length }} members</p>
+          <p class="text-muted">{{ loading ? 'Loading members...' : `${members.length} members` }}</p>
         </div>
         <button class="icon-button" type="button" @click="updateOpen(false)">
           <v-icon icon="mdi-close" />
@@ -106,6 +106,10 @@ defineProps({
   headers: {
     type: Array,
     required: true
+  },
+  loading: {
+    type: Boolean,
+    default: false
   },
   search: {
     type: String,

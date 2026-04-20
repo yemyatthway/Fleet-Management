@@ -42,13 +42,7 @@
   font-family: inherit;
 }
 
-.nrc-row {
-  display: grid;
-  grid-template-columns: 90px 1fr 90px 140px;
-  gap: 10px;
-}
-
-.nrc-preview {
+.field-hint {
   margin-top: 6px;
   font-size: 12px;
 }

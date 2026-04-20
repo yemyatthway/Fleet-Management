@@ -19,33 +19,14 @@
         </div>
         <div class="field">
           <label class="required">NRC</label>
-          <div class="nrc-row">
-            <select v-model="form.nrcState" required>
-              <option v-for="code in nrcStateCodes" :key="code" :value="code">
-                {{ code }}/
-              </option>
-            </select>
-            <select v-model="form.nrcTownship" required>
-              <option v-for="code in nrcTownships" :key="code" :value="code">
-                {{ code }}
-              </option>
-            </select>
-            <select v-model="form.nrcType" required>
-              <option v-for="code in nrcTypes" :key="code" :value="code">
-                ({{ code }})
-              </option>
-            </select>
-            <input
-              v-model="form.nrcSerial"
-              type="text"
-              inputmode="numeric"
-              pattern="\\d{6}"
-              maxlength="6"
-              placeholder="123456"
-              required
-            />
-          </div>
-          <div class="nrc-preview text-muted">NRC: {{ nrcPreview }}</div>
+          <input
+            v-model.trim="form.nrcNumber"
+            type="text"
+            placeholder="9/ZaYaTha/111111"
+            pattern="\\d{1,2}/[A-Za-z]+/\\d{6}"
+            required
+          />
+          <div class="field-hint text-muted">Example Format: 9/ZaYaTha/111111</div>
         </div>
         <div class="field">
           <label class="required">Email Address</label>
@@ -209,10 +190,7 @@ const form = reactive({
   id: '',
   name: '',
   employeeId: '',
-  nrcState: '12',
-  nrcTownship: 'ZaYaTha',
-  nrcType: 'N',
-  nrcSerial: '',
+  nrcNumber: '',
   email: '',
   role: roleNames.includes('Driver') ? 'Driver' : roleNames[0] || 'Driver',
   status: 'Active',
@@ -245,11 +223,7 @@ const reset = () => {
   form.id = props.user?.id || ''
   form.name = props.user?.name || ''
   form.employeeId = props.user?.employeeId || ''
-  const parsed = parseNrc(props.user?.nrcNumber || '')
-  form.nrcState = parsed.state
-  form.nrcTownship = parsed.township
-  form.nrcType = parsed.type
-  form.nrcSerial = parsed.serial
+  form.nrcNumber = normalizeNrcForInput(props.user?.nrcNumber || '')
   form.email = props.user?.email || ''
   form.role = props.user?.role || (roleNames.includes('Driver') ? 'Driver' : roleNames[0] || 'Driver')
   form.status = props.user?.status || 'Active'
@@ -292,39 +266,25 @@ const submit = () => {
     return
   }
   formError.value = ''
-  emit('save', { ...form, nrcNumber: nrcPreview.value })
+  emit('save', { ...form })
 }
 
-const nrcStateCodes = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14']
-const nrcTownships = [
-  'ZaYaTha',
-  'KaMaNa',
-  'MaYaTa',
-  'PaKaNa',
-  'BaMaNa',
-  'DaPaYa',
-  'LaMaNa',
-  'SaKaNa'
-]
-const nrcTypes = ['N', 'E', 'P']
+const NRC_PATTERN = /^\d{1,2}\/[A-Za-z]+\/\d{6}$/
+const OLD_NRC_PATTERN = /^(\d{1,2})\/([A-Za-z]+)\([A-Z]\)(\d{6})$/
 
-const nrcPreview = computed(() => {
-  const serial = form.nrcSerial || '______'
-  return `${form.nrcState}/${form.nrcTownship}(${form.nrcType})${serial}`
-})
-
-const parseNrc = (value) => {
-  const match = value.match(/^(\d{1,2})\/(.+)\(([A-Z])\)(\d{6})$/)
-  if (!match) {
-    return { state: '12', township: 'ZaYaTha', type: 'N', serial: '' }
-  }
-  return { state: match[1], township: match[2], type: match[3], serial: match[4] }
+const normalizeNrcForInput = (value) => {
+  const oldFormatMatch = value.match(OLD_NRC_PATTERN)
+  if (!oldFormatMatch) return value
+  return `${oldFormatMatch[1]}/${oldFormatMatch[2]}/${oldFormatMatch[3]}`
 }
+
+const isValidNrc = (value) => NRC_PATTERN.test(value)
 
 const validate = () => {
   if (!form.name) return 'Full name is required.'
   if (!form.employeeId) return 'Employee ID is required.'
-  if (!form.nrcSerial || form.nrcSerial.length !== 6) return 'NRC serial must be 6 digits.'
+  if (!form.nrcNumber) return 'NRC is required.'
+  if (!isValidNrc(form.nrcNumber)) return 'NRC format must be like 9/ZaYaTha/111111.'
   if (!form.email) return 'Email is required.'
   if (!form.phone) return 'Phone number is required.'
   if (!form.title) return 'Job title is required.'

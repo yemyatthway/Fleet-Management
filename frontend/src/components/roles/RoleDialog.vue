@@ -18,8 +18,8 @@
           <input v-model.number="form.members" type="number" min="0" disabled />
         </div>
         <div class="field">
-          <label>Description</label>
-          <textarea v-model="form.description" rows="3" placeholder="Describe the role"></textarea>
+          <label class="required">Description</label>
+          <textarea v-model="form.description" rows="3" placeholder="Describe the role" required></textarea>
         </div>
         <div class="field">
           <label>Status</label>
@@ -98,6 +98,10 @@ const close = () => emit('close')
 const submit = () => {
   if (!form.name) {
     formError.value = 'Role name is required.'
+    return
+  }
+  if (!form.description) {
+    formError.value = 'Role description is required.'
     return
   }
   formError.value = ''

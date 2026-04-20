@@ -34,33 +34,14 @@
           </div>
           <div class="field full">
             <label class="required">NRC</label>
-            <div class="nrc-row">
-              <select v-model="form.nrcState" required>
-                <option v-for="code in nrcStateCodes" :key="code" :value="code">
-                  {{ code }}/
-                </option>
-              </select>
-              <select v-model="form.nrcTownship" required>
-                <option v-for="code in nrcTownships" :key="code" :value="code">
-                  {{ code }}
-                </option>
-              </select>
-              <select v-model="form.nrcType" required>
-                <option v-for="code in nrcTypes" :key="code" :value="code">
-                  ({{ code }})
-                </option>
-              </select>
-              <input
-                v-model="form.nrcSerial"
-                type="text"
-                inputmode="numeric"
-                pattern="\\d{6}"
-                maxlength="6"
-                placeholder="123456"
-                required
-              />
-            </div>
-            <div class="nrc-preview text-muted">NRC: {{ nrcPreview }}</div>
+            <input
+              v-model.trim="form.nrcNumber"
+              type="text"
+              placeholder="9/ZaYaTha/111111"
+              pattern="\\d{1,2}/[A-Za-z]+/\\d{6}"
+              required
+            />
+            <div class="field-hint text-muted">Example Format: 9/ZaYaTha/111111</div>
           </div>
           <div class="field">
             <label class="required">Email Address</label>
@@ -228,10 +209,7 @@ const internalOpen = computed({
 const form = reactive({
   name: '',
   employeeId: '',
-  nrcState: '12',
-  nrcTownship: 'ZaYaTha',
-  nrcType: 'N',
-  nrcSerial: '',
+  nrcNumber: '',
   email: '',
   role: defaultRole,
   status: 'Active',
@@ -269,10 +247,7 @@ const formError = ref('')
 const reset = () => {
   form.name = ''
   form.employeeId = ''
-  form.nrcState = '12'
-  form.nrcTownship = 'ZaYaTha'
-  form.nrcType = 'N'
-  form.nrcSerial = ''
+  form.nrcNumber = ''
   form.email = ''
   form.role = defaultRole
   form.status = 'Active'
@@ -316,7 +291,7 @@ const submit = () => {
     return
   }
   formError.value = ''
-  emit('add', { ...form, nrcNumber: nrcPreview.value })
+  emit('add', { ...form })
   reset()
 }
 
@@ -345,23 +320,8 @@ const goToStep = (target) => {
   formStep.value = target
 }
 
-const nrcStateCodes = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14']
-const nrcTownships = [
-  'ZaYaTha',
-  'KaMaNa',
-  'MaYaTa',
-  'PaKaNa',
-  'BaMaNa',
-  'DaPaYa',
-  'LaMaNa',
-  'SaKaNa'
-]
-const nrcTypes = ['N', 'E', 'P']
-
-const nrcPreview = computed(() => {
-  const serial = form.nrcSerial || '______'
-  return `${form.nrcState}/${form.nrcTownship}(${form.nrcType})${serial}`
-})
+const NRC_PATTERN = /^\d{1,2}\/[A-Za-z]+\/\d{6}$/
+const isValidNrc = (value) => NRC_PATTERN.test(value)
 
 const validate = () => {
   const step1 = validateStep(1)
@@ -377,7 +337,8 @@ const validateStep = (step) => {
   if (step === 1) {
     if (!form.name) return 'Full name is required.'
     if (!form.employeeId) return 'Employee ID is required.'
-    if (!form.nrcSerial || form.nrcSerial.length !== 6) return 'NRC serial must be 6 digits.'
+    if (!form.nrcNumber) return 'NRC is required.'
+    if (!isValidNrc(form.nrcNumber)) return 'NRC format must be like 9/ZaYaTha/111111.'
     if (!form.email) return 'Email is required.'
     if (!form.phone) return 'Phone number is required.'
     if (!form.role) return 'Role is required.'

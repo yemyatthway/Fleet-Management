@@ -46,18 +46,7 @@
   font-family: inherit;
 }
 
-.nrc-row {
-  display: grid;
-  grid-template-columns: 90px minmax(0, 1fr) 80px minmax(0, 1fr);
-  gap: 10px;
-  width: 100%;
-}
-
-.nrc-row > * {
-  min-width: 0;
-}
-
-.nrc-preview {
+.field-hint {
   margin-top: 6px;
   font-size: 12px;
 }
@@ -164,10 +153,6 @@
 
   .form-grid {
     grid-template-columns: 1fr;
-  }
-
-  .nrc-row {
-    grid-template-columns: 1fr 1fr;
   }
 
   .form-steps {
