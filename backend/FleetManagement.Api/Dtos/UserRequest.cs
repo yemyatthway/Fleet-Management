@@ -1,0 +1,26 @@
+namespace FleetManagement.Api.Dtos;
+
+public sealed record UserRequest(
+    string Name,
+    string EmployeeId,
+    string NrcNumber,
+    string Email,
+    string Role,
+    string Status,
+    string Phone,
+    string? Avatar,
+    string? NrcFront,
+    string? NrcBack,
+    string Department,
+    string Title,
+    string Location,
+    string Manager,
+    string? LicenseNumber,
+    string? LicenseClass,
+    DateOnly? LicenseExpiry,
+    string EmergencyContactName,
+    string EmergencyContactRelation,
+    string EmergencyContactPhone,
+    string Address,
+    bool TwoFactorEnabled,
+    string? Notes);

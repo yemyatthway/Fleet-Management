@@ -67,8 +67,15 @@
       </div>
 
       <div class="toolbar-count text-muted">
-        Showing {{ filteredUsers.length }} of {{ users.length }} users
+        {{ loadingUsers ? 'Loading users...' : `Showing ${filteredUsers.length} of ${users.length} users` }}
       </div>
+    </div>
+
+    <div v-if="pageError" class="page-error" role="alert">
+      <span>{{ pageError }}</span>
+      <button class="page-error-close" type="button" aria-label="Close error message" @click="pageError = ''">
+        <v-icon icon="mdi-close" size="18" />
+      </button>
     </div>
 
     <UserTable
@@ -112,14 +119,20 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import UserTable from "./UserTable.vue";
 import AddUserDialog from "./AddUserDialog.vue";
 import EditUserDialog from "./EditUserDialog.vue";
 import UserAvatarDialog from "./UserAvatarDialog.vue";
 import ConfirmDialog from "../common/ConfirmDialog.vue";
 import { roleNames } from "../../data/roles";
-import { users } from "../../data/users";
+import {
+  createUser,
+  deleteUser,
+  getUsers,
+  updateUser,
+  updateUserStatus,
+} from "../../services/usersApi";
 
 const ALL_ROLES_FILTER = "All";
 const ACTIVE_STATUS = "Active";
@@ -135,8 +148,6 @@ const SEARCHABLE_USER_FIELDS = [
   "title",
   "location",
 ];
-
-const todayIsoDate = () => new Date().toISOString().split("T")[0];
 
 const normalizeText = (value) => String(value ?? "").toLowerCase();
 
@@ -180,16 +191,38 @@ const countUsers = (userList) =>
 
 const findUserById = (id) => users.value.find((item) => item.id === id);
 
-const createUserRecord = (payload) => ({
-  ...payload,
-  id: String(users.value.length + 1),
-  joinDate: todayIsoDate(),
-  lastLogin: new Date().toISOString(),
+const toUserRequest = (payload) => ({
+  name: payload.name,
+  employeeId: payload.employeeId,
+  nrcNumber: payload.nrcNumber,
+  email: payload.email,
+  role: payload.role,
+  status: payload.status || ACTIVE_STATUS,
+  phone: payload.phone,
+  avatar: payload.avatar,
+  nrcFront: payload.nrcFront,
+  nrcBack: payload.nrcBack,
+  department: payload.department,
+  title: payload.title,
+  location: payload.location,
+  manager: payload.manager,
+  licenseNumber: payload.licenseNumber || null,
+  licenseClass: payload.licenseClass || null,
+  licenseExpiry: payload.licenseExpiry || null,
+  emergencyContactName: payload.emergencyContactName,
+  emergencyContactRelation: payload.emergencyContactRelation,
+  emergencyContactPhone: payload.emergencyContactPhone,
+  address: payload.address,
+  twoFactorEnabled: Boolean(payload.twoFactorEnabled),
+  notes: payload.notes || null,
 });
 
+const users = ref([]);
 const searchQuery = ref("");
 const debouncedQuery = useDebouncedRef(searchQuery);
 const roleFilter = ref(ALL_ROLES_FILTER);
+const pageError = ref("");
+const loadingUsers = ref(false);
 const dialogOpen = ref(false);
 const editOpen = ref(false);
 const selectedUser = ref(null);
@@ -220,9 +253,29 @@ const activeCount = computed(() => userStats.value.active);
 const driverCount = computed(() => userStats.value.drivers);
 const adminCount = computed(() => userStats.value.admins);
 
-const handleAdd = (payload) => {
-  users.value.push(createUserRecord(payload));
-  dialogOpen.value = false;
+const loadUsers = async () => {
+  loadingUsers.value = true;
+  pageError.value = "";
+
+  try {
+    users.value = await getUsers();
+  } catch (error) {
+    pageError.value = error.message;
+  } finally {
+    loadingUsers.value = false;
+  }
+};
+
+const handleAdd = async (payload) => {
+  pageError.value = "";
+
+  try {
+    const savedUser = await createUser(toUserRequest(payload));
+    users.value = [savedUser, ...users.value];
+    dialogOpen.value = false;
+  } catch (error) {
+    pageError.value = error.message;
+  }
 };
 
 const handleEdit = (id) => {
@@ -241,8 +294,8 @@ const openConfirm = ({ title, message, confirmText, tone, action }) => {
   confirmOpen.value = true;
 };
 
-const runConfirm = () => {
-  pendingAction.value();
+const runConfirm = async () => {
+  await pendingAction.value();
   confirmOpen.value = false;
 };
 
@@ -263,10 +316,17 @@ const handleToggle = (id) => {
     message: `This will mark ${user.name} as ${nextStatus.toLowerCase()}.`,
     confirmText: nextStatus,
     tone: "warning",
-    action: () => {
-      users.value = users.value.map((item) =>
-        item.id === id ? { ...item, status: nextStatus } : item,
-      );
+    action: async () => {
+      pageError.value = "";
+
+      try {
+        const savedUser = await updateUserStatus(id, nextStatus);
+        users.value = users.value.map((item) =>
+          item.id === id ? savedUser : item,
+        );
+      } catch (error) {
+        pageError.value = error.message;
+      }
     },
   });
 };
@@ -280,18 +340,34 @@ const handleDelete = (id) => {
     message: `This will permanently remove ${user.name}.`,
     confirmText: "Delete",
     tone: "danger",
-    action: () => {
-      users.value = users.value.filter((item) => item.id !== id);
+    action: async () => {
+      pageError.value = "";
+
+      try {
+        await deleteUser(id);
+        users.value = users.value.filter((item) => item.id !== id);
+      } catch (error) {
+        pageError.value = error.message;
+      }
     },
   });
 };
 
-const handleUpdate = (payload) => {
-  users.value = users.value.map((item) =>
-    item.id === payload.id ? { ...item, ...payload } : item,
-  );
-  editOpen.value = false;
+const handleUpdate = async (payload) => {
+  pageError.value = "";
+
+  try {
+    const savedUser = await updateUser(payload.id, toUserRequest(payload));
+    users.value = users.value.map((item) =>
+      item.id === savedUser.id ? savedUser : item,
+    );
+    editOpen.value = false;
+  } catch (error) {
+    pageError.value = error.message;
+  }
 };
+
+onMounted(loadUsers);
 </script>
 
 <style scoped src="./users_styles/UserManagementContent.css"></style>
