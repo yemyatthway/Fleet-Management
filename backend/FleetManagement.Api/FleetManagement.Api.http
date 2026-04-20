@@ -1,6 +1,17 @@
-@FleetManagement.Api_HostAddress = http://localhost:0
+@FleetManagement.Api_HostAddress = http://localhost:5215
 
-GET {{FleetManagement.Api_HostAddress}}/weatherforecast/
+GET {{FleetManagement.Api_HostAddress}}/api/roles/
 Accept: application/json
+
+###
+
+POST {{FleetManagement.Api_HostAddress}}/api/roles/
+Content-Type: application/json
+
+{
+  "name": "Supervisor",
+  "description": "Oversees daily fleet operations and team assignments.",
+  "status": "Active"
+}
 
 ###
