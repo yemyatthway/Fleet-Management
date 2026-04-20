@@ -1,0 +1,43 @@
+.dialog-card {
+  border-radius: 16px;
+  padding: 0;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--fleet-border);
+}
+
+.dialog-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.dialog-body {
+  padding: 20px 24px 24px;
+  display: grid;
+  place-items: center;
+}
+
+.avatar-preview {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 16px;
+  object-fit: cover;
+}
+
+.icon-button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+}
+
+.icon-button:hover {
+  background: #f1f5f9;
+}

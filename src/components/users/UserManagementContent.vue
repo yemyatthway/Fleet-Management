@@ -102,24 +102,12 @@
       @cancel="confirmOpen = false"
     />
 
-    <v-dialog v-model="avatarOpen" max-width="420">
-      <v-card class="dialog-card">
-        <div class="dialog-header">
-          <h2>{{ avatarName }}</h2>
-          <button class="icon-button" type="button" @click="avatarOpen = false">
-            <v-icon icon="mdi-close" />
-          </button>
-        </div>
-        <div class="dialog-body">
-          <img
-            v-if="avatarUrl"
-            class="avatar-preview"
-            :src="avatarUrl"
-            :alt="avatarName"
-          />
-        </div>
-      </v-card>
-    </v-dialog>
+    <UserAvatarDialog
+      :open="avatarOpen"
+      :name="avatarName"
+      :url="avatarUrl"
+      @update:open="avatarOpen = $event"
+    />
   </div>
 </template>
 
@@ -128,13 +116,80 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import UserTable from "./UserTable.vue";
 import AddUserDialog from "./AddUserDialog.vue";
 import EditUserDialog from "./EditUserDialog.vue";
+import UserAvatarDialog from "./UserAvatarDialog.vue";
 import ConfirmDialog from "../common/ConfirmDialog.vue";
 import { roleNames } from "../../data/roles";
 import { users } from "../../data/users";
 
+const ALL_ROLES_FILTER = "All";
+const ACTIVE_STATUS = "Active";
+const DISABLED_STATUS = "Disabled";
+const SEARCH_DELAY_MS = 350;
+const SEARCHABLE_USER_FIELDS = [
+  "name",
+  "email",
+  "nrcNumber",
+  "employeeId",
+  "phone",
+  "department",
+  "title",
+  "location",
+];
+
+const todayIsoDate = () => new Date().toISOString().split("T")[0];
+
+const normalizeText = (value) => String(value ?? "").toLowerCase();
+
+const matchesSearch = (item, fields, query) =>
+  !query || fields.some((field) => normalizeText(item[field]).includes(query));
+
+const useDebouncedRef = (source, delay = SEARCH_DELAY_MS) => {
+  const debounced = ref(source.value);
+  let timerId = null;
+
+  const clearTimer = () => {
+    if (timerId) clearTimeout(timerId);
+  };
+
+  watch(
+    source,
+    (value) => {
+      clearTimer();
+      timerId = setTimeout(() => {
+        debounced.value = value;
+      }, delay);
+    },
+    { immediate: true },
+  );
+
+  onBeforeUnmount(clearTimer);
+
+  return debounced;
+};
+
+const countUsers = (userList) =>
+  userList.reduce(
+    (stats, user) => {
+      if (user.status === ACTIVE_STATUS) stats.active += 1;
+      if (user.role === "Driver") stats.drivers += 1;
+      if (user.role === "Admin") stats.admins += 1;
+      return stats;
+    },
+    { active: 0, drivers: 0, admins: 0 },
+  );
+
+const findUserById = (id) => users.value.find((item) => item.id === id);
+
+const createUserRecord = (payload) => ({
+  ...payload,
+  id: String(users.value.length + 1),
+  joinDate: todayIsoDate(),
+  lastLogin: new Date().toISOString(),
+});
+
 const searchQuery = ref("");
-const debouncedQuery = ref("");
-const roleFilter = ref("All");
+const debouncedQuery = useDebouncedRef(searchQuery);
+const roleFilter = ref(ALL_ROLES_FILTER);
 const dialogOpen = ref(false);
 const editOpen = ref(false);
 const selectedUser = ref(null);
@@ -148,62 +203,30 @@ const avatarOpen = ref(false);
 const avatarUrl = ref("");
 const avatarName = ref("");
 
+const userStats = computed(() => countUsers(users.value));
+
 const filteredUsers = computed(() => {
-  const query = debouncedQuery.value.toLowerCase();
+  const query = normalizeText(debouncedQuery.value);
+
   return users.value.filter((user) => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(query) ||
-      user.email.toLowerCase().includes(query) ||
-      user.nrcNumber?.toLowerCase().includes(query) ||
-      user.employeeId?.toLowerCase().includes(query) ||
-      user.phone?.toLowerCase().includes(query) ||
-      user.department?.toLowerCase().includes(query) ||
-      user.title?.toLowerCase().includes(query) ||
-      user.location?.toLowerCase().includes(query);
     const matchesRole =
-      roleFilter.value === "All" || user.role === roleFilter.value;
-    return matchesSearch && matchesRole;
+      roleFilter.value === ALL_ROLES_FILTER || user.role === roleFilter.value;
+
+    return matchesRole && matchesSearch(user, SEARCHABLE_USER_FIELDS, query);
   });
 });
 
-let searchTimer = null;
-watch(
-  () => searchQuery.value,
-  (value) => {
-    if (searchTimer) clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      debouncedQuery.value = value;
-    }, 350);
-  },
-  { immediate: true },
-);
-
-onBeforeUnmount(() => {
-  if (searchTimer) clearTimeout(searchTimer);
-});
-
-const activeCount = computed(
-  () => users.value.filter((u) => u.status === "Active").length,
-);
-const driverCount = computed(
-  () => users.value.filter((u) => u.role === "Driver").length,
-);
-const adminCount = computed(
-  () => users.value.filter((u) => u.role === "Admin").length,
-);
+const activeCount = computed(() => userStats.value.active);
+const driverCount = computed(() => userStats.value.drivers);
+const adminCount = computed(() => userStats.value.admins);
 
 const handleAdd = (payload) => {
-  users.value.push({
-    ...payload,
-    id: String(users.value.length + 1),
-    joinDate: new Date().toISOString().split("T")[0],
-    lastLogin: new Date().toISOString(),
-  });
+  users.value.push(createUserRecord(payload));
   dialogOpen.value = false;
 };
 
 const handleEdit = (id) => {
-  const user = users.value.find((item) => item.id === id);
+  const user = findUserById(id);
   if (!user) return;
   selectedUser.value = { ...user };
   editOpen.value = true;
@@ -231,9 +254,10 @@ const openAvatar = (user) => {
 };
 
 const handleToggle = (id) => {
-  const user = users.value.find((item) => item.id === id);
+  const user = findUserById(id);
   if (!user) return;
-  const nextStatus = user.status === "Active" ? "Disabled" : "Active";
+  const nextStatus = user.status === ACTIVE_STATUS ? DISABLED_STATUS : ACTIVE_STATUS;
+
   openConfirm({
     title: `${nextStatus} User?`,
     message: `This will mark ${user.name} as ${nextStatus.toLowerCase()}.`,
@@ -248,8 +272,9 @@ const handleToggle = (id) => {
 };
 
 const handleDelete = (id) => {
-  const user = users.value.find((item) => item.id === id);
+  const user = findUserById(id);
   if (!user) return;
+
   openConfirm({
     title: "Delete User?",
     message: `This will permanently remove ${user.name}.`,
@@ -269,191 +294,4 @@ const handleUpdate = (payload) => {
 };
 </script>
 
-<style scoped>
-.user-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-}
-
-.stat-card {
-  padding: 16px;
-  border-radius: 14px;
-  border: 1px solid var(--fleet-border);
-  background: #fff;
-}
-
-.stat-card p {
-  margin: 0;
-  font-size: 13px;
-  color: var(--fleet-muted);
-}
-
-.stat-card h3 {
-  margin: 8px 0 0;
-  font-size: 22px;
-}
-
-.text-success {
-  color: var(--fleet-success);
-}
-
-.text-info {
-  color: var(--fleet-primary);
-}
-
-.text-purple {
-  color: #7c3aed;
-}
-
-.toolbar {
-  padding: 18px;
-}
-
-.toolbar-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.toolbar-search,
-.toolbar-filter {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--fleet-border);
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: #fff;
-  min-width: 260px;
-}
-
-.toolbar-search input,
-.toolbar-filter select {
-  border: none;
-  outline: none;
-  background: transparent;
-  font-size: 14px;
-  width: 100%;
-}
-
-.clear-button {
-  border: none;
-  background: transparent;
-  color: #94a3b8;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-}
-
-.clear-button:hover {
-  color: #475569;
-}
-
-.toolbar-filter select {
-  appearance: none;
-  cursor: pointer;
-}
-
-.toolbar-filter {
-  cursor: pointer;
-}
-
-.toolbar-search {
-  flex: 1;
-  min-width: 320px;
-}
-
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-@media (max-width: 720px) {
-  .toolbar-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .toolbar-search {
-    width: 100%;
-  }
-
-  .toolbar-actions {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .toolbar-filter {
-    width: 100%;
-  }
-
-  .primary-button {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-.primary-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: none;
-  border-radius: 12px;
-  padding: 10px 16px;
-  background: var(--fleet-primary);
-  color: #fff;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.primary-button:hover {
-  background: var(--fleet-primary-dark);
-}
-
-.dialog-card {
-  border-radius: 16px;
-  padding: 0;
-}
-
-.dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--fleet-border);
-}
-
-.dialog-header h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.dialog-body {
-  padding: 20px 24px 24px;
-  display: grid;
-  place-items: center;
-}
-
-.avatar-preview {
-  width: 100%;
-  max-width: 320px;
-  border-radius: 16px;
-  object-fit: cover;
-}
-
-.toolbar-count {
-  margin-top: 12px;
-  font-size: 13px;
-}
-</style>
+<style scoped src="./users_styles/UserManagementContent.css"></style>
