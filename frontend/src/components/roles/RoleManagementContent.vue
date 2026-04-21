@@ -10,7 +10,7 @@
     <div class="stats-grid">
       <div class="stat-card">
         <p>Total Roles</p>
-        <h3>{{ roles.length }}</h3>
+        <h3>{{ totalRoles }}</h3>
       </div>
       <div class="stat-card">
         <p>Assigned Users</p>
@@ -59,18 +59,27 @@
       </div>
 
       <div class="toolbar-count text-muted">
-        {{ loadingRoles ? 'Loading roles...' : `Showing ${filteredRoles.length} of ${roles.length} roles` }}
+        {{ loadingRoles ? 'Loading roles...' : `Showing ${roles.length} of ${totalRoles} roles` }}
       </div>
     </div>
 
-    <div v-if="pageError" class="page-error" role="alert">
-      <span>{{ pageError }}</span>
-      <button class="page-error-close" type="button" aria-label="Close error message" @click="pageError = ''">
-        <v-icon icon="mdi-close" size="18" />
-      </button>
-    </div>
+    <PageMessage
+      :tone="pageMessage.tone"
+      :title="pageMessage.title"
+      :message="pageMessage.message"
+      @close="clearPageMessage"
+    />
 
-    <RoleTable :roles="filteredRoles" @view="openMembers" @edit="openEdit" @remove="handleDelete" />
+    <RoleTable
+      :roles="roles"
+      :total="totalRoles"
+      :loading="loadingRoles"
+      :items-per-page="tableOptions.itemsPerPage"
+      @update:options="handleTableOptions"
+      @view="openMembers"
+      @edit="openEdit"
+      @remove="handleDelete"
+    />
 
     <RoleDialog
       :open="dialogOpen"
@@ -118,6 +127,7 @@ import RoleDialog from './RoleDialog.vue'
 import RoleMembersDialog from './RoleMembersDialog.vue'
 import MemberAvatarDialog from './MemberAvatarDialog.vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
+import PageMessage from '../common/PageMessage.vue'
 import {
   createRole,
   deleteRole,
@@ -128,6 +138,7 @@ import {
 
 const ALL_ROLES_FILTER = 'All'
 const SEARCH_DELAY_MS = 350
+const PAGE_MESSAGE_DURATION_MS = 5000
 
 const memberHeaders = [
   { title: 'Name', key: 'name' },
@@ -137,7 +148,6 @@ const memberHeaders = [
   { title: 'Joined', key: 'joinDate' }
 ]
 
-const SEARCHABLE_ROLE_FIELDS = ['name', 'description']
 const SEARCHABLE_MEMBER_FIELDS = ['name', 'email', 'phone']
 
 const normalizeText = (value) => String(value ?? '').toLowerCase()
@@ -179,7 +189,9 @@ const roles = ref([])
 const roleMembers = ref([])
 const activeTab = ref(ALL_ROLES_FILTER)
 const searchQuery = ref('')
-const pageError = ref('')
+const totalRoles = ref(0)
+const tableOptions = ref({ page: 1, itemsPerPage: 10 })
+const pageMessage = ref({ tone: 'info', title: '', message: '' })
 const loadingRoles = ref(false)
 const loadingMembers = ref(false)
 const dialogOpen = ref(false)
@@ -196,19 +208,12 @@ const memberSearch = ref('')
 const memberAvatarOpen = ref(false)
 const memberAvatarUrl = ref('')
 const memberAvatarName = ref('')
+let pageMessageTimerId = null
 
 const debouncedRoleQuery = useDebouncedRef(searchQuery)
 const debouncedMemberQuery = useDebouncedRef(memberSearch)
 
 const roleTabs = computed(() => [...new Set(roles.value.map((role) => role.name))])
-
-const filteredRoles = computed(() => {
-  const query = debouncedRoleQuery.value.toLowerCase()
-  return roles.value.filter((role) => {
-    const matchesTab = activeTab.value === ALL_ROLES_FILTER || role.name === activeTab.value
-    return matchesTab && matchesSearch(role, SEARCHABLE_ROLE_FIELDS, query)
-  })
-})
 
 const totalMembers = computed(() =>
   roles.value.reduce((total, role) => total + (role.members || 0), 0)
@@ -223,18 +228,54 @@ const filteredMembers = computed(() => {
   )
 })
 
+const clearPageMessage = () => {
+  if (pageMessageTimerId) {
+    clearTimeout(pageMessageTimerId)
+    pageMessageTimerId = null
+  }
+  pageMessage.value = { tone: 'info', title: '', message: '' }
+}
+
+const showPageMessage = ({ tone = 'info', title = '', message }) => {
+  if (pageMessageTimerId) clearTimeout(pageMessageTimerId)
+  pageMessage.value = { tone, title, message }
+  pageMessageTimerId = setTimeout(() => {
+    pageMessageTimerId = null
+    clearPageMessage()
+  }, PAGE_MESSAGE_DURATION_MS)
+}
+
 const loadRoles = async () => {
   loadingRoles.value = true
-  pageError.value = ''
+  clearPageMessage()
 
   try {
-    roles.value = await getRoles()
+    const result = await getRoles({
+      page: tableOptions.value.page,
+      pageSize: tableOptions.value.itemsPerPage,
+      search: debouncedRoleQuery.value
+    })
+    roles.value = result.items || []
+    totalRoles.value = result.total || 0
   } catch (error) {
-    pageError.value = error.message
+    showPageMessage({ tone: 'error', title: 'Could not load roles', message: error.message })
   } finally {
     loadingRoles.value = false
   }
 }
+
+const handleTableOptions = (options) => {
+  tableOptions.value = {
+    page: options.page || 1,
+    itemsPerPage: options.itemsPerPage || 10
+  }
+  loadRoles()
+}
+
+watch(debouncedRoleQuery, () => {
+  tableOptions.value.page = 1
+  loadRoles()
+})
 
 const openAdd = () => {
   dialogMode.value = 'add'
@@ -249,23 +290,29 @@ const openEdit = (role) => {
 }
 
 const handleSave = async (payload) => {
-  pageError.value = ''
+  clearPageMessage()
+  const isEdit = dialogMode.value === 'edit'
 
   try {
     const savedRole =
-      dialogMode.value === 'edit'
+      isEdit
         ? await updateRole(payload.id, toRoleRequest(payload))
         : await createRole(toRoleRequest(payload))
 
-    if (dialogMode.value === 'edit') {
+    if (isEdit) {
       roles.value = roles.value.map((role) => (role.id === savedRole.id ? savedRole : role))
     } else {
-      roles.value.unshift(savedRole)
+      await loadRoles()
     }
 
     dialogOpen.value = false
+    showPageMessage({
+      tone: 'success',
+      title: isEdit ? 'Role updated' : 'Role created',
+      message: `${savedRole.name} has been ${isEdit ? 'updated' : 'created'} successfully.`
+    })
   } catch (error) {
-    pageError.value = error.message
+    showPageMessage({ tone: 'error', title: 'Role was not saved', message: error.message })
   }
 }
 
@@ -275,12 +322,12 @@ const openMembers = async (role) => {
   roleMembers.value = []
   membersOpen.value = true
   loadingMembers.value = true
-  pageError.value = ''
+  clearPageMessage()
 
   try {
     roleMembers.value = await getRoleMembers(role.id)
   } catch (error) {
-    pageError.value = error.message
+    showPageMessage({ tone: 'error', title: 'Could not load members', message: error.message })
   } finally {
     loadingMembers.value = false
   }
@@ -307,13 +354,18 @@ const handleDelete = (role) => {
     confirmText: 'Delete',
     tone: 'danger',
     action: async () => {
-      pageError.value = ''
+      clearPageMessage()
 
       try {
         await deleteRole(role.id)
-        roles.value = roles.value.filter((item) => item.id !== role.id)
+        await loadRoles()
+        showPageMessage({
+          tone: 'warning',
+          title: 'Role deleted',
+          message: `${role.name} has been removed.`
+        })
       } catch (error) {
-        pageError.value = error.message
+        showPageMessage({ tone: 'error', title: 'Role was not deleted', message: error.message })
       }
     }
   })
@@ -327,6 +379,10 @@ const openMemberAvatar = (member) => {
 }
 
 onMounted(loadRoles)
+
+onBeforeUnmount(() => {
+  if (pageMessageTimerId) clearTimeout(pageMessageTimerId)
+})
 </script>
 
 <style scoped src="./roles_styles/RoleManagementContent.css"></style>

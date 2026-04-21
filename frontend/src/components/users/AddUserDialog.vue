@@ -38,7 +38,7 @@
               v-model.trim="form.nrcNumber"
               type="text"
               placeholder="9/ZaYaTha/111111"
-              pattern="\\d{1,2}/[A-Za-z]+/\\d{6}"
+              pattern="\d{1,2}/[A-Za-z]+/\d{6}"
               required
             />
             <div class="field-hint text-muted">Example Format: 9/ZaYaTha/111111</div>
@@ -49,12 +49,12 @@
           </div>
           <div class="field">
             <label class="required">Phone Number</label>
-            <input v-model="form.phone" type="tel" placeholder="+1 (555) 123-4567" required />
+            <input v-model.trim="form.phone" type="tel" placeholder="+1 (555) 123-4567" required />
           </div>
           <div class="field">
             <label class="required">Role</label>
             <select v-model="form.role" required>
-              <option v-for="role in roleNames" :key="role" :value="role">
+              <option v-for="role in roleOptions" :key="role" :value="role">
                 {{ role }}
               </option>
             </select>
@@ -75,11 +75,21 @@
           </div>
           <div class="field">
             <label class="required">Department</label>
-            <input v-model="form.department" type="text" placeholder="Dispatch" required />
+            <select v-model="form.department" required>
+              <option value="" disabled>Select department</option>
+              <option v-for="department in departmentChoices" :key="department" :value="department">
+                {{ department }}
+              </option>
+            </select>
           </div>
           <div class="field">
             <label class="required">Location / Depot</label>
-            <input v-model="form.location" type="text" placeholder="Central Hub" required />
+            <select v-model="form.location" required>
+              <option value="" disabled>Select location</option>
+              <option v-for="location in locationChoices" :key="location" :value="location">
+                {{ location }}
+              </option>
+            </select>
           </div>
           <div class="field">
             <label class="required">Manager</label>
@@ -110,7 +120,7 @@
           </div>
           <div class="field">
             <label class="required">Emergency Contact Phone</label>
-            <input v-model="form.emergencyContactPhone" type="tel" placeholder="+1 (555) 222-3344" required />
+            <input v-model.trim="form.emergencyContactPhone" type="tel" placeholder="+1 (555) 222-3344" required />
           </div>
           <div class="field">
             <label class="required">Address</label>
@@ -186,18 +196,34 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { roleNames } from '../../data/roles'
-
-const defaultRole = roleNames.includes('Driver') ? 'Driver' : roleNames[0] || 'Driver'
 
 const props = defineProps({
   open: {
     type: Boolean,
     default: false
+  },
+  roles: {
+    type: Array,
+    default: () => []
+  },
+  departments: {
+    type: Array,
+    default: () => []
+  },
+  locations: {
+    type: Array,
+    default: () => []
   }
 })
 
 const emit = defineEmits(['close', 'add'])
+
+const roleOptions = computed(() => props.roles.length ? props.roles : ['Driver'])
+const defaultRole = computed(() =>
+  roleOptions.value.includes('Driver') ? 'Driver' : roleOptions.value[0] || 'Driver'
+)
+const departmentChoices = computed(() => props.departments.length ? props.departments : [])
+const locationChoices = computed(() => props.locations.length ? props.locations : [])
 
 const internalOpen = computed({
   get: () => props.open,
@@ -211,7 +237,7 @@ const form = reactive({
   employeeId: '',
   nrcNumber: '',
   email: '',
-  role: defaultRole,
+  role: defaultRole.value,
   status: 'Active',
   phone: '',
   avatar: '',
@@ -249,7 +275,7 @@ const reset = () => {
   form.employeeId = ''
   form.nrcNumber = ''
   form.email = ''
-  form.role = defaultRole
+  form.role = defaultRole.value
   form.status = 'Active'
   form.phone = ''
   form.avatar = ''
@@ -280,6 +306,16 @@ watch(
   (value) => {
     if (value) reset()
   }
+)
+
+watch(
+  roleOptions,
+  (value) => {
+    if (!value.includes(form.role)) {
+      form.role = defaultRole.value
+    }
+  },
+  { immediate: true }
 )
 
 const close = () => emit('close')
@@ -321,7 +357,14 @@ const goToStep = (target) => {
 }
 
 const NRC_PATTERN = /^\d{1,2}\/[A-Za-z]+\/\d{6}$/
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+const PHONE_PATTERN = /^\+?[\d\s().-]{7,24}$/
 const isValidNrc = (value) => NRC_PATTERN.test(value)
+const isValidEmail = (value) => EMAIL_PATTERN.test(value)
+const isValidPhone = (value) => {
+  const digits = value.replace(/\D/g, '')
+  return PHONE_PATTERN.test(value) && digits.length >= 7 && digits.length <= 15
+}
 
 const validate = () => {
   const step1 = validateStep(1)
@@ -340,7 +383,9 @@ const validateStep = (step) => {
     if (!form.nrcNumber) return 'NRC is required.'
     if (!isValidNrc(form.nrcNumber)) return 'NRC format must be like 9/ZaYaTha/111111.'
     if (!form.email) return 'Email is required.'
+    if (!isValidEmail(form.email)) return 'Enter a valid email address.'
     if (!form.phone) return 'Phone number is required.'
+    if (!isValidPhone(form.phone)) return 'Enter a valid phone number.'
     if (!form.role) return 'Role is required.'
     return ''
   }
@@ -360,6 +405,7 @@ const validateStep = (step) => {
     if (!form.emergencyContactName) return 'Emergency contact name is required.'
     if (!form.emergencyContactRelation) return 'Emergency contact relation is required.'
     if (!form.emergencyContactPhone) return 'Emergency contact phone is required.'
+    if (!isValidPhone(form.emergencyContactPhone)) return 'Enter a valid emergency contact phone number.'
     if (!form.address) return 'Address is required.'
     if (!form.avatar) return 'Profile image is required.'
     if (!form.nrcFront) return 'NRC front image is required.'

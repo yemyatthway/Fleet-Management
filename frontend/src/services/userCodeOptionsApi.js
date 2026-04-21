@@ -6,7 +6,7 @@ const parseResponse = async (response) => {
 
   if (!response.ok) {
     const error = new Error(body?.message || `Request failed with status ${response.status}`)
-    console.error('[usersApi] request failed', { status: response.status, body })
+    console.error('[userCodeOptionsApi] request failed', { status: response.status, body })
     throw error
   }
 
@@ -25,7 +25,7 @@ const request = async (path, options = {}) => {
 
     return parseResponse(response)
   } catch (error) {
-    console.error('[usersApi] request error', { path, error })
+    console.error('[userCodeOptionsApi] request error', { path, error })
     throw error
   }
 }
@@ -39,27 +39,25 @@ const toQueryString = (params = {}) => {
   return value ? `?${value}` : ''
 }
 
-export const getUsers = (params = {}) => request(`/api/users${toQueryString(params)}`)
+export const getUserCodeOptions = (params = {}) => request(`/api/user-code-options${toQueryString(params)}`)
 
-export const createUser = (user) =>
-  request('/api/users', {
+export const getDepartmentOptions = () => request('/api/user-code-options/options?type=Department')
+
+export const getLocationOptions = () => request('/api/user-code-options/options?type=Location')
+
+export const createUserCodeOption = (payload) =>
+  request('/api/user-code-options', {
     method: 'POST',
-    body: JSON.stringify(user)
+    body: JSON.stringify(payload)
   })
 
-export const updateUser = (userId, user) =>
-  request(`/api/users/${userId}`, {
+export const updateUserCodeOption = (id, payload) =>
+  request(`/api/user-code-options/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(user)
+    body: JSON.stringify(payload)
   })
 
-export const updateUserStatus = (userId, status) =>
-  request(`/api/users/${userId}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status })
-  })
-
-export const deleteUser = (userId) =>
-  request(`/api/users/${userId}`, {
+export const deleteUserCodeOption = (id) =>
+  request(`/api/user-code-options/${id}`, {
     method: 'DELETE'
   })

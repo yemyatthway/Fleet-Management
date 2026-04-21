@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="open" max-width="420" @update:model-value="updateOpen">
+  <v-dialog :model-value="open" max-width="720" @update:model-value="updateOpen">
     <v-card class="dialog-card">
       <div class="dialog-header">
         <h2>{{ name }}</h2>

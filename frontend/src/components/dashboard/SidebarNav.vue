@@ -53,7 +53,7 @@
         <button
           type="button"
           class="nav-item nav-group-toggle"
-          :class="{ active: route.path.startsWith('/users') || route.path.startsWith('/roles') }"
+          :class="{ active: route.path.startsWith('/users') || route.path.startsWith('/roles') || route.path.startsWith('/user-code-setup') }"
           @click="userOpen = !userOpen"
         >
           <v-icon icon="mdi-account-group" size="20" />
@@ -104,7 +104,8 @@ const menuItems = [
 
 const userItems = [
   { icon: 'mdi-account-multiple', label: 'Users', path: '/users' },
-  { icon: 'mdi-shield-account', label: 'Roles', path: '/roles' }
+  { icon: 'mdi-shield-account', label: 'Roles', path: '/roles' },
+  { icon: 'mdi-table-cog', label: 'Code Setup', path: '/user-code-setup' }
 ]
 
 const maintenanceItems = [
@@ -114,7 +115,7 @@ const maintenanceItems = [
 ]
 
 const maintenanceOpen = ref(route.path.startsWith('/maintenance'))
-const userOpen = ref(route.path.startsWith('/users') || route.path.startsWith('/roles'))
+const userOpen = ref(route.path.startsWith('/users') || route.path.startsWith('/roles') || route.path.startsWith('/user-code-setup'))
 
 watch(
   () => route.path,
@@ -122,7 +123,7 @@ watch(
     if (path.startsWith('/maintenance')) {
       maintenanceOpen.value = true
     }
-    if (path.startsWith('/users') || path.startsWith('/roles')) {
+    if (path.startsWith('/users') || path.startsWith('/roles') || path.startsWith('/user-code-setup')) {
       userOpen.value = true
     }
   }

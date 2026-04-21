@@ -2,6 +2,8 @@ using FleetManagement.Api.Data;
 using FleetManagement.Api.Dtos;
 using FleetManagement.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using System.IO;
+using System.Net.Mail;
 using System.Text.RegularExpressions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,6 +28,7 @@ builder.Services.AddDbContext<FleetDbContext>(options =>
 
 var app = builder.Build();
 
+app.UseStaticFiles();
 app.UseCors("VueClient");
 
 if (app.Environment.IsDevelopment())
@@ -34,16 +37,30 @@ if (app.Environment.IsDevelopment())
     var db = scope.ServiceProvider.GetRequiredService<FleetDbContext>();
     await db.Database.EnsureCreatedAsync();
     await EnsureUserSchemaAsync(db);
+    await EnsureUserCodeOptionSchemaAsync(db);
     await SeedData.EnsureSeededAsync(db);
+    await MigrateUserImagesToFileStorageAsync(db, app.Environment);
 }
 
 var roles = app.MapGroup("/api/roles");
 
-roles.MapGet("/", async (FleetDbContext db) =>
+roles.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null) =>
 {
-    var items = await db.Roles
-        .AsNoTracking()
+    page = Math.Max(page, 1);
+    pageSize = Math.Clamp(pageSize, 1, 100);
+    var query = db.Roles.AsNoTracking();
+
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        var term = search.Trim();
+        query = query.Where(role => role.Name.Contains(term) || role.Description.Contains(term));
+    }
+
+    var total = await query.CountAsync();
+    var items = await query
         .OrderBy(role => role.Name)
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
         .Select(role => new RoleDto(
             role.Id,
             role.Name,
@@ -54,7 +71,7 @@ roles.MapGet("/", async (FleetDbContext db) =>
             role.Users.Count))
         .ToListAsync();
 
-    return Results.Ok(items);
+    return Results.Ok(new PagedResult<RoleDto>(items, total, page, pageSize));
 });
 
 roles.MapGet("/{id:int}", async (int id, FleetDbContext db) =>
@@ -75,7 +92,18 @@ roles.MapGet("/{id:int}", async (int id, FleetDbContext db) =>
     return role is null ? Results.NotFound() : Results.Ok(role);
 });
 
-roles.MapGet("/{id:int}/members", async (int id, FleetDbContext db) =>
+roles.MapGet("/options", async (FleetDbContext db) =>
+{
+    var items = await db.Roles
+        .AsNoTracking()
+        .OrderBy(role => role.Name)
+        .Select(role => role.Name)
+        .ToListAsync();
+
+    return Results.Ok(items);
+});
+
+roles.MapGet("/{id:int}/members", async (int id, FleetDbContext db, HttpContext httpContext) =>
 {
     var roleExists = await db.Roles.AnyAsync(role => role.Id == id);
     if (!roleExists) return Results.NotFound();
@@ -84,7 +112,7 @@ roles.MapGet("/{id:int}/members", async (int id, FleetDbContext db) =>
         .AsNoTracking()
         .Where(user => user.RoleId == id)
         .OrderBy(user => user.Name)
-        .Select(user => new RoleMemberDto(
+        .Select(user => new RoleMemberListItem(
             user.Id,
             user.Name,
             user.Email,
@@ -94,7 +122,14 @@ roles.MapGet("/{id:int}/members", async (int id, FleetDbContext db) =>
             user.Avatar))
         .ToListAsync();
 
-    return Results.Ok(members);
+    return Results.Ok(members.Select(member => new RoleMemberDto(
+        member.Id,
+        member.Name,
+        member.Email,
+        member.Phone,
+        member.Status,
+        member.JoinDate,
+        ResolveStoredImageUrl(httpContext, member.Avatar, member.Id, "avatar"))));
 });
 
 roles.MapPost("/", async (RoleRequest request, FleetDbContext db) =>
@@ -174,36 +209,313 @@ roles.MapDelete("/{id:int}", async (int id, FleetDbContext db) =>
     return Results.NoContent();
 });
 
-var users = app.MapGroup("/api/users");
+var userCodeOptions = app.MapGroup("/api/user-code-options");
 
-users.MapGet("/", async (FleetDbContext db) =>
+userCodeOptions.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? type = null) =>
 {
-    var userItems = await db.Users
-        .AsNoTracking()
-        .Include(user => user.Role)
-        .OrderBy(user => user.Name)
+    page = Math.Max(page, 1);
+    pageSize = Math.Clamp(pageSize, 1, 100);
+    var query = db.UserCodeOptions.AsNoTracking();
+
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        var term = search.Trim();
+        query = query.Where(option =>
+            option.Name.Contains(term) ||
+            (option.Description != null && option.Description.Contains(term)) ||
+            option.Type.Contains(term));
+    }
+
+    if (!string.IsNullOrWhiteSpace(type) && type != "All")
+    {
+        var normalizedType = NormalizeUserCodeOptionType(type);
+        if (normalizedType is null) return Results.BadRequest(new { message = "Type must be Department or Location." });
+        query = query.Where(option => option.Type == normalizedType);
+    }
+
+    var total = await query.CountAsync();
+    var items = await query
+        .OrderBy(option => option.Type)
+        .ThenBy(option => option.Name)
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
+        .Select(option => new UserCodeOptionDto(
+            option.Id,
+            option.Type,
+            option.Name,
+            option.Description,
+            option.Status,
+            option.CreatedAt,
+            option.UpdatedAt))
         .ToListAsync();
 
-    return Results.Ok(userItems.Select(ToUserDto));
+    return Results.Ok(new PagedResult<UserCodeOptionDto>(items, total, page, pageSize));
 });
 
-users.MapGet("/{id:int}", async (int id, FleetDbContext db) =>
+userCodeOptions.MapGet("/options", async (FleetDbContext db, string? type = null) =>
+{
+    var query = db.UserCodeOptions.AsNoTracking().Where(option => option.Status == "Active");
+
+    if (!string.IsNullOrWhiteSpace(type))
+    {
+        var normalizedType = NormalizeUserCodeOptionType(type);
+        if (normalizedType is null) return Results.BadRequest(new { message = "Type must be Department or Location." });
+        query = query.Where(option => option.Type == normalizedType);
+    }
+
+    var items = await query
+        .OrderBy(option => option.Name)
+        .Select(option => option.Name)
+        .ToListAsync();
+
+    return Results.Ok(items);
+});
+
+userCodeOptions.MapPost("/", async (UserCodeOptionRequest request, FleetDbContext db) =>
+{
+    var validationError = ValidateUserCodeOptionRequest(request);
+    if (validationError is not null) return Results.BadRequest(new { message = validationError });
+
+    var normalizedType = NormalizeUserCodeOptionType(request.Type)!;
+    var normalizedName = request.Name.Trim();
+
+    var duplicateExists = await db.UserCodeOptions.AnyAsync(option => option.Type == normalizedType && option.Name == normalizedName);
+    if (duplicateExists) return Results.Conflict(new { message = $"{normalizedType} already exists." });
+
+    var option = new UserCodeOption
+    {
+        Type = normalizedType,
+        Name = normalizedName,
+        Description = NormalizeOptional(request.Description),
+        Status = request.Status.Trim(),
+        CreatedAt = DateTimeOffset.UtcNow
+    };
+
+    db.UserCodeOptions.Add(option);
+    await db.SaveChangesAsync();
+
+    return Results.Created($"/api/user-code-options/{option.Id}", new UserCodeOptionDto(
+        option.Id,
+        option.Type,
+        option.Name,
+        option.Description,
+        option.Status,
+        option.CreatedAt,
+        option.UpdatedAt));
+});
+
+userCodeOptions.MapPut("/{id:int}", async (int id, UserCodeOptionRequest request, FleetDbContext db) =>
+{
+    var validationError = ValidateUserCodeOptionRequest(request);
+    if (validationError is not null) return Results.BadRequest(new { message = validationError });
+
+    var option = await db.UserCodeOptions.FindAsync(id);
+    if (option is null) return Results.NotFound();
+
+    var normalizedType = NormalizeUserCodeOptionType(request.Type)!;
+    var normalizedName = request.Name.Trim();
+
+    var duplicateExists = await db.UserCodeOptions.AnyAsync(item => item.Id != id && item.Type == normalizedType && item.Name == normalizedName);
+    if (duplicateExists) return Results.Conflict(new { message = $"{normalizedType} already exists." });
+
+    option.Type = normalizedType;
+    option.Name = normalizedName;
+    option.Description = NormalizeOptional(request.Description);
+    option.Status = request.Status.Trim();
+    option.UpdatedAt = DateTimeOffset.UtcNow;
+
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new UserCodeOptionDto(
+        option.Id,
+        option.Type,
+        option.Name,
+        option.Description,
+        option.Status,
+        option.CreatedAt,
+        option.UpdatedAt));
+});
+
+userCodeOptions.MapDelete("/{id:int}", async (int id, FleetDbContext db) =>
+{
+    var option = await db.UserCodeOptions.FindAsync(id);
+    if (option is null) return Results.NotFound();
+
+    var isInUse = option.Type switch
+    {
+        "Department" => await db.Users.AnyAsync(user => user.Department == option.Name),
+        "Location" => await db.Users.AnyAsync(user => user.Location == option.Name),
+        _ => false
+    };
+
+    if (isInUse)
+    {
+        return Results.Conflict(new { message = $"Cannot delete {option.Type.ToLowerInvariant()} while it is assigned to users." });
+    }
+
+    db.UserCodeOptions.Remove(option);
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
+});
+
+var users = app.MapGroup("/api/users");
+
+users.MapGet("/", async (FleetDbContext db, HttpContext httpContext, int page = 1, int pageSize = 10, string? search = null, string? role = null) =>
+{
+    page = Math.Max(page, 1);
+    pageSize = Math.Clamp(pageSize, 1, 100);
+    var query = db.Users.AsNoTracking();
+
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        var term = search.Trim();
+        query = query.Where(user =>
+            user.Name.Contains(term) ||
+            user.Email.Contains(term) ||
+            user.NrcNumber.Contains(term) ||
+            user.EmployeeId.Contains(term) ||
+            user.Phone.Contains(term) ||
+            user.Department.Contains(term) ||
+            user.Title.Contains(term) ||
+            user.Location.Contains(term));
+    }
+
+    if (!string.IsNullOrWhiteSpace(role) && role != "All")
+    {
+        var roleName = role.Trim();
+        query = query.Where(user => user.Role!.Name == roleName);
+    }
+
+    var total = await query.CountAsync();
+    var stats = await db.Users
+        .AsNoTracking()
+        .GroupBy(_ => 1)
+        .Select(group => new UserStatsDto(
+            group.Count(),
+            group.Count(user => user.Status == "Active"),
+            group.Count(user => user.Role!.Name == "Driver"),
+            group.Count(user => user.Role!.Name == "Admin")))
+        .FirstOrDefaultAsync() ?? new UserStatsDto(0, 0, 0, 0);
+
+    var userItems = await query
+        .OrderBy(user => user.Name)
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
+        .Select(user => new UserListItem(
+            user.Id,
+            user.Name,
+            user.EmployeeId,
+            user.NrcNumber,
+            user.Email,
+            user.Role!.Name,
+            user.Status,
+            user.Phone,
+            user.Avatar,
+            user.NrcFront,
+            user.NrcBack,
+            user.Department,
+            user.Title,
+            user.Location,
+            user.Manager,
+            user.LicenseNumber,
+            user.LicenseClass,
+            user.LicenseExpiry,
+            user.EmergencyContactName,
+            user.EmergencyContactRelation,
+            user.EmergencyContactPhone,
+            user.Address,
+            user.LastLogin,
+            user.TwoFactorEnabled,
+            user.Notes,
+            user.JoinDate))
+        .ToListAsync();
+
+    return Results.Ok(new UserPageDto(userItems.Select(user => ToUserListDto(user, httpContext)).ToList(), total, page, pageSize, stats));
+});
+
+users.MapGet("/{id:int}", async (int id, FleetDbContext db, HttpContext httpContext) =>
 {
     var user = await db.Users
         .AsNoTracking()
-        .Include(item => item.Role)
-        .FirstOrDefaultAsync(item => item.Id == id);
+        .Where(item => item.Id == id)
+        .Select(item => new UserListItem(
+            item.Id,
+            item.Name,
+            item.EmployeeId,
+            item.NrcNumber,
+            item.Email,
+            item.Role!.Name,
+            item.Status,
+            item.Phone,
+            item.Avatar,
+            item.NrcFront,
+            item.NrcBack,
+            item.Department,
+            item.Title,
+            item.Location,
+            item.Manager,
+            item.LicenseNumber,
+            item.LicenseClass,
+            item.LicenseExpiry,
+            item.EmergencyContactName,
+            item.EmergencyContactRelation,
+            item.EmergencyContactPhone,
+            item.Address,
+            item.LastLogin,
+            item.TwoFactorEnabled,
+            item.Notes,
+            item.JoinDate))
+        .FirstOrDefaultAsync();
 
-    return user is null ? Results.NotFound() : Results.Ok(ToUserDto(user));
+    return user is null ? Results.NotFound() : Results.Ok(ToUserListDto(user, httpContext));
 });
 
-users.MapPost("/", async (UserRequest request, FleetDbContext db) =>
+users.MapGet("/{id:int}/images/{kind}", async (int id, string kind, FleetDbContext db, HttpContext httpContext) =>
+{
+    if (!IsSupportedImageKind(kind))
+    {
+        return Results.BadRequest(new { message = "Image kind must be avatar, nrc-front, or nrc-back." });
+    }
+
+    IQueryable<string?> imageQuery = kind switch
+    {
+        "avatar" => db.Users.AsNoTracking().Where(user => user.Id == id).Select(user => user.Avatar),
+        "nrc-front" => db.Users.AsNoTracking().Where(user => user.Id == id).Select(user => user.NrcFront),
+        "nrc-back" => db.Users.AsNoTracking().Where(user => user.Id == id).Select(user => user.NrcBack),
+        _ => throw new InvalidOperationException("Unsupported image kind.")
+    };
+
+    var image = await imageQuery.FirstOrDefaultAsync();
+    if (image is null) return Results.NotFound();
+
+    if (IsUploadPath(image))
+    {
+        return Results.Redirect(ToAbsoluteUrl(httpContext, image));
+    }
+
+    if (Uri.TryCreate(image, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
+    {
+        return Results.Redirect(image);
+    }
+
+    var parsedImage = ParseDataUri(image);
+    if (parsedImage is null) return Results.NotFound();
+
+    httpContext.Response.Headers.CacheControl = "public,max-age=3600";
+    return Results.File(parsedImage.Value.Bytes, parsedImage.Value.ContentType);
+});
+
+users.MapPost("/", async (UserRequest request, FleetDbContext db, HttpContext httpContext, IWebHostEnvironment environment) =>
 {
     var validationError = ValidateUserRequest(request);
     if (validationError is not null) return Results.BadRequest(new { message = validationError });
 
     var role = await FindRoleByNameAsync(request.Role, db);
     if (role is null) return Results.BadRequest(new { message = "Selected role does not exist." });
+
+    var userCodeOptionError = await ValidateUserCodeSelectionsAsync(request, db);
+    if (userCodeOptionError is not null) return Results.BadRequest(new { message = userCodeOptionError });
 
     var duplicateError = await ValidateUniqueUserFieldsAsync(request, null, db);
     if (duplicateError is not null) return Results.Conflict(new { message = duplicateError });
@@ -218,9 +530,6 @@ users.MapPost("/", async (UserRequest request, FleetDbContext db) =>
         Status = request.Status.Trim(),
         JoinDate = DateOnly.FromDateTime(DateTime.UtcNow),
         LastLogin = DateTimeOffset.UtcNow,
-        Avatar = NormalizeOptional(request.Avatar),
-        NrcFront = NormalizeOptional(request.NrcFront),
-        NrcBack = NormalizeOptional(request.NrcBack),
         Department = request.Department.Trim(),
         Title = request.Title.Trim(),
         Location = request.Location.Trim(),
@@ -241,10 +550,17 @@ users.MapPost("/", async (UserRequest request, FleetDbContext db) =>
     db.Users.Add(user);
     await db.SaveChangesAsync();
 
-    return Results.Created($"/api/users/{user.Id}", ToUserDto(user));
+    user.Avatar = await SaveImageFieldAsync(environment, user.Id, "avatar", request.Avatar);
+    user.NrcFront = await SaveImageFieldAsync(environment, user.Id, "nrc-front", request.NrcFront);
+    user.NrcBack = await SaveImageFieldAsync(environment, user.Id, "nrc-back", request.NrcBack);
+    await db.SaveChangesAsync();
+
+    user.Role = role;
+
+    return Results.Created($"/api/users/{user.Id}", ToUserEntityDto(user, httpContext));
 });
 
-users.MapPut("/{id:int}", async (int id, UserRequest request, FleetDbContext db) =>
+users.MapPut("/{id:int}", async (int id, UserRequest request, FleetDbContext db, HttpContext httpContext, IWebHostEnvironment environment) =>
 {
     var validationError = ValidateUserRequest(request);
     if (validationError is not null) return Results.BadRequest(new { message = validationError });
@@ -257,6 +573,9 @@ users.MapPut("/{id:int}", async (int id, UserRequest request, FleetDbContext db)
     var role = await FindRoleByNameAsync(request.Role, db);
     if (role is null) return Results.BadRequest(new { message = "Selected role does not exist." });
 
+    var userCodeOptionError = await ValidateUserCodeSelectionsAsync(request, db);
+    if (userCodeOptionError is not null) return Results.BadRequest(new { message = userCodeOptionError });
+
     var duplicateError = await ValidateUniqueUserFieldsAsync(request, id, db);
     if (duplicateError is not null) return Results.Conflict(new { message = duplicateError });
 
@@ -266,9 +585,9 @@ users.MapPut("/{id:int}", async (int id, UserRequest request, FleetDbContext db)
     user.Email = request.Email.Trim();
     user.Phone = request.Phone.Trim();
     user.Status = request.Status.Trim();
-    user.Avatar = NormalizeOptional(request.Avatar);
-    user.NrcFront = NormalizeOptional(request.NrcFront);
-    user.NrcBack = NormalizeOptional(request.NrcBack);
+    user.Avatar = await SaveOrPreserveImageFieldAsync(environment, user.Avatar, request.Avatar, id, "avatar");
+    user.NrcFront = await SaveOrPreserveImageFieldAsync(environment, user.NrcFront, request.NrcFront, id, "nrc-front");
+    user.NrcBack = await SaveOrPreserveImageFieldAsync(environment, user.NrcBack, request.NrcBack, id, "nrc-back");
     user.Department = request.Department.Trim();
     user.Title = request.Title.Trim();
     user.Location = request.Location.Trim();
@@ -287,10 +606,10 @@ users.MapPut("/{id:int}", async (int id, UserRequest request, FleetDbContext db)
 
     await db.SaveChangesAsync();
 
-    return Results.Ok(ToUserDto(user));
+    return Results.Ok(ToUserEntityDto(user, httpContext));
 });
 
-users.MapPatch("/{id:int}/status", async (int id, UserStatusRequest request, FleetDbContext db) =>
+users.MapPatch("/{id:int}/status", async (int id, UserStatusRequest request, FleetDbContext db, HttpContext httpContext) =>
 {
     var status = request.Status.Trim();
     if (status is not ("Active" or "Disabled"))
@@ -306,7 +625,7 @@ users.MapPatch("/{id:int}/status", async (int id, UserStatusRequest request, Fle
     user.Status = status;
     await db.SaveChangesAsync();
 
-    return Results.Ok(ToUserDto(user));
+    return Results.Ok(ToUserEntityDto(user, httpContext));
 });
 
 users.MapDelete("/{id:int}", async (int id, FleetDbContext db) =>
@@ -322,6 +641,31 @@ users.MapDelete("/{id:int}", async (int id, FleetDbContext db) =>
 
 app.Run();
 
+static string? ValidateUserCodeOptionRequest(UserCodeOptionRequest request)
+{
+    var normalizedType = NormalizeUserCodeOptionType(request.Type);
+    if (normalizedType is null) return "Type must be Department or Location.";
+    if (string.IsNullOrWhiteSpace(request.Name)) return $"{normalizedType} name is required.";
+    if (string.IsNullOrWhiteSpace(request.Status)) return $"{normalizedType} status is required.";
+
+    var status = request.Status.Trim();
+    return status is "Active" or "Disabled"
+        ? null
+        : $"{normalizedType} status must be Active or Disabled.";
+}
+
+static string? NormalizeUserCodeOptionType(string? value)
+{
+    var normalized = value?.Trim();
+    return normalized switch
+    {
+        "Department" => "Department",
+        "Location" => "Location",
+        "Location / Depot" => "Location",
+        _ => null
+    };
+}
+
 static string? ValidateRoleRequest(RoleRequest request)
 {
     if (string.IsNullOrWhiteSpace(request.Name)) return "Role name is required.";
@@ -334,7 +678,35 @@ static string? ValidateRoleRequest(RoleRequest request)
         : "Role status must be Active or Disabled.";
 }
 
-static UserDto ToUserDto(User user) => new(
+static UserDto ToUserListDto(UserListItem user, HttpContext httpContext) => new(
+    user.Id,
+    user.Name,
+    user.EmployeeId,
+    user.NrcNumber,
+    user.Email,
+    user.Role,
+    user.Status,
+    user.Phone,
+    ResolveStoredImageUrl(httpContext, user.Avatar, user.Id, "avatar"),
+    ResolveStoredImageUrl(httpContext, user.NrcFront, user.Id, "nrc-front"),
+    ResolveStoredImageUrl(httpContext, user.NrcBack, user.Id, "nrc-back"),
+    user.Department,
+    user.Title,
+    user.Location,
+    user.Manager,
+    user.LicenseNumber,
+    user.LicenseClass,
+    user.LicenseExpiry,
+    user.EmergencyContactName,
+    user.EmergencyContactRelation,
+    user.EmergencyContactPhone,
+    user.Address,
+    user.LastLogin,
+    user.TwoFactorEnabled,
+    user.Notes,
+    user.JoinDate);
+
+static UserDto ToUserEntityDto(User user, HttpContext httpContext) => new(
     user.Id,
     user.Name,
     user.EmployeeId,
@@ -343,9 +715,9 @@ static UserDto ToUserDto(User user) => new(
     user.Role?.Name ?? "",
     user.Status,
     user.Phone,
-    user.Avatar,
-    user.NrcFront,
-    user.NrcBack,
+    ResolveStoredImageUrl(httpContext, user.Avatar, user.Id, "avatar"),
+    ResolveStoredImageUrl(httpContext, user.NrcFront, user.Id, "nrc-front"),
+    ResolveStoredImageUrl(httpContext, user.NrcBack, user.Id, "nrc-back"),
     user.Department,
     user.Title,
     user.Location,
@@ -368,24 +740,51 @@ static async Task<Role?> FindRoleByNameAsync(string roleName, FleetDbContext db)
     return await db.Roles.FirstOrDefaultAsync(role => role.Name == name);
 }
 
+static async Task<string?> ValidateUserCodeSelectionsAsync(UserRequest request, FleetDbContext db)
+{
+    var department = request.Department.Trim();
+    var location = request.Location.Trim();
+
+    var availableOptions = await db.UserCodeOptions
+        .AsNoTracking()
+        .Where(option =>
+            option.Status == "Active" &&
+            ((option.Type == "Department" && option.Name == department) ||
+             (option.Type == "Location" && option.Name == location)))
+        .Select(option => new { option.Type, option.Name })
+        .ToListAsync();
+
+    var hasDepartment = availableOptions.Any(option => option.Type == "Department" && option.Name == department);
+    if (!hasDepartment) return "Selected department does not exist in code setup.";
+
+    var hasLocation = availableOptions.Any(option => option.Type == "Location" && option.Name == location);
+    if (!hasLocation) return "Selected location does not exist in code setup.";
+
+    return null;
+}
+
 static async Task<string?> ValidateUniqueUserFieldsAsync(UserRequest request, int? userId, FleetDbContext db)
 {
     var employeeId = request.EmployeeId.Trim();
     var nrcNumber = request.NrcNumber.Trim();
     var email = request.Email.Trim();
 
-    var exists = await db.Users.AnyAsync(user =>
+    var duplicate = await db.Users
+        .AsNoTracking()
+        .Where(user =>
         (!userId.HasValue || user.Id != userId.Value) &&
-        (user.EmployeeId == employeeId || user.NrcNumber == nrcNumber || user.Email == email));
+        (user.EmployeeId == employeeId || user.NrcNumber == nrcNumber || user.Email == email))
+        .Select(user => new { user.EmployeeId, user.NrcNumber, user.Email })
+        .FirstOrDefaultAsync();
 
-    if (!exists) return null;
+    if (duplicate is null) return null;
 
-    if (await db.Users.AnyAsync(user => (!userId.HasValue || user.Id != userId.Value) && user.EmployeeId == employeeId))
+    if (duplicate.EmployeeId == employeeId)
     {
         return "Employee ID already exists.";
     }
 
-    if (await db.Users.AnyAsync(user => (!userId.HasValue || user.Id != userId.Value) && user.NrcNumber == nrcNumber))
+    if (duplicate.NrcNumber == nrcNumber)
     {
         return "NRC number already exists.";
     }
@@ -403,7 +802,9 @@ static string? ValidateUserRequest(UserRequest request)
         return "NRC format must be like 9/ZaYaTha/111111.";
     }
     if (string.IsNullOrWhiteSpace(request.Email)) return "Email is required.";
+    if (!IsValidEmail(request.Email)) return "Enter a valid email address.";
     if (string.IsNullOrWhiteSpace(request.Phone)) return "Phone number is required.";
+    if (!IsValidPhone(request.Phone)) return "Enter a valid phone number.";
     if (string.IsNullOrWhiteSpace(request.Role)) return "Role is required.";
     if (request.Status.Trim() is not ("Active" or "Disabled")) return "User status must be Active or Disabled.";
     if (string.IsNullOrWhiteSpace(request.Title)) return "Job title is required.";
@@ -421,6 +822,7 @@ static string? ValidateUserRequest(UserRequest request)
     if (string.IsNullOrWhiteSpace(request.EmergencyContactName)) return "Emergency contact name is required.";
     if (string.IsNullOrWhiteSpace(request.EmergencyContactRelation)) return "Emergency contact relation is required.";
     if (string.IsNullOrWhiteSpace(request.EmergencyContactPhone)) return "Emergency contact phone is required.";
+    if (!IsValidPhone(request.EmergencyContactPhone)) return "Enter a valid emergency contact phone number.";
     if (string.IsNullOrWhiteSpace(request.Address)) return "Address is required.";
     if (string.IsNullOrWhiteSpace(request.Avatar)) return "Profile image is required.";
     if (string.IsNullOrWhiteSpace(request.NrcFront)) return "NRC front image is required.";
@@ -434,9 +836,214 @@ static string? NormalizeOptional(string? value)
     return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
+static bool IsValidEmail(string value)
+{
+    try
+    {
+        var trimmed = value.Trim();
+        var address = new MailAddress(trimmed);
+        return address.Address == trimmed && address.Host.Contains('.');
+    }
+    catch (FormatException)
+    {
+        return false;
+    }
+}
+
+static bool IsValidPhone(string value)
+{
+    var trimmed = value.Trim();
+    var digitCount = trimmed.Count(char.IsDigit);
+    return digitCount is >= 7 and <= 15 && Regex.IsMatch(trimmed, @"^\+?[\d\s().-]{7,24}$");
+}
+
+static async Task<string?> SaveOrPreserveImageFieldAsync(
+    IWebHostEnvironment environment,
+    string? currentValue,
+    string? requestValue,
+    int userId,
+    string kind)
+{
+    var normalized = NormalizeOptional(requestValue);
+    if (IsApiImageUrl(normalized, userId, kind) || normalized == currentValue)
+    {
+        return currentValue;
+    }
+
+    return await SaveImageFieldAsync(environment, userId, kind, normalized);
+}
+
+static async Task<string?> SaveImageFieldAsync(IWebHostEnvironment environment, int userId, string kind, string? value)
+{
+    var normalized = NormalizeOptional(value);
+    if (normalized is null) return null;
+
+    if (IsUploadPath(normalized) || IsHttpUrl(normalized))
+    {
+        return normalized;
+    }
+
+    var parsedImage = ParseDataUri(normalized);
+    if (parsedImage is null)
+    {
+        return normalized;
+    }
+
+    var extension = ExtensionForContentType(parsedImage.Value.ContentType);
+    var uploadDirectory = Path.Combine(UploadRoot(environment), userId.ToString());
+    Directory.CreateDirectory(uploadDirectory);
+
+    DeleteExistingImageFiles(uploadDirectory, kind);
+
+    var fileName = $"{kind}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{extension}";
+    var filePath = Path.Combine(uploadDirectory, fileName);
+    await File.WriteAllBytesAsync(filePath, parsedImage.Value.Bytes);
+
+    return $"/uploads/users/{userId}/{fileName}";
+}
+
+static bool IsApiImageUrl(string? value, int userId, string kind)
+{
+    return value?.Contains($"/api/users/{userId}/images/{kind}", StringComparison.OrdinalIgnoreCase) == true;
+}
+
+static bool IsSupportedImageKind(string kind)
+{
+    return kind is "avatar" or "nrc-front" or "nrc-back";
+}
+
+static bool IsUploadPath(string value)
+{
+    return value.StartsWith("/uploads/users/", StringComparison.OrdinalIgnoreCase);
+}
+
+static bool IsHttpUrl(string value)
+{
+    return Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https";
+}
+
+static string? ResolveStoredImageUrl(HttpContext httpContext, string? value, int userId, string kind)
+{
+    var normalized = NormalizeOptional(value);
+    if (normalized is null) return null;
+    if (IsUploadPath(normalized)) return ToAbsoluteUrl(httpContext, normalized);
+    if (IsHttpUrl(normalized)) return normalized;
+    return $"{httpContext.Request.Scheme}://{httpContext.Request.Host}/api/users/{userId}/images/{kind}";
+}
+
+static string ToAbsoluteUrl(HttpContext httpContext, string relativePath)
+{
+    return $"{httpContext.Request.Scheme}://{httpContext.Request.Host}{relativePath}";
+}
+
+static string UploadRoot(IWebHostEnvironment environment)
+{
+    var webRoot = environment.WebRootPath;
+    if (string.IsNullOrWhiteSpace(webRoot))
+    {
+        webRoot = Path.Combine(environment.ContentRootPath, "wwwroot");
+    }
+
+    return Path.Combine(webRoot, "uploads", "users");
+}
+
+static string ExtensionForContentType(string contentType)
+{
+    return contentType.ToLowerInvariant() switch
+    {
+        "image/jpeg" => ".jpg",
+        "image/jpg" => ".jpg",
+        "image/png" => ".png",
+        "image/gif" => ".gif",
+        "image/webp" => ".webp",
+        _ => ".bin"
+    };
+}
+
+static void DeleteExistingImageFiles(string uploadDirectory, string kind)
+{
+    foreach (var filePath in Directory.EnumerateFiles(uploadDirectory, $"{kind}.*"))
+    {
+        File.Delete(filePath);
+    }
+}
+
+static ParsedImage? ParseDataUri(string value)
+{
+    if (!value.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) return null;
+
+    var separatorIndex = value.IndexOf(',');
+    if (separatorIndex < 0) return null;
+
+    var metadata = value[5..separatorIndex];
+    if (!metadata.EndsWith(";base64", StringComparison.OrdinalIgnoreCase)) return null;
+
+    var contentType = metadata[..^7];
+    if (string.IsNullOrWhiteSpace(contentType)) return null;
+
+    try
+    {
+        return new ParsedImage(Convert.FromBase64String(value[(separatorIndex + 1)..]), contentType);
+    }
+    catch (FormatException)
+    {
+        return null;
+    }
+}
+
+static async Task MigrateUserImagesToFileStorageAsync(FleetDbContext db, IWebHostEnvironment environment)
+{
+    var users = await db.Users
+        .AsNoTracking()
+        .Where(user =>
+            user.Avatar != null && user.Avatar.StartsWith("data:") ||
+            user.NrcFront != null && user.NrcFront.StartsWith("data:") ||
+            user.NrcBack != null && user.NrcBack.StartsWith("data:"))
+        .Select(user => new ImageMigrationItem(user.Id, user.Avatar, user.NrcFront, user.NrcBack))
+        .ToListAsync();
+
+    foreach (var user in users)
+    {
+        var avatar = await SaveImageFieldAsync(environment, user.Id, "avatar", user.Avatar);
+        var nrcFront = await SaveImageFieldAsync(environment, user.Id, "nrc-front", user.NrcFront);
+        var nrcBack = await SaveImageFieldAsync(environment, user.Id, "nrc-back", user.NrcBack);
+
+        await db.Users
+            .Where(item => item.Id == user.Id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(item => item.Avatar, avatar)
+                .SetProperty(item => item.NrcFront, nrcFront)
+                .SetProperty(item => item.NrcBack, nrcBack));
+    }
+}
+
+static async Task EnsureUserCodeOptionSchemaAsync(FleetDbContext db)
+{
+    var schemaSql = """
+IF OBJECT_ID('UserCodeOptions', 'U') IS NULL
+BEGIN
+    CREATE TABLE [UserCodeOptions]
+    (
+        [Id] int NOT NULL IDENTITY(1,1),
+        [Type] nvarchar(30) NOT NULL,
+        [Name] nvarchar(120) NOT NULL,
+        [Description] nvarchar(300) NULL,
+        [Status] nvarchar(20) NOT NULL CONSTRAINT DF_UserCodeOptions_Status DEFAULT 'Active',
+        [CreatedAt] datetimeoffset NOT NULL CONSTRAINT DF_UserCodeOptions_CreatedAt DEFAULT SYSDATETIMEOFFSET(),
+        [UpdatedAt] datetimeoffset NULL,
+        CONSTRAINT [PK_UserCodeOptions] PRIMARY KEY ([Id])
+    );
+
+    CREATE UNIQUE INDEX [IX_UserCodeOptions_Type_Name] ON [UserCodeOptions] ([Type], [Name]);
+END
+""";
+
+    await db.Database.ExecuteSqlRawAsync(schemaSql);
+}
+
 static async Task EnsureUserSchemaAsync(FleetDbContext db)
 {
-    var sql = """
+    var schemaSql = """
 IF COL_LENGTH('Users', 'EmployeeId') IS NULL ALTER TABLE [Users] ADD [EmployeeId] nvarchar(40) NOT NULL CONSTRAINT DF_Users_EmployeeId DEFAULT '';
 IF COL_LENGTH('Users', 'NrcNumber') IS NULL ALTER TABLE [Users] ADD [NrcNumber] nvarchar(80) NOT NULL CONSTRAINT DF_Users_NrcNumber DEFAULT '';
 IF COL_LENGTH('Users', 'LastLogin') IS NULL ALTER TABLE [Users] ADD [LastLogin] datetimeoffset NULL;
@@ -456,7 +1063,11 @@ IF COL_LENGTH('Users', 'Address') IS NULL ALTER TABLE [Users] ADD [Address] nvar
 IF COL_LENGTH('Users', 'TwoFactorEnabled') IS NULL ALTER TABLE [Users] ADD [TwoFactorEnabled] bit NOT NULL CONSTRAINT DF_Users_TwoFactorEnabled DEFAULT 0;
 IF COL_LENGTH('Users', 'Notes') IS NULL ALTER TABLE [Users] ADD [Notes] nvarchar(1000) NULL;
 IF COL_LENGTH('Users', 'Avatar') IS NOT NULL ALTER TABLE [Users] ALTER COLUMN [Avatar] nvarchar(max) NULL;
+""";
 
+    await db.Database.ExecuteSqlRawAsync(schemaSql);
+
+    var backfillSql = """
 UPDATE [Users]
 SET
     [EmployeeId] = CASE WHEN [EmployeeId] = '' THEN CONCAT('EMP-', RIGHT(CONCAT('0000', [Id]), 4)) ELSE [EmployeeId] END,
@@ -472,8 +1083,72 @@ SET
     [Avatar] = COALESCE([Avatar], 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&w=160&h=160&q=80'),
     [NrcFront] = COALESCE([NrcFront], 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='),
     [NrcBack] = COALESCE([NrcBack], 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='),
-    [LastLogin] = COALESCE([LastLogin], SYSDATETIMEOFFSET());
+    [LastLogin] = COALESCE([LastLogin], SYSDATETIMEOFFSET())
+WHERE
+    [EmployeeId] = ''
+    OR [NrcNumber] = ''
+    OR [Department] = ''
+    OR [Title] = ''
+    OR [Location] = ''
+    OR [Manager] = ''
+    OR [EmergencyContactName] = ''
+    OR [EmergencyContactRelation] = ''
+    OR [EmergencyContactPhone] = ''
+    OR [Address] = ''
+    OR [Avatar] IS NULL
+    OR [NrcFront] IS NULL
+    OR [NrcBack] IS NULL
+    OR [LastLogin] IS NULL;
 """;
 
-    await db.Database.ExecuteSqlRawAsync(sql);
+    await db.Database.ExecuteSqlRawAsync(backfillSql);
 }
+
+sealed record PagedResult<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);
+
+sealed record UserPageDto(IReadOnlyList<UserDto> Items, int Total, int Page, int PageSize, UserStatsDto Stats);
+
+sealed record UserCodeOptionDto(int Id, string Type, string Name, string? Description, string Status, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
+
+sealed record UserStatsDto(int Total, int Active, int Drivers, int Admins);
+
+sealed record ImageMigrationItem(int Id, string? Avatar, string? NrcFront, string? NrcBack);
+
+sealed record RoleMemberListItem(
+    int Id,
+    string Name,
+    string Email,
+    string Phone,
+    string Status,
+    DateOnly JoinDate,
+    string? Avatar);
+
+sealed record UserListItem(
+    int Id,
+    string Name,
+    string EmployeeId,
+    string NrcNumber,
+    string Email,
+    string Role,
+    string Status,
+    string Phone,
+    string? Avatar,
+    string? NrcFront,
+    string? NrcBack,
+    string Department,
+    string Title,
+    string Location,
+    string Manager,
+    string? LicenseNumber,
+    string? LicenseClass,
+    DateOnly? LicenseExpiry,
+    string EmergencyContactName,
+    string EmergencyContactRelation,
+    string EmergencyContactPhone,
+    string Address,
+    DateTimeOffset? LastLogin,
+    bool TwoFactorEnabled,
+    string? Notes,
+    DateOnly JoinDate);
+
+readonly record struct ParsedImage(byte[] Bytes, string ContentType);

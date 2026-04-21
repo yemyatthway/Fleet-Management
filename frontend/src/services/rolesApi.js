@@ -5,25 +5,43 @@ const parseResponse = async (response) => {
   const body = contentType.includes('application/json') ? await response.json() : null
 
   if (!response.ok) {
-    throw new Error(body?.message || `Request failed with status ${response.status}`)
+    const error = new Error(body?.message || `Request failed with status ${response.status}`)
+    console.error('[rolesApi] request failed', { status: response.status, body })
+    throw error
   }
 
   return body
 }
 
 const request = async (path, options = {}) => {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers
-    },
-    ...options
-  })
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+      },
+      ...options
+    })
 
-  return parseResponse(response)
+    return parseResponse(response)
+  } catch (error) {
+    console.error('[rolesApi] request error', { path, error })
+    throw error
+  }
 }
 
-export const getRoles = () => request('/api/roles')
+const toQueryString = (params = {}) => {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') query.set(key, value)
+  })
+  const value = query.toString()
+  return value ? `?${value}` : ''
+}
+
+export const getRoles = (params = {}) => request(`/api/roles${toQueryString(params)}`)
+
+export const getRoleOptions = () => request('/api/roles/options')
 
 export const getRoleMembers = (roleId) => request(`/api/roles/${roleId}/members`)
 

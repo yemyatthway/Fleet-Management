@@ -1,17 +1,20 @@
 <template>
   <div class="card-surface">
     <div class="table-wrap">
-      <v-data-table
+      <v-data-table-server
         class="table-base"
         :headers="headers"
         :items="users"
-        :items-per-page="10"
+        :items-length="total"
+        :loading="loading"
+        :items-per-page="itemsPerPage"
         :items-per-page-options="[10, 20, 30]"
         :mobile-breakpoint="0"
         :mobile="false"
         fixed-header
         height="520"
         density="comfortable"
+        @update:options="$emit('update:options', $event)"
       >
         <template #item.name="{ item }">
           <div class="name-cell">
@@ -21,7 +24,7 @@
               type="button"
               @click="item.avatar && $emit('view-avatar', item)"
             >
-              <img v-if="item.avatar" :src="item.avatar" :alt="item.name" />
+              <img v-if="item.avatar" :src="item.avatar" :alt="item.name" loading="lazy" decoding="async" />
               <span v-else>{{ initials(item.name) }}</span>
               <span v-if="item.avatar" class="tooltip-text">View profile image</span>
             </button>
@@ -35,6 +38,32 @@
 
         <template #item.nrcNumber="{ item }">
           <span class="text-muted">{{ item.nrcNumber }}</span>
+        </template>
+
+        <template #item.nrcFront="{ item }">
+          <button
+            v-if="item.nrcFront"
+            class="document-thumb tooltip"
+            type="button"
+            @click="$emit('view-avatar', { name: `${item.name} - NRC Front`, avatar: item.nrcFront })"
+          >
+            <img :src="item.nrcFront" :alt="`${item.name} NRC front`" loading="lazy" decoding="async" />
+            <span class="tooltip-text">View NRC front</span>
+          </button>
+          <span v-else class="text-muted">—</span>
+        </template>
+
+        <template #item.nrcBack="{ item }">
+          <button
+            v-if="item.nrcBack"
+            class="document-thumb tooltip"
+            type="button"
+            @click="$emit('view-avatar', { name: `${item.name} - NRC Back`, avatar: item.nrcBack })"
+          >
+            <img :src="item.nrcBack" :alt="`${item.name} NRC back`" loading="lazy" decoding="async" />
+            <span class="tooltip-text">View NRC back</span>
+          </button>
+          <span v-else class="text-muted">—</span>
         </template>
 
         <template #item.email="{ item }">
@@ -111,7 +140,7 @@
         <template #no-data>
           <div class="empty-state">No users found matching your criteria</div>
         </template>
-      </v-data-table>
+      </v-data-table-server>
     </div>
   </div>
 </template>
@@ -123,15 +152,29 @@ defineProps({
   users: {
     type: Array,
     required: true
+  },
+  total: {
+    type: Number,
+    default: 0
+  },
+  loading: {
+    type: Boolean,
+    default: false
+  },
+  itemsPerPage: {
+    type: Number,
+    default: 10
   }
 })
 
-defineEmits(['edit', 'toggle', 'remove', 'view-avatar'])
+defineEmits(['edit', 'toggle', 'remove', 'view-avatar', 'update:options'])
 
 const headers = [
   { title: 'ID / Name', key: 'name' },
   { title: 'Employee ID', key: 'employeeId' },
   { title: 'NRC', key: 'nrcNumber' },
+  { title: 'NRC Front', key: 'nrcFront', sortable: false },
+  { title: 'NRC Back', key: 'nrcBack', sortable: false },
   { title: 'Email', key: 'email' },
   { title: 'Role', key: 'role' },
   { title: 'Phone', key: 'phone' },

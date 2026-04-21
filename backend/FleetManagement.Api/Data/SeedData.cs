@@ -7,6 +7,12 @@ public static class SeedData
 {
     public static async Task EnsureSeededAsync(FleetDbContext db)
     {
+        await EnsureRolesAndUsersSeededAsync(db);
+        await EnsureUserCodeOptionsSeededAsync(db);
+    }
+
+    private static async Task EnsureRolesAndUsersSeededAsync(FleetDbContext db)
+    {
         if (await db.Roles.AnyAsync()) return;
 
         var roles = new[]
@@ -133,6 +139,95 @@ public static class SeedData
                 RoleId = roles[2].Id
             });
 
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureUserCodeOptionsSeededAsync(FleetDbContext db)
+    {
+        var existingOptions = await db.UserCodeOptions
+            .AsNoTracking()
+            .Select(option => new { option.Type, option.Name })
+            .ToListAsync();
+
+        var existingSet = existingOptions
+            .Select(option => $"{option.Type}::{option.Name}")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var seedItems = new[]
+        {
+            new UserCodeOption { Type = "Department", Name = "Operations", Description = "Operations and admin leadership.", Status = "Active", CreatedAt = DateTimeOffset.UtcNow },
+            new UserCodeOption { Type = "Department", Name = "Dispatch", Description = "Dispatch planning and route coordination.", Status = "Active", CreatedAt = DateTimeOffset.UtcNow },
+            new UserCodeOption { Type = "Department", Name = "Fleet", Description = "Driver operations and fleet staffing.", Status = "Active", CreatedAt = DateTimeOffset.UtcNow },
+            new UserCodeOption { Type = "Department", Name = "Maintenance", Description = "Vehicle maintenance and workshop operations.", Status = "Active", CreatedAt = DateTimeOffset.UtcNow },
+            new UserCodeOption { Type = "Location", Name = "HQ", Description = "Main office and management center.", Status = "Active", CreatedAt = DateTimeOffset.UtcNow },
+            new UserCodeOption { Type = "Location", Name = "Central Hub", Description = "Primary dispatch hub.", Status = "Active", CreatedAt = DateTimeOffset.UtcNow },
+            new UserCodeOption { Type = "Location", Name = "North Depot", Description = "Northern depot operations.", Status = "Active", CreatedAt = DateTimeOffset.UtcNow },
+            new UserCodeOption { Type = "Location", Name = "East Depot", Description = "Eastern depot operations.", Status = "Active", CreatedAt = DateTimeOffset.UtcNow },
+            new UserCodeOption { Type = "Location", Name = "South Depot", Description = "Southern depot operations.", Status = "Active", CreatedAt = DateTimeOffset.UtcNow },
+            new UserCodeOption { Type = "Location", Name = "West Depot", Description = "Western depot operations.", Status = "Active", CreatedAt = DateTimeOffset.UtcNow }
+        };
+
+        var userDepartments = await db.Users
+            .AsNoTracking()
+            .Select(user => user.Department)
+            .Where(value => value != null && value != "")
+            .Distinct()
+            .ToListAsync();
+
+        var userLocations = await db.Users
+            .AsNoTracking()
+            .Select(user => user.Location)
+            .Where(value => value != null && value != "")
+            .Distinct()
+            .ToListAsync();
+
+        var additions = new List<UserCodeOption>();
+
+        foreach (var item in seedItems)
+        {
+            if (existingSet.Add($"{item.Type}::{item.Name}"))
+            {
+                additions.Add(item);
+            }
+        }
+
+        foreach (var department in userDepartments)
+        {
+            var trimmed = department?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed)) continue;
+            var key = $"Department::{trimmed}";
+            if (!existingSet.Add(key)) continue;
+
+            additions.Add(new UserCodeOption
+            {
+                Type = "Department",
+                Name = trimmed,
+                Description = null,
+                Status = "Active",
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+        }
+
+        foreach (var location in userLocations)
+        {
+            var trimmed = location?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed)) continue;
+            var key = $"Location::{trimmed}";
+            if (!existingSet.Add(key)) continue;
+
+            additions.Add(new UserCodeOption
+            {
+                Type = "Location",
+                Name = trimmed,
+                Description = null,
+                Status = "Active",
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+        }
+
+        if (additions.Count == 0) return;
+
+        db.UserCodeOptions.AddRange(additions);
         await db.SaveChangesAsync();
     }
 }

@@ -80,22 +80,22 @@
 
 .table-base :deep(thead th:nth-child(4)),
 .table-base :deep(tbody td:nth-child(4)) {
-  width: 260px;
+  width: 120px;
 }
 
 .table-base :deep(thead th:nth-child(5)),
 .table-base :deep(tbody td:nth-child(5)) {
-  width: 140px;
+  width: 120px;
 }
 
 .table-base :deep(thead th:nth-child(6)),
 .table-base :deep(tbody td:nth-child(6)) {
-  width: 180px;
+  width: 260px;
 }
 
 .table-base :deep(thead th:nth-child(7)),
 .table-base :deep(tbody td:nth-child(7)) {
-  width: 160px;
+  width: 140px;
 }
 
 .table-base :deep(thead th:nth-child(8)),
@@ -105,7 +105,7 @@
 
 .table-base :deep(thead th:nth-child(9)),
 .table-base :deep(tbody td:nth-child(9)) {
-  width: 160px;
+  width: 180px;
 }
 
 .table-base :deep(thead th:nth-child(10)),
@@ -115,26 +115,36 @@
 
 .table-base :deep(thead th:nth-child(11)),
 .table-base :deep(tbody td:nth-child(11)) {
-  width: 120px;
+  width: 160px;
 }
 
 .table-base :deep(thead th:nth-child(12)),
 .table-base :deep(tbody td:nth-child(12)) {
-  width: 140px;
+  width: 120px;
 }
 
 .table-base :deep(thead th:nth-child(13)),
 .table-base :deep(tbody td:nth-child(13)) {
-  width: 180px;
+  width: 140px;
 }
 
 .table-base :deep(thead th:nth-child(14)),
 .table-base :deep(tbody td:nth-child(14)) {
-  width: 90px;
+  width: 180px;
 }
 
 .table-base :deep(thead th:nth-child(15)),
 .table-base :deep(tbody td:nth-child(15)) {
+  width: 90px;
+}
+
+.table-base :deep(thead th:nth-child(16)),
+.table-base :deep(tbody td:nth-child(16)) {
+  width: 140px;
+}
+
+.table-base :deep(thead th:nth-child(17)),
+.table-base :deep(tbody td:nth-child(17)) {
   width: 140px;
 }
 
@@ -200,6 +210,28 @@
 
 .avatar-button:disabled {
   cursor: default;
+}
+
+.document-thumb {
+  width: 72px;
+  height: 46px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.document-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.document-thumb:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.14);
 }
 
 .role-pill {

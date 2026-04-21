@@ -16,6 +16,7 @@ dist-ssr
 # .NET
 bin/
 obj/
+backend/FleetManagement.Api/wwwroot/uploads/
 
 # Editor directories and files
 .vscode/*

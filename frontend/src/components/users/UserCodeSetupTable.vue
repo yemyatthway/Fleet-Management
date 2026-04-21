@@ -4,7 +4,7 @@
       <v-data-table-server
         class="table-base"
         :headers="headers"
-        :items="roles"
+        :items="items"
         :items-length="total"
         :loading="loading"
         :items-per-page="itemsPerPage"
@@ -16,37 +16,35 @@
         density="comfortable"
         @update:options="$emit('update:options', $event)"
       >
-        <template #item.role="{ item }">
+        <template #item.type="{ item }">
           <div class="role-cell">
-            <div class="role-badge" :class="roleClass(item.name)">{{ item.name }}</div>
+            <div class="role-badge" :class="item.type === 'Department' ? 'role-dispatcher' : 'role-driver'">
+              {{ item.type === 'Location' ? 'Location / Depot' : item.type }}
+            </div>
           </div>
         </template>
 
         <template #item.description="{ item }">
-          <span class="text-muted">{{ item.description }}</span>
+          <span class="text-muted">{{ item.description || '—' }}</span>
         </template>
 
-
-        <template #item.members="{ item }">
-          <strong>{{ item.members }}</strong>
-        </template>
-
-        <template #item.view="{ item }">
-          <button class="icon-button tooltip" type="button" @click="$emit('view', item)">
-            <v-icon icon="mdi-eye-outline" size="18" />
-            <span class="tooltip-text">View members</span>
-          </button>
+        <template #item.status="{ item }">
+          <div class="role-cell">
+            <div class="role-badge" :class="item.status === 'Active' ? 'role-admin' : 'role-mechanic'">
+              {{ item.status }}
+            </div>
+          </div>
         </template>
 
         <template #item.actions="{ item }">
           <div class="inline-actions">
             <button class="icon-button tooltip" type="button" @click="$emit('edit', item)">
               <v-icon icon="mdi-pencil-outline" size="18" />
-              <span class="tooltip-text">Edit role</span>
+              <span class="tooltip-text">Edit code</span>
             </button>
             <button class="icon-button danger tooltip" type="button" @click="$emit('remove', item)">
               <v-icon icon="mdi-trash-can-outline" size="18" />
-              <span class="tooltip-text">Delete role</span>
+              <span class="tooltip-text">Delete code</span>
             </button>
           </div>
         </template>
@@ -56,7 +54,7 @@
         </template>
 
         <template #no-data>
-          <div class="empty-state">No roles found matching your criteria</div>
+          <div class="empty-state">No code setup records found</div>
         </template>
       </v-data-table-server>
     </div>
@@ -64,10 +62,8 @@
 </template>
 
 <script setup>
-import { roleClassMap } from '../../data/roles'
-
 defineProps({
-  roles: {
+  items: {
     type: Array,
     required: true
   },
@@ -85,18 +81,16 @@ defineProps({
   }
 })
 
-defineEmits(['view', 'edit', 'remove', 'update:options'])
+defineEmits(['edit', 'remove', 'update:options'])
 
 const headers = [
-  { title: 'Role', key: 'role' },
+  { title: 'Type', key: 'type' },
+  { title: 'Name', key: 'name' },
   { title: 'Description', key: 'description' },
-  { title: 'Members', key: 'members' },
-  { title: 'View', key: 'view', align: 'end', sortable: false },
+  { title: 'Status', key: 'status' },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
   { title: 'Created At', key: 'createdAt' }
 ]
-
-const roleClass = (role) => roleClassMap[role] || 'role-driver'
 
 const formatDate = (value) =>
   new Date(value).toLocaleDateString('en-US', {
@@ -106,4 +100,4 @@ const formatDate = (value) =>
   })
 </script>
 
-<style scoped src="./roles_styles/RoleTable.css"></style>
+<style scoped src="../roles/roles_styles/RoleTable.css"></style>

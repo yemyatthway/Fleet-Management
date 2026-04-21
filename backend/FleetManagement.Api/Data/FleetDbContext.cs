@@ -9,6 +9,8 @@ public sealed class FleetDbContext(DbContextOptions<FleetDbContext> options) : D
 
     public DbSet<User> Users => Set<User>();
 
+    public DbSet<UserCodeOption> UserCodeOptions => Set<UserCodeOption>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Role>(entity =>
@@ -18,6 +20,17 @@ public sealed class FleetDbContext(DbContextOptions<FleetDbContext> options) : D
             entity.Property(role => role.Name).HasMaxLength(80).IsRequired();
             entity.Property(role => role.Description).HasMaxLength(300).IsRequired();
             entity.Property(role => role.Status).HasMaxLength(20).IsRequired();
+        });
+
+
+        modelBuilder.Entity<UserCodeOption>(entity =>
+        {
+            entity.HasIndex(option => new { option.Type, option.Name }).IsUnique();
+
+            entity.Property(option => option.Type).HasMaxLength(30).IsRequired();
+            entity.Property(option => option.Name).HasMaxLength(120).IsRequired();
+            entity.Property(option => option.Description).HasMaxLength(300);
+            entity.Property(option => option.Status).HasMaxLength(20).IsRequired();
         });
 
         modelBuilder.Entity<User>(entity =>

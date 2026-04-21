@@ -8,7 +8,7 @@
     <div class="stats-grid">
       <div class="stat-card">
         <p>Total Users</p>
-        <h3>{{ users.length }}</h3>
+        <h3>{{ userStats.total }}</h3>
       </div>
       <div class="stat-card">
         <p>Active Users</p>
@@ -49,7 +49,7 @@
             <v-icon icon="mdi-filter-variant" />
             <select v-model="roleFilter">
               <option value="All">All Roles</option>
-              <option v-for="role in roleNames" :key="role" :value="role">
+              <option v-for="role in userRoles" :key="role" :value="role">
                 {{ role }}
               </option>
             </select>
@@ -67,19 +67,23 @@
       </div>
 
       <div class="toolbar-count text-muted">
-        {{ loadingUsers ? 'Loading users...' : `Showing ${filteredUsers.length} of ${users.length} users` }}
+        {{ loadingUsers ? 'Loading users...' : `Showing ${users.length} of ${totalUsers} users` }}
       </div>
     </div>
 
-    <div v-if="pageError" class="page-error" role="alert">
-      <span>{{ pageError }}</span>
-      <button class="page-error-close" type="button" aria-label="Close error message" @click="pageError = ''">
-        <v-icon icon="mdi-close" size="18" />
-      </button>
-    </div>
+    <PageMessage
+      :tone="pageMessage.tone"
+      :title="pageMessage.title"
+      :message="pageMessage.message"
+      @close="clearPageMessage"
+    />
 
     <UserTable
-      :users="filteredUsers"
+      :users="users"
+      :total="totalUsers"
+      :loading="loadingUsers"
+      :items-per-page="tableOptions.itemsPerPage"
+      @update:options="handleTableOptions"
       @edit="handleEdit"
       @toggle="handleToggle"
       @remove="handleDelete"
@@ -88,6 +92,9 @@
 
     <AddUserDialog
       :open="dialogOpen"
+      :roles="userRoles"
+      :departments="departmentOptions"
+      :locations="locationOptions"
       @close="dialogOpen = false"
       @add="handleAdd"
     />
@@ -95,6 +102,9 @@
     <EditUserDialog
       :open="editOpen"
       :user="selectedUser"
+      :roles="userRoles"
+      :departments="departmentOptions"
+      :locations="locationOptions"
       @close="editOpen = false"
       @save="handleUpdate"
     />
@@ -125,7 +135,9 @@ import AddUserDialog from "./AddUserDialog.vue";
 import EditUserDialog from "./EditUserDialog.vue";
 import UserAvatarDialog from "./UserAvatarDialog.vue";
 import ConfirmDialog from "../common/ConfirmDialog.vue";
-import { roleNames } from "../../data/roles";
+import PageMessage from "../common/PageMessage.vue";
+import { getRoleOptions } from "../../services/rolesApi";
+import { getDepartmentOptions, getLocationOptions } from "../../services/userCodeOptionsApi";
 import {
   createUser,
   deleteUser,
@@ -138,22 +150,7 @@ const ALL_ROLES_FILTER = "All";
 const ACTIVE_STATUS = "Active";
 const DISABLED_STATUS = "Disabled";
 const SEARCH_DELAY_MS = 350;
-const SEARCHABLE_USER_FIELDS = [
-  "name",
-  "email",
-  "nrcNumber",
-  "employeeId",
-  "phone",
-  "department",
-  "title",
-  "location",
-];
-
-const normalizeText = (value) => String(value ?? "").toLowerCase();
-
-const matchesSearch = (item, fields, query) =>
-  !query || fields.some((field) => normalizeText(item[field]).includes(query));
-
+const PAGE_MESSAGE_DURATION_MS = 5000;
 const useDebouncedRef = (source, delay = SEARCH_DELAY_MS) => {
   const debounced = ref(source.value);
   let timerId = null;
@@ -177,17 +174,6 @@ const useDebouncedRef = (source, delay = SEARCH_DELAY_MS) => {
 
   return debounced;
 };
-
-const countUsers = (userList) =>
-  userList.reduce(
-    (stats, user) => {
-      if (user.status === ACTIVE_STATUS) stats.active += 1;
-      if (user.role === "Driver") stats.drivers += 1;
-      if (user.role === "Admin") stats.admins += 1;
-      return stats;
-    },
-    { active: 0, drivers: 0, admins: 0 },
-  );
 
 const findUserById = (id) => users.value.find((item) => item.id === id);
 
@@ -220,8 +206,14 @@ const toUserRequest = (payload) => ({
 const users = ref([]);
 const searchQuery = ref("");
 const debouncedQuery = useDebouncedRef(searchQuery);
+const userRoles = ref([]);
+const departmentOptions = ref([]);
+const locationOptions = ref([]);
 const roleFilter = ref(ALL_ROLES_FILTER);
-const pageError = ref("");
+const totalUsers = ref(0);
+const userStats = ref({ total: 0, active: 0, drivers: 0, admins: 0 });
+const tableOptions = ref({ page: 1, itemsPerPage: 10 });
+const pageMessage = ref({ tone: "info", title: "", message: "" });
 const loadingUsers = ref(false);
 const dialogOpen = ref(false);
 const editOpen = ref(false);
@@ -235,46 +227,97 @@ const pendingAction = ref(() => {});
 const avatarOpen = ref(false);
 const avatarUrl = ref("");
 const avatarName = ref("");
-
-const userStats = computed(() => countUsers(users.value));
-
-const filteredUsers = computed(() => {
-  const query = normalizeText(debouncedQuery.value);
-
-  return users.value.filter((user) => {
-    const matchesRole =
-      roleFilter.value === ALL_ROLES_FILTER || user.role === roleFilter.value;
-
-    return matchesRole && matchesSearch(user, SEARCHABLE_USER_FIELDS, query);
-  });
-});
+let pageMessageTimerId = null;
 
 const activeCount = computed(() => userStats.value.active);
 const driverCount = computed(() => userStats.value.drivers);
 const adminCount = computed(() => userStats.value.admins);
 
+const clearPageMessage = () => {
+  if (pageMessageTimerId) {
+    clearTimeout(pageMessageTimerId);
+    pageMessageTimerId = null;
+  }
+  pageMessage.value = { tone: "info", title: "", message: "" };
+};
+
+const showPageMessage = ({ tone = "info", title = "", message }) => {
+  if (pageMessageTimerId) clearTimeout(pageMessageTimerId);
+  pageMessage.value = { tone, title, message };
+  pageMessageTimerId = setTimeout(() => {
+    pageMessageTimerId = null;
+    clearPageMessage();
+  }, PAGE_MESSAGE_DURATION_MS);
+};
+
 const loadUsers = async () => {
   loadingUsers.value = true;
-  pageError.value = "";
+  clearPageMessage();
 
   try {
-    users.value = await getUsers();
+    const result = await getUsers({
+      page: tableOptions.value.page,
+      pageSize: tableOptions.value.itemsPerPage,
+      search: debouncedQuery.value,
+      role: roleFilter.value === ALL_ROLES_FILTER ? '' : roleFilter.value,
+    });
+    users.value = result.items || [];
+    totalUsers.value = result.total || 0;
+    userStats.value = result.stats || { total: totalUsers.value, active: 0, drivers: 0, admins: 0 };
   } catch (error) {
-    pageError.value = error.message;
+    showPageMessage({ tone: "error", title: "Could not load users", message: error.message });
   } finally {
     loadingUsers.value = false;
   }
 };
 
+const loadUserRoles = async () => {
+  try {
+    userRoles.value = await getRoleOptions();
+  } catch (error) {
+    console.error("[users] failed to load role options", error);
+    showPageMessage({ tone: "error", title: "Could not load roles", message: error.message });
+  }
+};
+
+const loadUserCodeOptions = async () => {
+  try {
+    const [departments, locations] = await Promise.all([getDepartmentOptions(), getLocationOptions()]);
+    departmentOptions.value = departments;
+    locationOptions.value = locations;
+  } catch (error) {
+    console.error("[users] failed to load code setup options", error);
+    showPageMessage({ tone: "error", title: "Could not load code setup", message: error.message });
+  }
+};
+
+const handleTableOptions = (options) => {
+  tableOptions.value = {
+    page: options.page || 1,
+    itemsPerPage: options.itemsPerPage || 10,
+  };
+  loadUsers();
+};
+
+watch([debouncedQuery, roleFilter], () => {
+  tableOptions.value.page = 1;
+  loadUsers();
+});
+
 const handleAdd = async (payload) => {
-  pageError.value = "";
+  clearPageMessage();
 
   try {
     const savedUser = await createUser(toUserRequest(payload));
-    users.value = [savedUser, ...users.value];
+    await loadUsers();
     dialogOpen.value = false;
+    showPageMessage({
+      tone: "success",
+      title: "User added",
+      message: `${savedUser.name} has been added successfully.`,
+    });
   } catch (error) {
-    pageError.value = error.message;
+    showPageMessage({ tone: "error", title: "User was not added", message: error.message });
   }
 };
 
@@ -317,15 +360,20 @@ const handleToggle = (id) => {
     confirmText: nextStatus,
     tone: "warning",
     action: async () => {
-      pageError.value = "";
+      clearPageMessage();
 
       try {
         const savedUser = await updateUserStatus(id, nextStatus);
         users.value = users.value.map((item) =>
           item.id === id ? savedUser : item,
         );
+        showPageMessage({
+          tone: nextStatus === ACTIVE_STATUS ? "success" : "warning",
+          title: nextStatus === ACTIVE_STATUS ? "User enabled" : "User disabled",
+          message: `${savedUser.name} is now ${nextStatus.toLowerCase()}.`,
+        });
       } catch (error) {
-        pageError.value = error.message;
+        showPageMessage({ tone: "error", title: "Status was not updated", message: error.message });
       }
     },
   });
@@ -341,20 +389,25 @@ const handleDelete = (id) => {
     confirmText: "Delete",
     tone: "danger",
     action: async () => {
-      pageError.value = "";
+      clearPageMessage();
 
       try {
         await deleteUser(id);
-        users.value = users.value.filter((item) => item.id !== id);
+        await loadUsers();
+        showPageMessage({
+          tone: "warning",
+          title: "User deleted",
+          message: `${user.name} has been removed.`,
+        });
       } catch (error) {
-        pageError.value = error.message;
+        showPageMessage({ tone: "error", title: "User was not deleted", message: error.message });
       }
     },
   });
 };
 
 const handleUpdate = async (payload) => {
-  pageError.value = "";
+  clearPageMessage();
 
   try {
     const savedUser = await updateUser(payload.id, toUserRequest(payload));
@@ -362,12 +415,23 @@ const handleUpdate = async (payload) => {
       item.id === savedUser.id ? savedUser : item,
     );
     editOpen.value = false;
+    showPageMessage({
+      tone: "success",
+      title: "User updated",
+      message: `${savedUser.name} has been updated successfully.`,
+    });
   } catch (error) {
-    pageError.value = error.message;
+    showPageMessage({ tone: "error", title: "User was not updated", message: error.message });
   }
 };
 
-onMounted(loadUsers);
+onMounted(async () => {
+  await Promise.all([loadUserRoles(), loadUserCodeOptions(), loadUsers()]);
+});
+
+onBeforeUnmount(() => {
+  if (pageMessageTimerId) clearTimeout(pageMessageTimerId);
+});
 </script>
 
 <style scoped src="./users_styles/UserManagementContent.css"></style>
