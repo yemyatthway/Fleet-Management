@@ -7,7 +7,9 @@
         :items="roles"
         :items-length="total"
         :loading="loading"
+        :page="page"
         :items-per-page="itemsPerPage"
+        :sort-by="normalizedSortBy"
         :items-per-page-options="[10, 20, 30]"
         :mobile-breakpoint="0"
         :mobile="false"
@@ -16,7 +18,11 @@
         density="comfortable"
         @update:options="$emit('update:options', $event)"
       >
-        <template #item.role="{ item }">
+        <template #item.id="{ item }">
+          <span class="text-muted">{{ item.displayId }}</span>
+        </template>
+
+        <template #item.name="{ item }">
           <div class="role-cell">
             <div class="role-badge" :class="roleClass(item.name)">{{ item.name }}</div>
           </div>
@@ -64,9 +70,10 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { roleClassMap } from '../../data/roles'
 
-defineProps({
+const props = defineProps({
   roles: {
     type: Array,
     required: true
@@ -82,19 +89,39 @@ defineProps({
   itemsPerPage: {
     type: Number,
     default: 10
+  },
+  page: {
+    type: Number,
+    default: 1
+  },
+  sortBy: {
+    type: String,
+    default: 'name'
+  },
+  sortOrder: {
+    type: String,
+    default: 'asc'
   }
 })
 
 defineEmits(['view', 'edit', 'remove', 'update:options'])
 
 const headers = [
-  { title: 'Role', key: 'role' },
+  { title: 'ID', key: 'id' },
+  { title: 'Role', key: 'name' },
   { title: 'Description', key: 'description' },
   { title: 'Members', key: 'members' },
   { title: 'View', key: 'view', align: 'end', sortable: false },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
   { title: 'Created At', key: 'createdAt' }
 ]
+
+const normalizedSortBy = computed(() => [
+  {
+    key: props.sortBy,
+    order: props.sortOrder
+  }
+])
 
 const roleClass = (role) => roleClassMap[role] || 'role-driver'
 

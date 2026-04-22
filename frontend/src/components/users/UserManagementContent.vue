@@ -79,10 +79,13 @@
     />
 
     <UserTable
-      :users="users"
+      :users="tableUsers"
       :total="totalUsers"
       :loading="loadingUsers"
+      :page="tableOptions.page"
       :items-per-page="tableOptions.itemsPerPage"
+      :sort-by="tableOptions.sortBy"
+      :sort-order="tableOptions.sortOrder"
       @update:options="handleTableOptions"
       @edit="handleEdit"
       @toggle="handleToggle"
@@ -136,6 +139,7 @@ import EditUserDialog from "./EditUserDialog.vue";
 import UserAvatarDialog from "./UserAvatarDialog.vue";
 import ConfirmDialog from "../common/ConfirmDialog.vue";
 import PageMessage from "../common/PageMessage.vue";
+import { attachDisplayIds } from "../../utils/tableDisplayIds";
 import { getRoleOptions } from "../../services/rolesApi";
 import { getDepartmentOptions, getLocationOptions } from "../../services/userCodeOptionsApi";
 import {
@@ -212,7 +216,7 @@ const locationOptions = ref([]);
 const roleFilter = ref(ALL_ROLES_FILTER);
 const totalUsers = ref(0);
 const userStats = ref({ total: 0, active: 0, drivers: 0, admins: 0 });
-const tableOptions = ref({ page: 1, itemsPerPage: 10 });
+const tableOptions = ref({ page: 1, itemsPerPage: 10, sortBy: "name", sortOrder: "asc" });
 const pageMessage = ref({ tone: "info", title: "", message: "" });
 const loadingUsers = ref(false);
 const dialogOpen = ref(false);
@@ -232,6 +236,9 @@ let pageMessageTimerId = null;
 const activeCount = computed(() => userStats.value.active);
 const driverCount = computed(() => userStats.value.drivers);
 const adminCount = computed(() => userStats.value.admins);
+const tableUsers = computed(() =>
+  attachDisplayIds(users.value, tableOptions.value.page, tableOptions.value.itemsPerPage, () => "USR"),
+);
 
 const clearPageMessage = () => {
   if (pageMessageTimerId) {
@@ -260,6 +267,8 @@ const loadUsers = async () => {
       pageSize: tableOptions.value.itemsPerPage,
       search: debouncedQuery.value,
       role: roleFilter.value === ALL_ROLES_FILTER ? '' : roleFilter.value,
+      sortBy: tableOptions.value.sortBy,
+      sortOrder: tableOptions.value.sortOrder,
     });
     users.value = result.items || [];
     totalUsers.value = result.total || 0;
@@ -292,9 +301,12 @@ const loadUserCodeOptions = async () => {
 };
 
 const handleTableOptions = (options) => {
+  const firstSort = options.sortBy?.[0];
   tableOptions.value = {
     page: options.page || 1,
     itemsPerPage: options.itemsPerPage || 10,
+    sortBy: firstSort?.key || "name",
+    sortOrder: firstSort?.order || "asc",
   };
   loadUsers();
 };

@@ -225,9 +225,66 @@ public static class SeedData
             });
         }
 
-        if (additions.Count == 0) return;
+        if (additions.Count > 0)
+        {
+            db.UserCodeOptions.AddRange(additions);
+            await db.SaveChangesAsync();
+        }
 
-        db.UserCodeOptions.AddRange(additions);
-        await db.SaveChangesAsync();
+        await EnsureSeparatedCodeOptionsSeededAsync(db);
+    }
+
+    private static async Task EnsureSeparatedCodeOptionsSeededAsync(FleetDbContext db)
+    {
+        var departmentNames = await db.DepartmentCodeOptions
+            .AsNoTracking()
+            .Select(option => option.Name)
+            .ToListAsync();
+        var locationNames = await db.LocationCodeOptions
+            .AsNoTracking()
+            .Select(option => option.Name)
+            .ToListAsync();
+
+        var departmentSet = departmentNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var locationSet = locationNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var sourceOptions = await db.UserCodeOptions
+            .AsNoTracking()
+            .Where(option => option.Type == "Department" || option.Type == "Location")
+            .ToListAsync();
+
+        var departmentAdditions = new List<DepartmentCodeOption>();
+        var locationAdditions = new List<LocationCodeOption>();
+
+        foreach (var option in sourceOptions)
+        {
+            if (option.Type == "Department" && departmentSet.Add(option.Name))
+            {
+                departmentAdditions.Add(new DepartmentCodeOption
+                {
+                    Name = option.Name,
+                    Description = option.Description,
+                    Status = option.Status,
+                    CreatedAt = option.CreatedAt,
+                    UpdatedAt = option.UpdatedAt
+                });
+            }
+
+            if (option.Type == "Location" && locationSet.Add(option.Name))
+            {
+                locationAdditions.Add(new LocationCodeOption
+                {
+                    Name = option.Name,
+                    Description = option.Description,
+                    Status = option.Status,
+                    CreatedAt = option.CreatedAt,
+                    UpdatedAt = option.UpdatedAt
+                });
+            }
+        }
+
+        if (departmentAdditions.Count > 0) db.DepartmentCodeOptions.AddRange(departmentAdditions);
+        if (locationAdditions.Count > 0) db.LocationCodeOptions.AddRange(locationAdditions);
+        if (departmentAdditions.Count > 0 || locationAdditions.Count > 0) await db.SaveChangesAsync();
     }
 }

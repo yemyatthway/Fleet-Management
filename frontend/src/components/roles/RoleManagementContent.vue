@@ -71,10 +71,13 @@
     />
 
     <RoleTable
-      :roles="roles"
+      :roles="tableRoles"
       :total="totalRoles"
       :loading="loadingRoles"
+      :page="tableOptions.page"
       :items-per-page="tableOptions.itemsPerPage"
+      :sort-by="tableOptions.sortBy"
+      :sort-order="tableOptions.sortOrder"
       @update:options="handleTableOptions"
       @view="openMembers"
       @edit="openEdit"
@@ -128,6 +131,7 @@ import RoleMembersDialog from './RoleMembersDialog.vue'
 import MemberAvatarDialog from './MemberAvatarDialog.vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
 import PageMessage from '../common/PageMessage.vue'
+import { attachDisplayIds } from '../../utils/tableDisplayIds'
 import {
   createRole,
   deleteRole,
@@ -190,7 +194,7 @@ const roleMembers = ref([])
 const activeTab = ref(ALL_ROLES_FILTER)
 const searchQuery = ref('')
 const totalRoles = ref(0)
-const tableOptions = ref({ page: 1, itemsPerPage: 10 })
+const tableOptions = ref({ page: 1, itemsPerPage: 10, sortBy: 'name', sortOrder: 'asc' })
 const pageMessage = ref({ tone: 'info', title: '', message: '' })
 const loadingRoles = ref(false)
 const loadingMembers = ref(false)
@@ -220,6 +224,9 @@ const totalMembers = computed(() =>
 )
 const driverMembers = computed(() => roles.value.find((role) => role.name === 'Driver')?.members || 0)
 const adminMembers = computed(() => roles.value.find((role) => role.name === 'Admin')?.members || 0)
+const tableRoles = computed(() =>
+  attachDisplayIds(roles.value, tableOptions.value.page, tableOptions.value.itemsPerPage, () => 'ROL')
+)
 
 const filteredMembers = computed(() => {
   const query = debouncedMemberQuery.value.toLowerCase()
@@ -253,7 +260,9 @@ const loadRoles = async () => {
     const result = await getRoles({
       page: tableOptions.value.page,
       pageSize: tableOptions.value.itemsPerPage,
-      search: debouncedRoleQuery.value
+      search: debouncedRoleQuery.value,
+      sortBy: tableOptions.value.sortBy,
+      sortOrder: tableOptions.value.sortOrder
     })
     roles.value = result.items || []
     totalRoles.value = result.total || 0
@@ -265,9 +274,12 @@ const loadRoles = async () => {
 }
 
 const handleTableOptions = (options) => {
+  const firstSort = options.sortBy?.[0]
   tableOptions.value = {
     page: options.page || 1,
-    itemsPerPage: options.itemsPerPage || 10
+    itemsPerPage: options.itemsPerPage || 10,
+    sortBy: firstSort?.key || 'name',
+    sortOrder: firstSort?.order || 'asc'
   }
   loadRoles()
 }

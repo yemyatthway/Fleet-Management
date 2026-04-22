@@ -7,7 +7,9 @@
         :items="users"
         :items-length="total"
         :loading="loading"
+        :page="page"
         :items-per-page="itemsPerPage"
+        :sort-by="normalizedSortBy"
         :items-per-page-options="[10, 20, 30]"
         :mobile-breakpoint="0"
         :mobile="false"
@@ -16,9 +18,12 @@
         density="comfortable"
         @update:options="$emit('update:options', $event)"
       >
+        <template #item.id="{ item }">
+          <span class="user-id">{{ item.displayId }}</span>
+        </template>
+
         <template #item.name="{ item }">
           <div class="name-cell">
-            <span class="user-id">{{ item.id }}</span>
             <button
               class="avatar avatar-button tooltip"
               type="button"
@@ -146,9 +151,10 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { roleClassMap } from '../../data/roles'
 
-defineProps({
+const props = defineProps({
   users: {
     type: Array,
     required: true
@@ -164,13 +170,26 @@ defineProps({
   itemsPerPage: {
     type: Number,
     default: 10
+  },
+  page: {
+    type: Number,
+    default: 1
+  },
+  sortBy: {
+    type: String,
+    default: 'name'
+  },
+  sortOrder: {
+    type: String,
+    default: 'asc'
   }
 })
 
 defineEmits(['edit', 'toggle', 'remove', 'view-avatar', 'update:options'])
 
 const headers = [
-  { title: 'ID / Name', key: 'name' },
+  { title: 'ID', key: 'id' },
+  { title: 'Name', key: 'name' },
   { title: 'Employee ID', key: 'employeeId' },
   { title: 'NRC', key: 'nrcNumber' },
   { title: 'NRC Front', key: 'nrcFront', sortable: false },
@@ -188,6 +207,13 @@ const headers = [
   { title: '2FA', key: 'twoFactorEnabled' },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false }
 ]
+
+const normalizedSortBy = computed(() => [
+  {
+    key: props.sortBy,
+    order: props.sortOrder
+  }
+])
 
 const roleClass = (role) => roleClassMap[role] || 'role-driver'
 

@@ -11,6 +11,10 @@ public sealed class FleetDbContext(DbContextOptions<FleetDbContext> options) : D
 
     public DbSet<UserCodeOption> UserCodeOptions => Set<UserCodeOption>();
 
+    public DbSet<DepartmentCodeOption> DepartmentCodeOptions => Set<DepartmentCodeOption>();
+
+    public DbSet<LocationCodeOption> LocationCodeOptions => Set<LocationCodeOption>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Role>(entity =>
@@ -28,6 +32,26 @@ public sealed class FleetDbContext(DbContextOptions<FleetDbContext> options) : D
             entity.HasIndex(option => new { option.Type, option.Name }).IsUnique();
 
             entity.Property(option => option.Type).HasMaxLength(30).IsRequired();
+            entity.Property(option => option.Name).HasMaxLength(120).IsRequired();
+            entity.Property(option => option.Description).HasMaxLength(300);
+            entity.Property(option => option.Status).HasMaxLength(20).IsRequired();
+        });
+
+        modelBuilder.Entity<DepartmentCodeOption>(entity =>
+        {
+            entity.ToTable("DepartmentCodeOptions");
+            entity.HasIndex(option => option.Name).IsUnique();
+
+            entity.Property(option => option.Name).HasMaxLength(120).IsRequired();
+            entity.Property(option => option.Description).HasMaxLength(300);
+            entity.Property(option => option.Status).HasMaxLength(20).IsRequired();
+        });
+
+        modelBuilder.Entity<LocationCodeOption>(entity =>
+        {
+            entity.ToTable("LocationCodeOptions");
+            entity.HasIndex(option => option.Name).IsUnique();
+
             entity.Property(option => option.Name).HasMaxLength(120).IsRequired();
             entity.Property(option => option.Description).HasMaxLength(300);
             entity.Property(option => option.Status).HasMaxLength(20).IsRequired();

@@ -2,14 +2,14 @@
   <div class="role-page">
     <div class="page-header">
       <div>
-        <h1 class="section-title">User Code Setup</h1>
-        <p class="section-subtitle">Manage department and location master data used by user forms.</p>
+        <h1 class="section-title">{{ sectionTitle }}</h1>
+        <p class="section-subtitle">{{ sectionSubtitle }}</p>
       </div>
     </div>
 
     <div class="stats-grid">
       <div class="stat-card">
-        <p>Total Codes</p>
+        <p>Total {{ itemLabelPlural }}</p>
         <h3>{{ totalCodes }}</h3>
       </div>
       <div class="stat-card">
@@ -21,7 +21,7 @@
         <h3 class="text-success">{{ locationCount }}</h3>
       </div>
       <div class="stat-card">
-        <p>Active Codes</p>
+        <p>Active {{ itemLabelPlural }}</p>
         <h3 class="text-purple">{{ activeCount }}</h3>
       </div>
     </div>
@@ -30,7 +30,7 @@
       <div class="toolbar-row">
         <div class="toolbar-search">
           <v-icon icon="mdi-magnify" />
-          <input v-model="searchQuery" type="text" placeholder="Search code name or description..." />
+          <input v-model="searchQuery" type="text" :placeholder="`Search ${itemLabel.toLowerCase()} name or description...`" />
           <button
             v-if="searchQuery"
             class="clear-button"
@@ -42,7 +42,7 @@
           </button>
         </div>
 
-        <div class="toolbar-filter">
+        <div v-if="!hasFixedType" class="toolbar-filter">
           <v-icon icon="mdi-filter-variant" />
           <select v-model="activeType">
             <option value="All">All Types</option>
@@ -53,12 +53,12 @@
 
         <button class="primary-button" type="button" @click="openAdd">
           <v-icon icon="mdi-plus" size="18" />
-          Add Code
+          Add {{ itemLabel }}
         </button>
       </div>
 
       <div class="toolbar-count text-muted">
-        {{ loadingOptions ? 'Loading code setup...' : `Showing ${options.length} of ${totalCodes} codes` }}
+        {{ loadingOptions ? `Loading ${itemLabelPlural.toLowerCase()}...` : `Showing ${options.length} of ${totalCodes} ${itemLabelPlural.toLowerCase()}` }}
       </div>
     </div>
 
@@ -70,10 +70,14 @@
     />
 
     <UserCodeSetupTable
-      :items="options"
+      :items="tableItems"
       :total="totalCodes"
       :loading="loadingOptions"
+      :page="tableOptions.page"
       :items-per-page="tableOptions.itemsPerPage"
+      :sort-by="tableOptions.sortBy"
+      :sort-order="tableOptions.sortOrder"
+      :item-label="itemLabel"
       @update:options="handleTableOptions"
       @edit="openEdit"
       @remove="handleDelete"
@@ -83,6 +87,8 @@
       :open="dialogOpen"
       :mode="dialogMode"
       :item="selectedOption"
+      :fixed-type="hasFixedType ? fixedType : ''"
+      :item-label="itemLabel"
       @close="dialogOpen = false"
       @save="handleSave"
     />
@@ -105,12 +111,38 @@ import ConfirmDialog from '../common/ConfirmDialog.vue'
 import PageMessage from '../common/PageMessage.vue'
 import UserCodeSetupDialog from './UserCodeSetupDialog.vue'
 import UserCodeSetupTable from './UserCodeSetupTable.vue'
+import { attachDisplayIds } from '../../utils/tableDisplayIds'
 import {
   createUserCodeOption,
   deleteUserCodeOption,
+  getDepartmentCodeOptions,
   getUserCodeOptions,
+  getLocationCodeOptions,
   updateUserCodeOption
 } from '../../services/userCodeOptionsApi'
+
+const props = defineProps({
+  sectionTitle: {
+    type: String,
+    default: 'User Code Setup'
+  },
+  sectionSubtitle: {
+    type: String,
+    default: 'Manage department and location master data used by user forms.'
+  },
+  fixedType: {
+    type: String,
+    default: ''
+  },
+  itemLabel: {
+    type: String,
+    default: 'Item'
+  },
+  itemLabelPlural: {
+    type: String,
+    default: 'Items'
+  }
+})
 
 const ALL_TYPES = 'All'
 const SEARCH_DELAY_MS = 350
@@ -151,7 +183,7 @@ const options = ref([])
 const searchQuery = ref('')
 const activeType = ref(ALL_TYPES)
 const totalCodes = ref(0)
-const tableOptions = ref({ page: 1, itemsPerPage: 10 })
+const tableOptions = ref({ page: 1, itemsPerPage: 10, sortBy: 'name', sortOrder: 'asc' })
 const pageMessage = ref({ tone: 'info', title: '', message: '' })
 const loadingOptions = ref(false)
 const dialogOpen = ref(false)
@@ -166,10 +198,20 @@ const pendingAction = ref(() => {})
 let pageMessageTimerId = null
 
 const debouncedQuery = useDebouncedRef(searchQuery)
+const hasFixedType = computed(() => Boolean(props.fixedType))
+const resolvedType = computed(() => (hasFixedType.value ? props.fixedType : activeType.value))
 
 const departmentCount = computed(() => options.value.filter((item) => item.type === 'Department').length)
 const locationCount = computed(() => options.value.filter((item) => item.type === 'Location').length)
 const activeCount = computed(() => options.value.filter((item) => item.status === 'Active').length)
+const tableItems = computed(() =>
+  attachDisplayIds(
+    options.value,
+    tableOptions.value.page,
+    tableOptions.value.itemsPerPage,
+    (item) => (item.type === 'Department' ? 'DEP' : 'LOC')
+  )
+)
 
 const clearPageMessage = () => {
   if (pageMessageTimerId) {
@@ -193,37 +235,46 @@ const loadOptions = async () => {
   clearPageMessage()
 
   try {
-    const result = await getUserCodeOptions({
+    const query = {
       page: tableOptions.value.page,
       pageSize: tableOptions.value.itemsPerPage,
       search: debouncedQuery.value,
-      type: activeType.value === ALL_TYPES ? '' : activeType.value
-    })
+      sortBy: tableOptions.value.sortBy,
+      sortOrder: tableOptions.value.sortOrder
+    }
+    const result = await (resolvedType.value === 'Department'
+      ? getDepartmentCodeOptions(query)
+      : resolvedType.value === 'Location'
+        ? getLocationCodeOptions(query)
+        : getUserCodeOptions({ ...query, type: '' }))
     options.value = result.items || []
     totalCodes.value = result.total || 0
   } catch (error) {
-    showPageMessage({ tone: 'error', title: 'Could not load code setup', message: error.message })
+    showPageMessage({ tone: 'error', title: `Could not load ${props.itemLabelPlural.toLowerCase()}`, message: error.message })
   } finally {
     loadingOptions.value = false
   }
 }
 
 const handleTableOptions = (nextOptions) => {
+  const firstSort = nextOptions.sortBy?.[0]
   tableOptions.value = {
     page: nextOptions.page || 1,
-    itemsPerPage: nextOptions.itemsPerPage || 10
+    itemsPerPage: nextOptions.itemsPerPage || 10,
+    sortBy: firstSort?.key || 'name',
+    sortOrder: firstSort?.order || 'asc'
   }
   loadOptions()
 }
 
-watch([debouncedQuery, activeType], () => {
+watch([debouncedQuery, resolvedType], () => {
   tableOptions.value.page = 1
   loadOptions()
 })
 
 const openAdd = () => {
   dialogMode.value = 'add'
-  selectedOption.value = null
+  selectedOption.value = hasFixedType.value ? { type: props.fixedType } : null
   dialogOpen.value = true
 }
 
@@ -251,11 +302,11 @@ const handleSave = async (payload) => {
     dialogOpen.value = false
     showPageMessage({
       tone: 'success',
-      title: isEdit ? 'Code updated' : 'Code created',
+      title: isEdit ? `${props.itemLabel} updated` : `${props.itemLabel} created`,
       message: `${savedItem.name} has been ${isEdit ? 'updated' : 'created'} successfully.`
     })
   } catch (error) {
-    showPageMessage({ tone: 'error', title: 'Code was not saved', message: error.message })
+    showPageMessage({ tone: 'error', title: `${props.itemLabel} was not saved`, message: error.message })
   }
 }
 
@@ -275,7 +326,7 @@ const runConfirm = async () => {
 
 const handleDelete = (item) => {
   openConfirm({
-    title: 'Delete Code?',
+    title: `Delete ${props.itemLabel}?`,
     message: `This will permanently remove ${item.name}.`,
     confirmText: 'Delete',
     tone: 'danger',
@@ -283,15 +334,15 @@ const handleDelete = (item) => {
       clearPageMessage()
 
       try {
-        await deleteUserCodeOption(item.id)
+        await deleteUserCodeOption(item.id, item.type)
         await loadOptions()
         showPageMessage({
           tone: 'warning',
-          title: 'Code deleted',
+          title: `${props.itemLabel} deleted`,
           message: `${item.name} has been removed.`
         })
       } catch (error) {
-        showPageMessage({ tone: 'error', title: 'Code was not deleted', message: error.message })
+        showPageMessage({ tone: 'error', title: `${props.itemLabel} was not deleted`, message: error.message })
       }
     }
   })

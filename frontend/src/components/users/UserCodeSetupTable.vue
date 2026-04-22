@@ -7,7 +7,9 @@
         :items="items"
         :items-length="total"
         :loading="loading"
+        :page="page"
         :items-per-page="itemsPerPage"
+        :sort-by="normalizedSortBy"
         :items-per-page-options="[10, 20, 30]"
         :mobile-breakpoint="0"
         :mobile="false"
@@ -16,6 +18,10 @@
         density="comfortable"
         @update:options="$emit('update:options', $event)"
       >
+        <template #item.id="{ item }">
+          <span class="text-muted">{{ item.displayId }}</span>
+        </template>
+
         <template #item.type="{ item }">
           <div class="role-cell">
             <div class="role-badge" :class="item.type === 'Department' ? 'role-dispatcher' : 'role-driver'">
@@ -40,11 +46,11 @@
           <div class="inline-actions">
             <button class="icon-button tooltip" type="button" @click="$emit('edit', item)">
               <v-icon icon="mdi-pencil-outline" size="18" />
-              <span class="tooltip-text">Edit code</span>
+              <span class="tooltip-text">Edit {{ itemLabel.toLowerCase() }}</span>
             </button>
             <button class="icon-button danger tooltip" type="button" @click="$emit('remove', item)">
               <v-icon icon="mdi-trash-can-outline" size="18" />
-              <span class="tooltip-text">Delete code</span>
+              <span class="tooltip-text">Delete {{ itemLabel.toLowerCase() }}</span>
             </button>
           </div>
         </template>
@@ -54,7 +60,7 @@
         </template>
 
         <template #no-data>
-          <div class="empty-state">No code setup records found</div>
+          <div class="empty-state">No records found</div>
         </template>
       </v-data-table-server>
     </div>
@@ -62,7 +68,9 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   items: {
     type: Array,
     required: true
@@ -78,12 +86,29 @@ defineProps({
   itemsPerPage: {
     type: Number,
     default: 10
+  },
+  page: {
+    type: Number,
+    default: 1
+  },
+  sortBy: {
+    type: String,
+    default: 'name'
+  },
+  sortOrder: {
+    type: String,
+    default: 'asc'
+  },
+  itemLabel: {
+    type: String,
+    default: 'Item'
   }
 })
 
 defineEmits(['edit', 'remove', 'update:options'])
 
 const headers = [
+  { title: 'ID', key: 'id' },
   { title: 'Type', key: 'type' },
   { title: 'Name', key: 'name' },
   { title: 'Description', key: 'description' },
@@ -91,6 +116,13 @@ const headers = [
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
   { title: 'Created At', key: 'createdAt' }
 ]
+
+const normalizedSortBy = computed(() => [
+  {
+    key: props.sortBy,
+    order: props.sortOrder
+  }
+])
 
 const formatDate = (value) =>
   new Date(value).toLocaleDateString('en-US', {

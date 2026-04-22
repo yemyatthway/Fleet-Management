@@ -41,6 +41,12 @@ const toQueryString = (params = {}) => {
 
 export const getUserCodeOptions = (params = {}) => request(`/api/user-code-options${toQueryString(params)}`)
 
+export const getDepartmentCodeOptions = (params = {}) =>
+  request(`/api/user-code-options/departments${toQueryString(params)}`)
+
+export const getLocationCodeOptions = (params = {}) =>
+  request(`/api/user-code-options/locations${toQueryString(params)}`)
+
 export const getDepartmentOptions = () => request('/api/user-code-options/options?type=Department')
 
 export const getLocationOptions = () => request('/api/user-code-options/options?type=Location')
@@ -57,7 +63,7 @@ export const updateUserCodeOption = (id, payload) =>
     body: JSON.stringify(payload)
   })
 
-export const deleteUserCodeOption = (id) =>
-  request(`/api/user-code-options/${id}`, {
+export const deleteUserCodeOption = (id, type) =>
+  request(`/api/user-code-options/${id}${toQueryString({ type })}`, {
     method: 'DELETE'
   })

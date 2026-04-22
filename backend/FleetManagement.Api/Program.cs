@@ -38,13 +38,14 @@ if (app.Environment.IsDevelopment())
     await db.Database.EnsureCreatedAsync();
     await EnsureUserSchemaAsync(db);
     await EnsureUserCodeOptionSchemaAsync(db);
+    await EnsureSeparatedUserCodeOptionSchemaAsync(db);
     await SeedData.EnsureSeededAsync(db);
     await MigrateUserImagesToFileStorageAsync(db, app.Environment);
 }
 
 var roles = app.MapGroup("/api/roles");
 
-roles.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null) =>
+roles.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null) =>
 {
     page = Math.Max(page, 1);
     pageSize = Math.Clamp(pageSize, 1, 100);
@@ -57,8 +58,19 @@ roles.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize = 10, str
     }
 
     var total = await query.CountAsync();
+    var descending = string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase);
+    var normalizedSort = (sortBy ?? "id").Trim().ToLowerInvariant();
+    query = normalizedSort switch
+    {
+        "id" => descending ? query.OrderByDescending(role => role.Id) : query.OrderBy(role => role.Id),
+        "description" => descending ? query.OrderByDescending(role => role.Description) : query.OrderBy(role => role.Description),
+        "status" => descending ? query.OrderByDescending(role => role.Status) : query.OrderBy(role => role.Status),
+        "createdat" => descending ? query.OrderByDescending(role => role.CreatedAt) : query.OrderBy(role => role.CreatedAt),
+        "members" => descending ? query.OrderByDescending(role => role.Users.Count) : query.OrderBy(role => role.Users.Count),
+        _ => descending ? query.OrderByDescending(role => role.Name) : query.OrderBy(role => role.Name)
+    };
+
     var items = await query
-        .OrderBy(role => role.Name)
         .Skip((page - 1) * pageSize)
         .Take(pageSize)
         .Select(role => new RoleDto(
@@ -211,37 +223,38 @@ roles.MapDelete("/{id:int}", async (int id, FleetDbContext db) =>
 
 var userCodeOptions = app.MapGroup("/api/user-code-options");
 
-userCodeOptions.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? type = null) =>
+userCodeOptions.MapGet("/departments", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null) =>
 {
     page = Math.Max(page, 1);
     pageSize = Math.Clamp(pageSize, 1, 100);
-    var query = db.UserCodeOptions.AsNoTracking();
+    var query = db.DepartmentCodeOptions.AsNoTracking();
 
     if (!string.IsNullOrWhiteSpace(search))
     {
         var term = search.Trim();
         query = query.Where(option =>
             option.Name.Contains(term) ||
-            (option.Description != null && option.Description.Contains(term)) ||
-            option.Type.Contains(term));
-    }
-
-    if (!string.IsNullOrWhiteSpace(type) && type != "All")
-    {
-        var normalizedType = NormalizeUserCodeOptionType(type);
-        if (normalizedType is null) return Results.BadRequest(new { message = "Type must be Department or Location." });
-        query = query.Where(option => option.Type == normalizedType);
+            (option.Description != null && option.Description.Contains(term)));
     }
 
     var total = await query.CountAsync();
+    var descending = string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase);
+    var normalizedSort = (sortBy ?? "id").Trim().ToLowerInvariant();
+    query = normalizedSort switch
+    {
+        "id" => descending ? query.OrderByDescending(option => option.Id) : query.OrderBy(option => option.Id),
+        "description" => descending ? query.OrderByDescending(option => option.Description) : query.OrderBy(option => option.Description),
+        "status" => descending ? query.OrderByDescending(option => option.Status) : query.OrderBy(option => option.Status),
+        "createdat" => descending ? query.OrderByDescending(option => option.CreatedAt) : query.OrderBy(option => option.CreatedAt),
+        _ => descending ? query.OrderByDescending(option => option.Name) : query.OrderBy(option => option.Name)
+    };
+
     var items = await query
-        .OrderBy(option => option.Type)
-        .ThenBy(option => option.Name)
         .Skip((page - 1) * pageSize)
         .Take(pageSize)
         .Select(option => new UserCodeOptionDto(
             option.Id,
-            option.Type,
+            "Department",
             option.Name,
             option.Description,
             option.Status,
@@ -252,21 +265,159 @@ userCodeOptions.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize
     return Results.Ok(new PagedResult<UserCodeOptionDto>(items, total, page, pageSize));
 });
 
-userCodeOptions.MapGet("/options", async (FleetDbContext db, string? type = null) =>
+userCodeOptions.MapGet("/locations", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null) =>
 {
-    var query = db.UserCodeOptions.AsNoTracking().Where(option => option.Status == "Active");
+    page = Math.Max(page, 1);
+    pageSize = Math.Clamp(pageSize, 1, 100);
+    var query = db.LocationCodeOptions.AsNoTracking();
 
-    if (!string.IsNullOrWhiteSpace(type))
+    if (!string.IsNullOrWhiteSpace(search))
     {
-        var normalizedType = NormalizeUserCodeOptionType(type);
-        if (normalizedType is null) return Results.BadRequest(new { message = "Type must be Department or Location." });
-        query = query.Where(option => option.Type == normalizedType);
+        var term = search.Trim();
+        query = query.Where(option =>
+            option.Name.Contains(term) ||
+            (option.Description != null && option.Description.Contains(term)));
     }
 
+    var total = await query.CountAsync();
+    var descending = string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase);
+    var normalizedSort = (sortBy ?? "name").Trim().ToLowerInvariant();
+    query = normalizedSort switch
+    {
+        "id" => descending ? query.OrderByDescending(option => option.Id) : query.OrderBy(option => option.Id),
+        "description" => descending ? query.OrderByDescending(option => option.Description) : query.OrderBy(option => option.Description),
+        "status" => descending ? query.OrderByDescending(option => option.Status) : query.OrderBy(option => option.Status),
+        "createdat" => descending ? query.OrderByDescending(option => option.CreatedAt) : query.OrderBy(option => option.CreatedAt),
+        _ => descending ? query.OrderByDescending(option => option.Name) : query.OrderBy(option => option.Name)
+    };
+
     var items = await query
-        .OrderBy(option => option.Name)
-        .Select(option => option.Name)
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
+        .Select(option => new UserCodeOptionDto(
+            option.Id,
+            "Location",
+            option.Name,
+            option.Description,
+            option.Status,
+            option.CreatedAt,
+            option.UpdatedAt))
         .ToListAsync();
+
+    return Results.Ok(new PagedResult<UserCodeOptionDto>(items, total, page, pageSize));
+});
+
+userCodeOptions.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? type = null, string? sortBy = null, string? sortOrder = null) =>
+{
+    page = Math.Max(page, 1);
+    pageSize = Math.Clamp(pageSize, 1, 100);
+    var normalizedType = string.IsNullOrWhiteSpace(type) || type == "All" ? null : NormalizeUserCodeOptionType(type);
+    if (type is not null && type != "All" && normalizedType is null)
+    {
+        return Results.BadRequest(new { message = "Type must be Department or Location." });
+    }
+
+    var departments = db.DepartmentCodeOptions.AsNoTracking();
+    var locations = db.LocationCodeOptions.AsNoTracking();
+
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        var term = search.Trim();
+        departments = departments.Where(option =>
+            option.Name.Contains(term) ||
+            (option.Description != null && option.Description.Contains(term)));
+        locations = locations.Where(option =>
+            option.Name.Contains(term) ||
+            (option.Description != null && option.Description.Contains(term)));
+    }
+
+    IQueryable<UserCodeOptionDto> departmentItems = departments.Select(option => new UserCodeOptionDto(
+        option.Id,
+        "Department",
+        option.Name,
+        option.Description,
+        option.Status,
+        option.CreatedAt,
+        option.UpdatedAt));
+
+    IQueryable<UserCodeOptionDto> locationItems = locations.Select(option => new UserCodeOptionDto(
+        option.Id,
+        "Location",
+        option.Name,
+        option.Description,
+        option.Status,
+        option.CreatedAt,
+        option.UpdatedAt));
+
+    var merged = normalizedType switch
+    {
+        "Department" => departmentItems,
+        "Location" => locationItems,
+        _ => departmentItems.Concat(locationItems)
+    };
+
+    var descending = string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase);
+    var normalizedSort = (sortBy ?? "name").Trim().ToLowerInvariant();
+    merged = normalizedSort switch
+    {
+        "id" => descending ? merged.OrderByDescending(option => option.Id) : merged.OrderBy(option => option.Id),
+        "type" => descending ? merged.OrderByDescending(option => option.Type) : merged.OrderBy(option => option.Type),
+        "description" => descending ? merged.OrderByDescending(option => option.Description) : merged.OrderBy(option => option.Description),
+        "status" => descending ? merged.OrderByDescending(option => option.Status) : merged.OrderBy(option => option.Status),
+        "createdat" => descending ? merged.OrderByDescending(option => option.CreatedAt) : merged.OrderBy(option => option.CreatedAt),
+        _ => descending ? merged.OrderByDescending(option => option.Name) : merged.OrderBy(option => option.Name)
+    };
+
+    var total = await merged.CountAsync();
+    var items = await merged
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
+        .ToListAsync();
+
+    return Results.Ok(new PagedResult<UserCodeOptionDto>(items, total, page, pageSize));
+});
+
+userCodeOptions.MapGet("/options", async (FleetDbContext db, string? type = null) =>
+{
+    var normalizedType = string.IsNullOrWhiteSpace(type) ? null : NormalizeUserCodeOptionType(type);
+    if (type is not null && normalizedType is null)
+    {
+        return Results.BadRequest(new { message = "Type must be Department or Location." });
+    }
+
+    List<string> items;
+    if (normalizedType == "Department")
+    {
+        items = await db.DepartmentCodeOptions
+            .AsNoTracking()
+            .Where(option => option.Status == "Active")
+            .OrderBy(option => option.Name)
+            .Select(option => option.Name)
+            .ToListAsync();
+    }
+    else if (normalizedType == "Location")
+    {
+        items = await db.LocationCodeOptions
+            .AsNoTracking()
+            .Where(option => option.Status == "Active")
+            .OrderBy(option => option.Name)
+            .Select(option => option.Name)
+            .ToListAsync();
+    }
+    else
+    {
+        var departmentItems = await db.DepartmentCodeOptions
+            .AsNoTracking()
+            .Where(option => option.Status == "Active")
+            .Select(option => option.Name)
+            .ToListAsync();
+        var locationItems = await db.LocationCodeOptions
+            .AsNoTracking()
+            .Where(option => option.Status == "Active")
+            .Select(option => option.Name)
+            .ToListAsync();
+        items = departmentItems.Concat(locationItems).OrderBy(name => name).ToList();
+    }
 
     return Results.Ok(items);
 });
@@ -279,29 +430,51 @@ userCodeOptions.MapPost("/", async (UserCodeOptionRequest request, FleetDbContex
     var normalizedType = NormalizeUserCodeOptionType(request.Type)!;
     var normalizedName = request.Name.Trim();
 
-    var duplicateExists = await db.UserCodeOptions.AnyAsync(option => option.Type == normalizedType && option.Name == normalizedName);
+    var duplicateExists = normalizedType == "Department"
+        ? await db.DepartmentCodeOptions.AnyAsync(option => option.Name == normalizedName)
+        : await db.LocationCodeOptions.AnyAsync(option => option.Name == normalizedName);
     if (duplicateExists) return Results.Conflict(new { message = $"{normalizedType} already exists." });
 
-    var option = new UserCodeOption
+    var now = DateTimeOffset.UtcNow;
+    if (normalizedType == "Department")
     {
-        Type = normalizedType,
+        var option = new DepartmentCodeOption
+        {
+            Name = normalizedName,
+            Description = NormalizeOptional(request.Description),
+            Status = request.Status.Trim(),
+            CreatedAt = now
+        };
+        db.DepartmentCodeOptions.Add(option);
+        await db.SaveChangesAsync();
+        return Results.Created($"/api/user-code-options/{option.Id}", new UserCodeOptionDto(
+            option.Id,
+            "Department",
+            option.Name,
+            option.Description,
+            option.Status,
+            option.CreatedAt,
+            option.UpdatedAt));
+    }
+
+    var locationOption = new LocationCodeOption
+    {
         Name = normalizedName,
         Description = NormalizeOptional(request.Description),
         Status = request.Status.Trim(),
-        CreatedAt = DateTimeOffset.UtcNow
+        CreatedAt = now
     };
-
-    db.UserCodeOptions.Add(option);
+    db.LocationCodeOptions.Add(locationOption);
     await db.SaveChangesAsync();
 
-    return Results.Created($"/api/user-code-options/{option.Id}", new UserCodeOptionDto(
-        option.Id,
-        option.Type,
-        option.Name,
-        option.Description,
-        option.Status,
-        option.CreatedAt,
-        option.UpdatedAt));
+    return Results.Created($"/api/user-code-options/{locationOption.Id}", new UserCodeOptionDto(
+        locationOption.Id,
+        "Location",
+        locationOption.Name,
+        locationOption.Description,
+        locationOption.Status,
+        locationOption.CreatedAt,
+        locationOption.UpdatedAt));
 });
 
 userCodeOptions.MapPut("/{id:int}", async (int id, UserCodeOptionRequest request, FleetDbContext db) =>
@@ -309,59 +482,104 @@ userCodeOptions.MapPut("/{id:int}", async (int id, UserCodeOptionRequest request
     var validationError = ValidateUserCodeOptionRequest(request);
     if (validationError is not null) return Results.BadRequest(new { message = validationError });
 
-    var option = await db.UserCodeOptions.FindAsync(id);
-    if (option is null) return Results.NotFound();
-
     var normalizedType = NormalizeUserCodeOptionType(request.Type)!;
     var normalizedName = request.Name.Trim();
+    var now = DateTimeOffset.UtcNow;
 
-    var duplicateExists = await db.UserCodeOptions.AnyAsync(item => item.Id != id && item.Type == normalizedType && item.Name == normalizedName);
-    if (duplicateExists) return Results.Conflict(new { message = $"{normalizedType} already exists." });
+    if (normalizedType == "Department")
+    {
+        var option = await db.DepartmentCodeOptions.FindAsync(id);
+        if (option is null) return Results.NotFound();
 
-    option.Type = normalizedType;
-    option.Name = normalizedName;
-    option.Description = NormalizeOptional(request.Description);
-    option.Status = request.Status.Trim();
-    option.UpdatedAt = DateTimeOffset.UtcNow;
+        var duplicateExists = await db.DepartmentCodeOptions.AnyAsync(item => item.Id != id && item.Name == normalizedName);
+        if (duplicateExists) return Results.Conflict(new { message = "Department already exists." });
 
+        option.Name = normalizedName;
+        option.Description = NormalizeOptional(request.Description);
+        option.Status = request.Status.Trim();
+        option.UpdatedAt = now;
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new UserCodeOptionDto(
+            option.Id,
+            "Department",
+            option.Name,
+            option.Description,
+            option.Status,
+            option.CreatedAt,
+            option.UpdatedAt));
+    }
+
+    var locationOption = await db.LocationCodeOptions.FindAsync(id);
+    if (locationOption is null) return Results.NotFound();
+
+    var locationDuplicateExists = await db.LocationCodeOptions.AnyAsync(item => item.Id != id && item.Name == normalizedName);
+    if (locationDuplicateExists) return Results.Conflict(new { message = "Location already exists." });
+
+    locationOption.Name = normalizedName;
+    locationOption.Description = NormalizeOptional(request.Description);
+    locationOption.Status = request.Status.Trim();
+    locationOption.UpdatedAt = now;
     await db.SaveChangesAsync();
 
     return Results.Ok(new UserCodeOptionDto(
-        option.Id,
-        option.Type,
-        option.Name,
-        option.Description,
-        option.Status,
-        option.CreatedAt,
-        option.UpdatedAt));
+        locationOption.Id,
+        "Location",
+        locationOption.Name,
+        locationOption.Description,
+        locationOption.Status,
+        locationOption.CreatedAt,
+        locationOption.UpdatedAt));
 });
 
-userCodeOptions.MapDelete("/{id:int}", async (int id, FleetDbContext db) =>
+userCodeOptions.MapDelete("/{id:int}", async (int id, FleetDbContext db, string? type = null) =>
 {
-    var option = await db.UserCodeOptions.FindAsync(id);
-    if (option is null) return Results.NotFound();
-
-    var isInUse = option.Type switch
+    var normalizedType = NormalizeUserCodeOptionType(type);
+    if (!string.IsNullOrWhiteSpace(type) && normalizedType is null)
     {
-        "Department" => await db.Users.AnyAsync(user => user.Department == option.Name),
-        "Location" => await db.Users.AnyAsync(user => user.Location == option.Name),
-        _ => false
-    };
-
-    if (isInUse)
-    {
-        return Results.Conflict(new { message = $"Cannot delete {option.Type.ToLowerInvariant()} while it is assigned to users." });
+        return Results.BadRequest(new { message = "Type must be Department or Location." });
     }
 
-    db.UserCodeOptions.Remove(option);
-    await db.SaveChangesAsync();
+    if (normalizedType is null or "Department")
+    {
+        var departmentOption = await db.DepartmentCodeOptions.FindAsync(id);
+        if (departmentOption is not null)
+        {
+            var isInUse = await db.Users.AnyAsync(user => user.Department == departmentOption.Name);
+            if (isInUse)
+            {
+                return Results.Conflict(new { message = "Cannot delete department while it is assigned to users." });
+            }
 
-    return Results.NoContent();
+            db.DepartmentCodeOptions.Remove(departmentOption);
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        }
+    }
+
+    if (normalizedType is null or "Location")
+    {
+        var locationOption = await db.LocationCodeOptions.FindAsync(id);
+        if (locationOption is null) return Results.NotFound();
+
+        var locationInUse = await db.Users.AnyAsync(user => user.Location == locationOption.Name);
+        if (locationInUse)
+        {
+            return Results.Conflict(new { message = "Cannot delete location while it is assigned to users." });
+        }
+
+        db.LocationCodeOptions.Remove(locationOption);
+        await db.SaveChangesAsync();
+
+        return Results.NoContent();
+    }
+    
+    return Results.NotFound();
 });
 
 var users = app.MapGroup("/api/users");
 
-users.MapGet("/", async (FleetDbContext db, HttpContext httpContext, int page = 1, int pageSize = 10, string? search = null, string? role = null) =>
+users.MapGet("/", async (FleetDbContext db, HttpContext httpContext, int page = 1, int pageSize = 10, string? search = null, string? role = null, string? sortBy = null, string? sortOrder = null) =>
 {
     page = Math.Max(page, 1);
     pageSize = Math.Clamp(pageSize, 1, 100);
@@ -387,6 +605,27 @@ users.MapGet("/", async (FleetDbContext db, HttpContext httpContext, int page = 
         query = query.Where(user => user.Role!.Name == roleName);
     }
 
+    var descending = string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase);
+    var normalizedSort = (sortBy ?? "name").Trim().ToLowerInvariant();
+    query = normalizedSort switch
+    {
+        "id" => descending ? query.OrderByDescending(user => user.Id) : query.OrderBy(user => user.Id),
+        "employeeid" => descending ? query.OrderByDescending(user => user.EmployeeId) : query.OrderBy(user => user.EmployeeId),
+        "nrcnumber" => descending ? query.OrderByDescending(user => user.NrcNumber) : query.OrderBy(user => user.NrcNumber),
+        "email" => descending ? query.OrderByDescending(user => user.Email) : query.OrderBy(user => user.Email),
+        "role" => descending ? query.OrderByDescending(user => user.Role!.Name) : query.OrderBy(user => user.Role!.Name),
+        "phone" => descending ? query.OrderByDescending(user => user.Phone) : query.OrderBy(user => user.Phone),
+        "department" => descending ? query.OrderByDescending(user => user.Department) : query.OrderBy(user => user.Department),
+        "title" => descending ? query.OrderByDescending(user => user.Title) : query.OrderBy(user => user.Title),
+        "location" => descending ? query.OrderByDescending(user => user.Location) : query.OrderBy(user => user.Location),
+        "manager" => descending ? query.OrderByDescending(user => user.Manager) : query.OrderBy(user => user.Manager),
+        "status" => descending ? query.OrderByDescending(user => user.Status) : query.OrderBy(user => user.Status),
+        "joindate" => descending ? query.OrderByDescending(user => user.JoinDate) : query.OrderBy(user => user.JoinDate),
+        "lastlogin" => descending ? query.OrderByDescending(user => user.LastLogin) : query.OrderBy(user => user.LastLogin),
+        "twofactorenabled" => descending ? query.OrderByDescending(user => user.TwoFactorEnabled) : query.OrderBy(user => user.TwoFactorEnabled),
+        _ => descending ? query.OrderByDescending(user => user.Name) : query.OrderBy(user => user.Name)
+    };
+
     var total = await query.CountAsync();
     var stats = await db.Users
         .AsNoTracking()
@@ -399,7 +638,6 @@ users.MapGet("/", async (FleetDbContext db, HttpContext httpContext, int page = 
         .FirstOrDefaultAsync() ?? new UserStatsDto(0, 0, 0, 0);
 
     var userItems = await query
-        .OrderBy(user => user.Name)
         .Skip((page - 1) * pageSize)
         .Take(pageSize)
         .Select(user => new UserListItem(
@@ -745,19 +983,22 @@ static async Task<string?> ValidateUserCodeSelectionsAsync(UserRequest request, 
     var department = request.Department.Trim();
     var location = request.Location.Trim();
 
-    var availableOptions = await db.UserCodeOptions
+    var availableDepartments = await db.DepartmentCodeOptions
         .AsNoTracking()
-        .Where(option =>
-            option.Status == "Active" &&
-            ((option.Type == "Department" && option.Name == department) ||
-             (option.Type == "Location" && option.Name == location)))
-        .Select(option => new { option.Type, option.Name })
+        .Where(option => option.Status == "Active" && option.Name == department)
+        .Select(option => option.Name)
         .ToListAsync();
 
-    var hasDepartment = availableOptions.Any(option => option.Type == "Department" && option.Name == department);
+    var availableLocations = await db.LocationCodeOptions
+        .AsNoTracking()
+        .Where(option => option.Status == "Active" && option.Name == location)
+        .Select(option => option.Name)
+        .ToListAsync();
+
+    var hasDepartment = availableDepartments.Count > 0;
     if (!hasDepartment) return "Selected department does not exist in code setup.";
 
-    var hasLocation = availableOptions.Any(option => option.Type == "Location" && option.Name == location);
+    var hasLocation = availableLocations.Count > 0;
     if (!hasLocation) return "Selected location does not exist in code setup.";
 
     return null;
@@ -1035,6 +1276,80 @@ BEGIN
     );
 
     CREATE UNIQUE INDEX [IX_UserCodeOptions_Type_Name] ON [UserCodeOptions] ([Type], [Name]);
+END
+
+IF OBJECT_ID('UserCodeOptions', 'U') IS NOT NULL
+BEGIN
+    UPDATE [UserCodeOptions]
+    SET [Type] = 'Location'
+    WHERE [Type] = 'Location / Depot';
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.check_constraints
+        WHERE name = 'CK_UserCodeOptions_Type'
+          AND parent_object_id = OBJECT_ID('UserCodeOptions')
+    )
+    BEGIN
+        ALTER TABLE [UserCodeOptions]
+        ADD CONSTRAINT [CK_UserCodeOptions_Type] CHECK ([Type] IN ('Department', 'Location'));
+    END
+END
+""";
+
+    await db.Database.ExecuteSqlRawAsync(schemaSql);
+}
+
+static async Task EnsureSeparatedUserCodeOptionSchemaAsync(FleetDbContext db)
+{
+    var schemaSql = """
+IF OBJECT_ID('DepartmentCodeOptions', 'U') IS NULL
+BEGIN
+    CREATE TABLE [DepartmentCodeOptions]
+    (
+        [Id] int NOT NULL IDENTITY(1,1),
+        [Name] nvarchar(120) NOT NULL,
+        [Description] nvarchar(300) NULL,
+        [Status] nvarchar(20) NOT NULL CONSTRAINT DF_DepartmentCodeOptions_Status DEFAULT 'Active',
+        [CreatedAt] datetimeoffset NOT NULL CONSTRAINT DF_DepartmentCodeOptions_CreatedAt DEFAULT SYSDATETIMEOFFSET(),
+        [UpdatedAt] datetimeoffset NULL,
+        CONSTRAINT [PK_DepartmentCodeOptions] PRIMARY KEY ([Id])
+    );
+    CREATE UNIQUE INDEX [IX_DepartmentCodeOptions_Name] ON [DepartmentCodeOptions] ([Name]);
+END
+
+IF OBJECT_ID('LocationCodeOptions', 'U') IS NULL
+BEGIN
+    CREATE TABLE [LocationCodeOptions]
+    (
+        [Id] int NOT NULL IDENTITY(1,1),
+        [Name] nvarchar(120) NOT NULL,
+        [Description] nvarchar(300) NULL,
+        [Status] nvarchar(20) NOT NULL CONSTRAINT DF_LocationCodeOptions_Status DEFAULT 'Active',
+        [CreatedAt] datetimeoffset NOT NULL CONSTRAINT DF_LocationCodeOptions_CreatedAt DEFAULT SYSDATETIMEOFFSET(),
+        [UpdatedAt] datetimeoffset NULL,
+        CONSTRAINT [PK_LocationCodeOptions] PRIMARY KEY ([Id])
+    );
+    CREATE UNIQUE INDEX [IX_LocationCodeOptions_Name] ON [LocationCodeOptions] ([Name]);
+END
+
+IF OBJECT_ID('UserCodeOptions', 'U') IS NOT NULL
+BEGIN
+    INSERT INTO [DepartmentCodeOptions] ([Name], [Description], [Status], [CreatedAt], [UpdatedAt])
+    SELECT legacy.[Name], legacy.[Description], legacy.[Status], legacy.[CreatedAt], legacy.[UpdatedAt]
+    FROM [UserCodeOptions] legacy
+    WHERE legacy.[Type] = 'Department'
+      AND NOT EXISTS (
+          SELECT 1 FROM [DepartmentCodeOptions] d WHERE d.[Name] = legacy.[Name]
+      );
+
+    INSERT INTO [LocationCodeOptions] ([Name], [Description], [Status], [CreatedAt], [UpdatedAt])
+    SELECT legacy.[Name], legacy.[Description], legacy.[Status], legacy.[CreatedAt], legacy.[UpdatedAt]
+    FROM [UserCodeOptions] legacy
+    WHERE legacy.[Type] = 'Location'
+      AND NOT EXISTS (
+          SELECT 1 FROM [LocationCodeOptions] l WHERE l.[Name] = legacy.[Name]
+      );
 END
 """;
 

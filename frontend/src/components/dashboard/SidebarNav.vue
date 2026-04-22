@@ -53,7 +53,7 @@
         <button
           type="button"
           class="nav-item nav-group-toggle"
-          :class="{ active: route.path.startsWith('/users') || route.path.startsWith('/roles') || route.path.startsWith('/user-code-setup') }"
+          :class="{ active: route.path.startsWith('/users') || route.path.startsWith('/roles') }"
           @click="userOpen = !userOpen"
         >
           <v-icon icon="mdi-account-group" size="20" />
@@ -63,6 +63,32 @@
         <div v-show="userOpen" class="nav-sublist">
           <button
             v-for="item in userItems"
+            :key="item.label"
+            type="button"
+            class="nav-subitem"
+            :class="{ active: route.path === item.path }"
+            @click="router.push(item.path)"
+          >
+            <v-icon :icon="item.icon" size="18" />
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button
+          type="button"
+          class="nav-item nav-group-toggle"
+          :class="{ active: route.path.startsWith('/user-code-setup') }"
+          @click="setupOpen = !setupOpen"
+        >
+          <v-icon icon="mdi-cog-outline" size="20" />
+          <span>Setup</span>
+          <v-icon class="chevron" :class="{ open: setupOpen }" icon="mdi-chevron-down" size="18" />
+        </button>
+        <div v-show="setupOpen" class="nav-sublist">
+          <button
+            v-for="item in setupItems"
             :key="item.label"
             type="button"
             class="nav-subitem"
@@ -104,8 +130,12 @@ const menuItems = [
 
 const userItems = [
   { icon: 'mdi-account-multiple', label: 'Users', path: '/users' },
-  { icon: 'mdi-shield-account', label: 'Roles', path: '/roles' },
-  { icon: 'mdi-table-cog', label: 'Code Setup', path: '/user-code-setup' }
+  { icon: 'mdi-shield-account', label: 'Roles', path: '/roles' }
+]
+
+const setupItems = [
+  { icon: 'mdi-domain', label: 'Department Setup', path: '/user-code-setup/departments' },
+  { icon: 'mdi-map-marker-multiple', label: 'Location Setup', path: '/user-code-setup/locations' }
 ]
 
 const maintenanceItems = [
@@ -115,7 +145,8 @@ const maintenanceItems = [
 ]
 
 const maintenanceOpen = ref(route.path.startsWith('/maintenance'))
-const userOpen = ref(route.path.startsWith('/users') || route.path.startsWith('/roles') || route.path.startsWith('/user-code-setup'))
+const userOpen = ref(route.path.startsWith('/users') || route.path.startsWith('/roles'))
+const setupOpen = ref(route.path.startsWith('/user-code-setup'))
 
 watch(
   () => route.path,
@@ -123,8 +154,11 @@ watch(
     if (path.startsWith('/maintenance')) {
       maintenanceOpen.value = true
     }
-    if (path.startsWith('/users') || path.startsWith('/roles') || path.startsWith('/user-code-setup')) {
+    if (path.startsWith('/users') || path.startsWith('/roles')) {
       userOpen.value = true
+    }
+    if (path.startsWith('/user-code-setup')) {
+      setupOpen.value = true
     }
   }
 )

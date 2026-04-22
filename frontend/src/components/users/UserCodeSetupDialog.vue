@@ -2,14 +2,14 @@
   <v-dialog v-model="internalOpen" max-width="520">
     <v-card class="dialog-card">
       <div class="dialog-header">
-        <h2>{{ mode === 'edit' ? 'Edit Code' : 'Create Code' }}</h2>
+        <h2>{{ mode === 'edit' ? `Edit ${itemLabel}` : `Create ${itemLabel}` }}</h2>
         <button class="icon-button" type="button" @click="close">
           <v-icon icon="mdi-close" />
         </button>
       </div>
 
       <form class="dialog-body" @submit.prevent="submit">
-        <div class="field">
+        <div v-if="!fixedType" class="field">
           <label class="required">Type</label>
           <select v-model="form.type" required>
             <option value="Department">Department</option>
@@ -18,7 +18,7 @@
         </div>
         <div class="field">
           <label class="required">Name</label>
-          <input v-model="form.name" type="text" placeholder="Enter code name" required />
+          <input v-model="form.name" type="text" :placeholder="`Enter ${itemLabel.toLowerCase()} name`" required />
         </div>
         <div class="field">
           <label>Description</label>
@@ -36,7 +36,7 @@
 
         <div class="dialog-actions">
           <button class="ghost" type="button" @click="close">Cancel</button>
-          <button class="primary" type="submit">{{ mode === 'edit' ? 'Save Changes' : 'Create Code' }}</button>
+          <button class="primary" type="submit">{{ mode === 'edit' ? 'Save Changes' : `Create ${itemLabel}` }}</button>
         </div>
       </form>
     </v-card>
@@ -58,6 +58,14 @@ const props = defineProps({
   item: {
     type: Object,
     default: null
+  },
+  fixedType: {
+    type: String,
+    default: ''
+  },
+  itemLabel: {
+    type: String,
+    default: 'Item'
   }
 })
 
@@ -82,7 +90,7 @@ const formError = ref('')
 
 const reset = () => {
   form.id = props.item?.id || ''
-  form.type = props.item?.type || 'Department'
+  form.type = props.item?.type || props.fixedType || 'Department'
   form.name = props.item?.name || ''
   form.description = props.item?.description || ''
   form.status = props.item?.status || 'Active'
@@ -93,6 +101,15 @@ watch(
   () => props.open,
   (value) => {
     if (value) reset()
+  }
+)
+
+watch(
+  () => props.fixedType,
+  (value) => {
+    if (value && props.open && props.mode !== 'edit') {
+      form.type = value
+    }
   }
 )
 
