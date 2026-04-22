@@ -49,17 +49,18 @@ roles.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize = 10, str
 {
     page = Math.Max(page, 1);
     pageSize = Math.Clamp(pageSize, 1, 100);
-    var query = db.Roles.AsNoTracking();
+    var filteredQuery = db.Roles.AsNoTracking();
 
     if (!string.IsNullOrWhiteSpace(search))
     {
         var term = search.Trim();
-        query = query.Where(role => role.Name.Contains(term) || role.Description.Contains(term));
+        filteredQuery = filteredQuery.Where(role => role.Name.Contains(term) || role.Description.Contains(term));
     }
 
-    var total = await query.CountAsync();
+    var total = await filteredQuery.CountAsync();
     var descending = string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase);
     var normalizedSort = (sortBy ?? "id").Trim().ToLowerInvariant();
+    var query = filteredQuery;
     query = normalizedSort switch
     {
         "id" => descending ? query.OrderByDescending(role => role.Id) : query.OrderBy(role => role.Id),
@@ -80,7 +81,8 @@ roles.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize = 10, str
             role.Status,
             role.CreatedAt,
             role.UpdatedAt,
-            role.Users.Count))
+            role.Users.Count,
+            filteredQuery.Count(item => item.Id <= role.Id)))
         .ToListAsync();
 
     return Results.Ok(new PagedResult<RoleDto>(items, total, page, pageSize));
@@ -98,7 +100,8 @@ roles.MapGet("/{id:int}", async (int id, FleetDbContext db) =>
             role.Status,
             role.CreatedAt,
             role.UpdatedAt,
-            role.Users.Count))
+            role.Users.Count,
+            null))
         .FirstOrDefaultAsync();
 
     return role is null ? Results.NotFound() : Results.Ok(role);
@@ -227,19 +230,20 @@ userCodeOptions.MapGet("/departments", async (FleetDbContext db, int page = 1, i
 {
     page = Math.Max(page, 1);
     pageSize = Math.Clamp(pageSize, 1, 100);
-    var query = db.DepartmentCodeOptions.AsNoTracking();
+    var filteredQuery = db.DepartmentCodeOptions.AsNoTracking();
 
     if (!string.IsNullOrWhiteSpace(search))
     {
         var term = search.Trim();
-        query = query.Where(option =>
+        filteredQuery = filteredQuery.Where(option =>
             option.Name.Contains(term) ||
             (option.Description != null && option.Description.Contains(term)));
     }
 
-    var total = await query.CountAsync();
+    var total = await filteredQuery.CountAsync();
     var descending = string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase);
     var normalizedSort = (sortBy ?? "id").Trim().ToLowerInvariant();
+    var query = filteredQuery;
     query = normalizedSort switch
     {
         "id" => descending ? query.OrderByDescending(option => option.Id) : query.OrderBy(option => option.Id),
@@ -259,7 +263,8 @@ userCodeOptions.MapGet("/departments", async (FleetDbContext db, int page = 1, i
             option.Description,
             option.Status,
             option.CreatedAt,
-            option.UpdatedAt))
+            option.UpdatedAt,
+            filteredQuery.Count(item => item.Id <= option.Id)))
         .ToListAsync();
 
     return Results.Ok(new PagedResult<UserCodeOptionDto>(items, total, page, pageSize));
@@ -269,19 +274,20 @@ userCodeOptions.MapGet("/locations", async (FleetDbContext db, int page = 1, int
 {
     page = Math.Max(page, 1);
     pageSize = Math.Clamp(pageSize, 1, 100);
-    var query = db.LocationCodeOptions.AsNoTracking();
+    var filteredQuery = db.LocationCodeOptions.AsNoTracking();
 
     if (!string.IsNullOrWhiteSpace(search))
     {
         var term = search.Trim();
-        query = query.Where(option =>
+        filteredQuery = filteredQuery.Where(option =>
             option.Name.Contains(term) ||
             (option.Description != null && option.Description.Contains(term)));
     }
 
-    var total = await query.CountAsync();
+    var total = await filteredQuery.CountAsync();
     var descending = string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase);
     var normalizedSort = (sortBy ?? "name").Trim().ToLowerInvariant();
+    var query = filteredQuery;
     query = normalizedSort switch
     {
         "id" => descending ? query.OrderByDescending(option => option.Id) : query.OrderBy(option => option.Id),
@@ -301,7 +307,8 @@ userCodeOptions.MapGet("/locations", async (FleetDbContext db, int page = 1, int
             option.Description,
             option.Status,
             option.CreatedAt,
-            option.UpdatedAt))
+            option.UpdatedAt,
+            filteredQuery.Count(item => item.Id <= option.Id)))
         .ToListAsync();
 
     return Results.Ok(new PagedResult<UserCodeOptionDto>(items, total, page, pageSize));
@@ -338,7 +345,8 @@ userCodeOptions.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize
         option.Description,
         option.Status,
         option.CreatedAt,
-        option.UpdatedAt));
+        option.UpdatedAt,
+        departments.Count(item => item.Id <= option.Id)));
 
     IQueryable<UserCodeOptionDto> locationItems = locations.Select(option => new UserCodeOptionDto(
         option.Id,
@@ -347,7 +355,8 @@ userCodeOptions.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize
         option.Description,
         option.Status,
         option.CreatedAt,
-        option.UpdatedAt));
+        option.UpdatedAt,
+        locations.Count(item => item.Id <= option.Id)));
 
     var merged = normalizedType switch
     {
@@ -583,12 +592,12 @@ users.MapGet("/", async (FleetDbContext db, HttpContext httpContext, int page = 
 {
     page = Math.Max(page, 1);
     pageSize = Math.Clamp(pageSize, 1, 100);
-    var query = db.Users.AsNoTracking();
+    var filteredQuery = db.Users.AsNoTracking();
 
     if (!string.IsNullOrWhiteSpace(search))
     {
         var term = search.Trim();
-        query = query.Where(user =>
+        filteredQuery = filteredQuery.Where(user =>
             user.Name.Contains(term) ||
             user.Email.Contains(term) ||
             user.NrcNumber.Contains(term) ||
@@ -602,11 +611,12 @@ users.MapGet("/", async (FleetDbContext db, HttpContext httpContext, int page = 
     if (!string.IsNullOrWhiteSpace(role) && role != "All")
     {
         var roleName = role.Trim();
-        query = query.Where(user => user.Role!.Name == roleName);
+        filteredQuery = filteredQuery.Where(user => user.Role!.Name == roleName);
     }
 
     var descending = string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase);
     var normalizedSort = (sortBy ?? "name").Trim().ToLowerInvariant();
+    var query = filteredQuery;
     query = normalizedSort switch
     {
         "id" => descending ? query.OrderByDescending(user => user.Id) : query.OrderBy(user => user.Id),
@@ -626,7 +636,7 @@ users.MapGet("/", async (FleetDbContext db, HttpContext httpContext, int page = 
         _ => descending ? query.OrderByDescending(user => user.Name) : query.OrderBy(user => user.Name)
     };
 
-    var total = await query.CountAsync();
+    var total = await filteredQuery.CountAsync();
     var stats = await db.Users
         .AsNoTracking()
         .GroupBy(_ => 1)
@@ -666,7 +676,8 @@ users.MapGet("/", async (FleetDbContext db, HttpContext httpContext, int page = 
             user.LastLogin,
             user.TwoFactorEnabled,
             user.Notes,
-            user.JoinDate))
+            user.JoinDate,
+            filteredQuery.Count(item => item.Id <= user.Id)))
         .ToListAsync();
 
     return Results.Ok(new UserPageDto(userItems.Select(user => ToUserListDto(user, httpContext)).ToList(), total, page, pageSize, stats));
@@ -703,7 +714,8 @@ users.MapGet("/{id:int}", async (int id, FleetDbContext db, HttpContext httpCont
             item.LastLogin,
             item.TwoFactorEnabled,
             item.Notes,
-            item.JoinDate))
+            item.JoinDate,
+            null))
         .FirstOrDefaultAsync();
 
     return user is null ? Results.NotFound() : Results.Ok(ToUserListDto(user, httpContext));
@@ -918,6 +930,7 @@ static string? ValidateRoleRequest(RoleRequest request)
 
 static UserDto ToUserListDto(UserListItem user, HttpContext httpContext) => new(
     user.Id,
+    user.DisplayOrder,
     user.Name,
     user.EmployeeId,
     user.NrcNumber,
@@ -946,6 +959,7 @@ static UserDto ToUserListDto(UserListItem user, HttpContext httpContext) => new(
 
 static UserDto ToUserEntityDto(User user, HttpContext httpContext) => new(
     user.Id,
+    null,
     user.Name,
     user.EmployeeId,
     user.NrcNumber,
@@ -1423,7 +1437,15 @@ sealed record PagedResult<T>(IReadOnlyList<T> Items, int Total, int Page, int Pa
 
 sealed record UserPageDto(IReadOnlyList<UserDto> Items, int Total, int Page, int PageSize, UserStatsDto Stats);
 
-sealed record UserCodeOptionDto(int Id, string Type, string Name, string? Description, string Status, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
+sealed record UserCodeOptionDto(
+    int Id,
+    string Type,
+    string Name,
+    string? Description,
+    string Status,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt,
+    int? DisplayOrder = null);
 
 sealed record UserStatsDto(int Total, int Active, int Drivers, int Admins);
 
@@ -1464,6 +1486,7 @@ sealed record UserListItem(
     DateTimeOffset? LastLogin,
     bool TwoFactorEnabled,
     string? Notes,
-    DateOnly JoinDate);
+    DateOnly JoinDate,
+    int? DisplayOrder);
 
 readonly record struct ParsedImage(byte[] Bytes, string ContentType);

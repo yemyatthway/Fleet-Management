@@ -7,4 +7,5 @@ public sealed record RoleDto(
     string Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
-    int Members);
+    int Members,
+    int? DisplayOrder = null);

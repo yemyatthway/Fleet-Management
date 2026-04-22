@@ -93,7 +93,7 @@ const props = defineProps({
   },
   sortBy: {
     type: String,
-    default: 'name'
+    default: 'id'
   },
   sortOrder: {
     type: String,

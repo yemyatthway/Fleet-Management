@@ -2,6 +2,7 @@ namespace FleetManagement.Api.Dtos;
 
 public sealed record UserDto(
     int Id,
+    int? DisplayOrder,
     string Name,
     string EmployeeId,
     string NrcNumber,

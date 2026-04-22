@@ -216,7 +216,7 @@ const locationOptions = ref([]);
 const roleFilter = ref(ALL_ROLES_FILTER);
 const totalUsers = ref(0);
 const userStats = ref({ total: 0, active: 0, drivers: 0, admins: 0 });
-const tableOptions = ref({ page: 1, itemsPerPage: 10, sortBy: "name", sortOrder: "asc" });
+const tableOptions = ref({ page: 1, itemsPerPage: 10, sortBy: "id", sortOrder: "asc" });
 const pageMessage = ref({ tone: "info", title: "", message: "" });
 const loadingUsers = ref(false);
 const dialogOpen = ref(false);
@@ -237,7 +237,13 @@ const activeCount = computed(() => userStats.value.active);
 const driverCount = computed(() => userStats.value.drivers);
 const adminCount = computed(() => userStats.value.admins);
 const tableUsers = computed(() =>
-  attachDisplayIds(users.value, tableOptions.value.page, tableOptions.value.itemsPerPage, () => "USR"),
+  attachDisplayIds(
+    users.value,
+    tableOptions.value.page,
+    tableOptions.value.itemsPerPage,
+    true,
+    () => "USR",
+  ),
 );
 
 const clearPageMessage = () => {
@@ -300,13 +306,26 @@ const loadUserCodeOptions = async () => {
   }
 };
 
+const normalizeSortOption = (sortBy) => {
+  const firstSort = sortBy?.[0];
+  if (!firstSort) return null;
+  if (typeof firstSort === "string") return { key: firstSort, order: "asc" };
+
+  const key = firstSort.key || firstSort.field || "";
+  const order =
+    firstSort.order ||
+    (typeof firstSort.desc === "boolean" ? (firstSort.desc ? "desc" : "asc") : "asc");
+
+  return key ? { key, order } : null;
+};
+
 const handleTableOptions = (options) => {
-  const firstSort = options.sortBy?.[0];
+  const firstSort = normalizeSortOption(options.sortBy);
   tableOptions.value = {
     page: options.page || 1,
     itemsPerPage: options.itemsPerPage || 10,
-    sortBy: firstSort?.key || "name",
-    sortOrder: firstSort?.order || "asc",
+    sortBy: firstSort?.key || tableOptions.value.sortBy || "id",
+    sortOrder: firstSort?.order || tableOptions.value.sortOrder || "asc",
   };
   loadUsers();
 };

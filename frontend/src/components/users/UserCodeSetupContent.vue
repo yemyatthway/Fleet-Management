@@ -183,7 +183,7 @@ const options = ref([])
 const searchQuery = ref('')
 const activeType = ref(ALL_TYPES)
 const totalCodes = ref(0)
-const tableOptions = ref({ page: 1, itemsPerPage: 10, sortBy: 'name', sortOrder: 'asc' })
+const tableOptions = ref({ page: 1, itemsPerPage: 10, sortBy: 'id', sortOrder: 'asc' })
 const pageMessage = ref({ tone: 'info', title: '', message: '' })
 const loadingOptions = ref(false)
 const dialogOpen = ref(false)
@@ -209,7 +209,13 @@ const tableItems = computed(() =>
     options.value,
     tableOptions.value.page,
     tableOptions.value.itemsPerPage,
-    (item) => (item.type === 'Department' ? 'DEP' : 'LOC')
+    false,
+    (item) => (item.type === 'Department' ? 'DEP' : 'LOC'),
+    {
+      total: totalCodes.value,
+      sortBy: tableOptions.value.sortBy,
+      sortOrder: tableOptions.value.sortOrder
+    }
   )
 )
 
@@ -256,13 +262,26 @@ const loadOptions = async () => {
   }
 }
 
+const normalizeSortOption = (sortBy) => {
+  const firstSort = sortBy?.[0]
+  if (!firstSort) return null
+  if (typeof firstSort === 'string') return { key: firstSort, order: 'asc' }
+
+  const key = firstSort.key || firstSort.field || ''
+  const order =
+    firstSort.order ||
+    (typeof firstSort.desc === 'boolean' ? (firstSort.desc ? 'desc' : 'asc') : 'asc')
+
+  return key ? { key, order } : null
+}
+
 const handleTableOptions = (nextOptions) => {
-  const firstSort = nextOptions.sortBy?.[0]
+  const firstSort = normalizeSortOption(nextOptions.sortBy)
   tableOptions.value = {
     page: nextOptions.page || 1,
     itemsPerPage: nextOptions.itemsPerPage || 10,
-    sortBy: firstSort?.key || 'name',
-    sortOrder: firstSort?.order || 'asc'
+    sortBy: firstSort?.key || tableOptions.value.sortBy || 'id',
+    sortOrder: firstSort?.order || tableOptions.value.sortOrder || 'asc'
   }
   loadOptions()
 }

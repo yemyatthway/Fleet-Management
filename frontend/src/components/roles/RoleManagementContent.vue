@@ -194,7 +194,7 @@ const roleMembers = ref([])
 const activeTab = ref(ALL_ROLES_FILTER)
 const searchQuery = ref('')
 const totalRoles = ref(0)
-const tableOptions = ref({ page: 1, itemsPerPage: 10, sortBy: 'name', sortOrder: 'asc' })
+const tableOptions = ref({ page: 1, itemsPerPage: 10, sortBy: 'id', sortOrder: 'asc' })
 const pageMessage = ref({ tone: 'info', title: '', message: '' })
 const loadingRoles = ref(false)
 const loadingMembers = ref(false)
@@ -225,7 +225,13 @@ const totalMembers = computed(() =>
 const driverMembers = computed(() => roles.value.find((role) => role.name === 'Driver')?.members || 0)
 const adminMembers = computed(() => roles.value.find((role) => role.name === 'Admin')?.members || 0)
 const tableRoles = computed(() =>
-  attachDisplayIds(roles.value, tableOptions.value.page, tableOptions.value.itemsPerPage, () => 'ROL')
+  attachDisplayIds(
+    roles.value,
+    tableOptions.value.page,
+    tableOptions.value.itemsPerPage,
+    true,
+    () => 'ROL'
+  )
 )
 
 const filteredMembers = computed(() => {
@@ -273,13 +279,26 @@ const loadRoles = async () => {
   }
 }
 
+const normalizeSortOption = (sortBy) => {
+  const firstSort = sortBy?.[0]
+  if (!firstSort) return null
+  if (typeof firstSort === 'string') return { key: firstSort, order: 'asc' }
+
+  const key = firstSort.key || firstSort.field || ''
+  const order =
+    firstSort.order ||
+    (typeof firstSort.desc === 'boolean' ? (firstSort.desc ? 'desc' : 'asc') : 'asc')
+
+  return key ? { key, order } : null
+}
+
 const handleTableOptions = (options) => {
-  const firstSort = options.sortBy?.[0]
+  const firstSort = normalizeSortOption(options.sortBy)
   tableOptions.value = {
     page: options.page || 1,
     itemsPerPage: options.itemsPerPage || 10,
-    sortBy: firstSort?.key || 'name',
-    sortOrder: firstSort?.order || 'asc'
+    sortBy: firstSort?.key || tableOptions.value.sortBy || 'id',
+    sortOrder: firstSort?.order || tableOptions.value.sortOrder || 'asc'
   }
   loadRoles()
 }
