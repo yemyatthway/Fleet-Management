@@ -135,6 +135,7 @@ import { attachDisplayIds } from '../../utils/tableDisplayIds'
 import {
   createRole,
   deleteRole,
+  getRoleOptions,
   getRoleMembers,
   getRoles,
   updateRole
@@ -191,6 +192,7 @@ const toRoleRequest = (payload) => ({
 
 const roles = ref([])
 const roleMembers = ref([])
+const roleOptions = ref([])
 const activeTab = ref(ALL_ROLES_FILTER)
 const searchQuery = ref('')
 const totalRoles = ref(0)
@@ -217,7 +219,7 @@ let pageMessageTimerId = null
 const debouncedRoleQuery = useDebouncedRef(searchQuery)
 const debouncedMemberQuery = useDebouncedRef(memberSearch)
 
-const roleTabs = computed(() => [...new Set(roles.value.map((role) => role.name))])
+const roleTabs = computed(() => roleOptions.value)
 
 const totalMembers = computed(() =>
   roles.value.reduce((total, role) => total + (role.members || 0), 0)
@@ -267,6 +269,7 @@ const loadRoles = async () => {
       page: tableOptions.value.page,
       pageSize: tableOptions.value.itemsPerPage,
       search: debouncedRoleQuery.value,
+      role: activeTab.value === ALL_ROLES_FILTER ? '' : activeTab.value,
       sortBy: tableOptions.value.sortBy,
       sortOrder: tableOptions.value.sortOrder
     })
@@ -276,6 +279,15 @@ const loadRoles = async () => {
     showPageMessage({ tone: 'error', title: 'Could not load roles', message: error.message })
   } finally {
     loadingRoles.value = false
+  }
+}
+
+const loadRoleOptions = async () => {
+  try {
+    roleOptions.value = await getRoleOptions()
+  } catch (error) {
+    console.error('[roles] failed to load role options', error)
+    showPageMessage({ tone: 'error', title: 'Could not load roles', message: error.message })
   }
 }
 
@@ -303,7 +315,7 @@ const handleTableOptions = (options) => {
   loadRoles()
 }
 
-watch(debouncedRoleQuery, () => {
+watch([debouncedRoleQuery, activeTab], () => {
   tableOptions.value.page = 1
   loadRoles()
 })
@@ -409,7 +421,9 @@ const openMemberAvatar = (member) => {
   memberAvatarOpen.value = true
 }
 
-onMounted(loadRoles)
+onMounted(async () => {
+  await Promise.all([loadRoleOptions(), loadRoles()])
+})
 
 onBeforeUnmount(() => {
   if (pageMessageTimerId) clearTimeout(pageMessageTimerId)

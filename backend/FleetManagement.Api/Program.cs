@@ -45,7 +45,7 @@ if (app.Environment.IsDevelopment())
 
 var roles = app.MapGroup("/api/roles");
 
-roles.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null) =>
+roles.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? role = null, string? sortBy = null, string? sortOrder = null) =>
 {
     page = Math.Max(page, 1);
     pageSize = Math.Clamp(pageSize, 1, 100);
@@ -55,6 +55,12 @@ roles.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize = 10, str
     {
         var term = search.Trim();
         filteredQuery = filteredQuery.Where(role => role.Name.Contains(term) || role.Description.Contains(term));
+    }
+
+    if (!string.IsNullOrWhiteSpace(role) && role != "All")
+    {
+        var roleName = role.Trim();
+        filteredQuery = filteredQuery.Where(item => item.Name == roleName);
     }
 
     var total = await filteredQuery.CountAsync();
