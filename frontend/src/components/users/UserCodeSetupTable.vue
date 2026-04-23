@@ -30,6 +30,26 @@
           </div>
         </template>
 
+        <template #item.code="{ item }">
+          <span class="text-muted">{{ item.code || '—' }}</span>
+        </template>
+
+        <template #item.locationType="{ item }">
+          <span class="text-muted">{{ item.locationType || '—' }}</span>
+        </template>
+
+        <template #item.city="{ item }">
+          <span class="text-muted">{{ item.city || '—' }}</span>
+        </template>
+
+        <template #item.country="{ item }">
+          <span class="text-muted">{{ item.country || '—' }}</span>
+        </template>
+
+        <template #item.phone="{ item }">
+          <span class="text-muted">{{ item.phone || '—' }}</span>
+        </template>
+
         <template #item.description="{ item }">
           <span class="text-muted">{{ item.description || '—' }}</span>
         </template>
@@ -107,15 +127,35 @@ const props = defineProps({
 
 defineEmits(['edit', 'remove', 'update:options'])
 
-const headers = [
-  { title: 'ID', key: 'id' },
-  { title: 'Type', key: 'type' },
-  { title: 'Name', key: 'name' },
-  { title: 'Description', key: 'description' },
-  { title: 'Status', key: 'status' },
-  { title: 'Actions', key: 'actions', align: 'end', sortable: false },
-  { title: 'Created At', key: 'createdAt' }
-]
+const isLocationTable = computed(() => props.itemLabel === 'Location')
+
+const headers = computed(() => {
+  if (isLocationTable.value) {
+    return [
+      { title: 'ID', key: 'id' },
+      { title: 'Name', key: 'name' },
+      { title: 'Code', key: 'code' },
+      { title: 'Type', key: 'locationType' },
+      { title: 'City', key: 'city' },
+      { title: 'Country', key: 'country' },
+      { title: 'Phone', key: 'phone' },
+      { title: 'Notes', key: 'description' },
+      { title: 'Status', key: 'status' },
+      { title: 'Actions', key: 'actions', align: 'end', sortable: false },
+      { title: 'Created At', key: 'createdAt' }
+    ]
+  }
+
+  return [
+    { title: 'ID', key: 'id' },
+    { title: 'Type', key: 'type' },
+    { title: 'Name', key: 'name' },
+    { title: 'Description', key: 'description' },
+    { title: 'Status', key: 'status' },
+    { title: 'Actions', key: 'actions', align: 'end', sortable: false },
+    { title: 'Created At', key: 'createdAt' }
+  ]
+})
 
 const normalizedSortBy = computed(() => [
   {

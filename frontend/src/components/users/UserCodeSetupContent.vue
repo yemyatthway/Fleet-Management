@@ -175,6 +175,14 @@ const useDebouncedRef = (source, delay = SEARCH_DELAY_MS) => {
 const toRequest = (payload) => ({
   type: payload.type,
   name: payload.name,
+  code: payload.code || null,
+  locationType: payload.locationType || null,
+  address: payload.address || null,
+  city: payload.city || null,
+  country: payload.country || null,
+  contactPerson: payload.contactPerson || null,
+  phone: payload.phone || null,
+  operatingHours: payload.operatingHours || null,
   description: payload.description || null,
   status: payload.status || 'Active'
 })

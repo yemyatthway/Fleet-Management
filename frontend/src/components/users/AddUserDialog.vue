@@ -84,12 +84,7 @@
           </div>
           <div class="field">
             <label class="required">Location / Depot</label>
-            <select v-model="form.location" required>
-              <option value="" disabled>Select location</option>
-              <option v-for="location in locationChoices" :key="location" :value="location">
-                {{ location }}
-              </option>
-            </select>
+            <input v-model="form.location" type="text" placeholder="Bago Main Warehouse" required />
           </div>
           <div class="field">
             <label class="required">Manager</label>
@@ -209,10 +204,6 @@ const props = defineProps({
   departments: {
     type: Array,
     default: () => []
-  },
-  locations: {
-    type: Array,
-    default: () => []
   }
 })
 
@@ -223,7 +214,6 @@ const defaultRole = computed(() =>
   roleOptions.value.includes('Driver') ? 'Driver' : roleOptions.value[0] || 'Driver'
 )
 const departmentChoices = computed(() => props.departments.length ? props.departments : [])
-const locationChoices = computed(() => props.locations.length ? props.locations : [])
 
 const internalOpen = computed({
   get: () => props.open,

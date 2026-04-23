@@ -275,6 +275,14 @@ public static class SeedData
                 locationAdditions.Add(new LocationCodeOption
                 {
                     Name = option.Name,
+                    Code = $"LOC-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}",
+                    LocationType = "Warehouse",
+                    Address = option.Name,
+                    City = "Unknown",
+                    Country = "Myanmar",
+                    ContactPerson = null,
+                    Phone = "-",
+                    OperatingHours = "08:00 - 18:00",
                     Description = option.Description,
                     Status = option.Status,
                     CreatedAt = option.CreatedAt,

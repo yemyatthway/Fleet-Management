@@ -2,7 +2,7 @@
   <DashboardLayout>
     <UserCodeSetupContent
       section-title="Location / Depot Setup"
-      section-subtitle="Manage location and depot master data used by user forms."
+      section-subtitle="Manage location and depot master data for vehicles and operations."
       fixed-type="Location"
       item-label="Location"
       item-label-plural="Locations"
