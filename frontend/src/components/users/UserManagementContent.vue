@@ -97,7 +97,6 @@
       :open="dialogOpen"
       :roles="userRoles"
       :departments="departmentOptions"
-      :locations="locationOptions"
       @close="dialogOpen = false"
       @add="handleAdd"
     />
@@ -107,7 +106,6 @@
       :user="selectedUser"
       :roles="userRoles"
       :departments="departmentOptions"
-      :locations="locationOptions"
       @close="editOpen = false"
       @save="handleUpdate"
     />
@@ -141,7 +139,7 @@ import ConfirmDialog from "../common/ConfirmDialog.vue";
 import PageMessage from "../common/PageMessage.vue";
 import { attachDisplayIds } from "../../utils/tableDisplayIds";
 import { getRoleOptions } from "../../services/rolesApi";
-import { getDepartmentOptions, getLocationOptions } from "../../services/userCodeOptionsApi";
+import { getDepartmentOptions } from "../../services/userCodeOptionsApi";
 import {
   createUser,
   deleteUser,
@@ -212,7 +210,6 @@ const searchQuery = ref("");
 const debouncedQuery = useDebouncedRef(searchQuery);
 const userRoles = ref([]);
 const departmentOptions = ref([]);
-const locationOptions = ref([]);
 const roleFilter = ref(ALL_ROLES_FILTER);
 const totalUsers = ref(0);
 const userStats = ref({ total: 0, active: 0, drivers: 0, admins: 0 });
@@ -297,9 +294,8 @@ const loadUserRoles = async () => {
 
 const loadUserCodeOptions = async () => {
   try {
-    const [departments, locations] = await Promise.all([getDepartmentOptions(), getLocationOptions()]);
+    const departments = await getDepartmentOptions();
     departmentOptions.value = departments;
-    locationOptions.value = locations;
   } catch (error) {
     console.error("[users] failed to load code setup options", error);
     showPageMessage({ tone: "error", title: "Could not load code setup", message: error.message });

@@ -266,6 +266,14 @@ userCodeOptions.MapGet("/departments", async (FleetDbContext db, int page = 1, i
             option.Id,
             "Department",
             option.Name,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             option.Description,
             option.Status,
             option.CreatedAt,
@@ -310,6 +318,14 @@ userCodeOptions.MapGet("/locations", async (FleetDbContext db, int page = 1, int
             option.Id,
             "Location",
             option.Name,
+            option.Code,
+            option.LocationType,
+            option.Address,
+            option.City,
+            option.Country,
+            option.ContactPerson,
+            option.Phone,
+            option.OperatingHours,
             option.Description,
             option.Status,
             option.CreatedAt,
@@ -340,7 +356,13 @@ userCodeOptions.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize
             option.Name.Contains(term) ||
             (option.Description != null && option.Description.Contains(term)));
         locations = locations.Where(option =>
+            option.Code.Contains(term) ||
             option.Name.Contains(term) ||
+            option.LocationType.Contains(term) ||
+            option.Address.Contains(term) ||
+            option.City.Contains(term) ||
+            option.Country.Contains(term) ||
+            option.Phone.Contains(term) ||
             (option.Description != null && option.Description.Contains(term)));
     }
 
@@ -348,6 +370,14 @@ userCodeOptions.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize
         option.Id,
         "Department",
         option.Name,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
         option.Description,
         option.Status,
         option.CreatedAt,
@@ -358,6 +388,14 @@ userCodeOptions.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize
         option.Id,
         "Location",
         option.Name,
+        option.Code,
+        option.LocationType,
+        option.Address,
+        option.City,
+        option.Country,
+        option.ContactPerson,
+        option.Phone,
+        option.OperatingHours,
         option.Description,
         option.Status,
         option.CreatedAt,
@@ -377,6 +415,10 @@ userCodeOptions.MapGet("/", async (FleetDbContext db, int page = 1, int pageSize
     {
         "id" => descending ? merged.OrderByDescending(option => option.Id) : merged.OrderBy(option => option.Id),
         "type" => descending ? merged.OrderByDescending(option => option.Type) : merged.OrderBy(option => option.Type),
+        "code" => descending ? merged.OrderByDescending(option => option.Code) : merged.OrderBy(option => option.Code),
+        "locationtype" => descending ? merged.OrderByDescending(option => option.LocationType) : merged.OrderBy(option => option.LocationType),
+        "city" => descending ? merged.OrderByDescending(option => option.City) : merged.OrderBy(option => option.City),
+        "country" => descending ? merged.OrderByDescending(option => option.Country) : merged.OrderBy(option => option.Country),
         "description" => descending ? merged.OrderByDescending(option => option.Description) : merged.OrderBy(option => option.Description),
         "status" => descending ? merged.OrderByDescending(option => option.Status) : merged.OrderBy(option => option.Status),
         "createdat" => descending ? merged.OrderByDescending(option => option.CreatedAt) : merged.OrderBy(option => option.CreatedAt),
@@ -447,8 +489,8 @@ userCodeOptions.MapPost("/", async (UserCodeOptionRequest request, FleetDbContex
 
     var duplicateExists = normalizedType == "Department"
         ? await db.DepartmentCodeOptions.AnyAsync(option => option.Name == normalizedName)
-        : await db.LocationCodeOptions.AnyAsync(option => option.Name == normalizedName);
-    if (duplicateExists) return Results.Conflict(new { message = $"{normalizedType} already exists." });
+        : await db.LocationCodeOptions.AnyAsync(option => option.Name == normalizedName || option.Code == request.Code!.Trim());
+    if (duplicateExists) return Results.Conflict(new { message = normalizedType == "Location" ? "Location name or code already exists." : $"{normalizedType} already exists." });
 
     var now = DateTimeOffset.UtcNow;
     if (normalizedType == "Department")
@@ -466,15 +508,40 @@ userCodeOptions.MapPost("/", async (UserCodeOptionRequest request, FleetDbContex
             option.Id,
             "Department",
             option.Name,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             option.Description,
             option.Status,
             option.CreatedAt,
             option.UpdatedAt));
     }
 
+    var normalizedCode = request.Code!.Trim();
+    var normalizedLocationType = request.LocationType!.Trim();
+    var normalizedAddress = request.Address!.Trim();
+    var normalizedCity = request.City!.Trim();
+    var normalizedCountry = request.Country!.Trim();
+    var normalizedPhone = request.Phone!.Trim();
+    var normalizedOperatingHours = request.OperatingHours!.Trim();
+    var normalizedContactPerson = NormalizeOptional(request.ContactPerson);
+
     var locationOption = new LocationCodeOption
     {
         Name = normalizedName,
+        Code = normalizedCode,
+        LocationType = normalizedLocationType,
+        Address = normalizedAddress,
+        City = normalizedCity,
+        Country = normalizedCountry,
+        ContactPerson = normalizedContactPerson,
+        Phone = normalizedPhone,
+        OperatingHours = normalizedOperatingHours,
         Description = NormalizeOptional(request.Description),
         Status = request.Status.Trim(),
         CreatedAt = now
@@ -486,6 +553,14 @@ userCodeOptions.MapPost("/", async (UserCodeOptionRequest request, FleetDbContex
         locationOption.Id,
         "Location",
         locationOption.Name,
+        locationOption.Code,
+        locationOption.LocationType,
+        locationOption.Address,
+        locationOption.City,
+        locationOption.Country,
+        locationOption.ContactPerson,
+        locationOption.Phone,
+        locationOption.OperatingHours,
         locationOption.Description,
         locationOption.Status,
         locationOption.CreatedAt,
@@ -519,6 +594,14 @@ userCodeOptions.MapPut("/{id:int}", async (int id, UserCodeOptionRequest request
             option.Id,
             "Department",
             option.Name,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             option.Description,
             option.Status,
             option.CreatedAt,
@@ -528,10 +611,20 @@ userCodeOptions.MapPut("/{id:int}", async (int id, UserCodeOptionRequest request
     var locationOption = await db.LocationCodeOptions.FindAsync(id);
     if (locationOption is null) return Results.NotFound();
 
-    var locationDuplicateExists = await db.LocationCodeOptions.AnyAsync(item => item.Id != id && item.Name == normalizedName);
-    if (locationDuplicateExists) return Results.Conflict(new { message = "Location already exists." });
+    var locationDuplicateExists = await db.LocationCodeOptions.AnyAsync(item =>
+        item.Id != id &&
+        (item.Name == normalizedName || item.Code == request.Code!.Trim()));
+    if (locationDuplicateExists) return Results.Conflict(new { message = "Location name or code already exists." });
 
     locationOption.Name = normalizedName;
+    locationOption.Code = request.Code!.Trim();
+    locationOption.LocationType = request.LocationType!.Trim();
+    locationOption.Address = request.Address!.Trim();
+    locationOption.City = request.City!.Trim();
+    locationOption.Country = request.Country!.Trim();
+    locationOption.ContactPerson = NormalizeOptional(request.ContactPerson);
+    locationOption.Phone = request.Phone!.Trim();
+    locationOption.OperatingHours = request.OperatingHours!.Trim();
     locationOption.Description = NormalizeOptional(request.Description);
     locationOption.Status = request.Status.Trim();
     locationOption.UpdatedAt = now;
@@ -541,6 +634,14 @@ userCodeOptions.MapPut("/{id:int}", async (int id, UserCodeOptionRequest request
         locationOption.Id,
         "Location",
         locationOption.Name,
+        locationOption.Code,
+        locationOption.LocationType,
+        locationOption.Address,
+        locationOption.City,
+        locationOption.Country,
+        locationOption.ContactPerson,
+        locationOption.Phone,
+        locationOption.OperatingHours,
         locationOption.Description,
         locationOption.Status,
         locationOption.CreatedAt,
@@ -576,12 +677,6 @@ userCodeOptions.MapDelete("/{id:int}", async (int id, FleetDbContext db, string?
     {
         var locationOption = await db.LocationCodeOptions.FindAsync(id);
         if (locationOption is null) return Results.NotFound();
-
-        var locationInUse = await db.Users.AnyAsync(user => user.Location == locationOption.Name);
-        if (locationInUse)
-        {
-            return Results.Conflict(new { message = "Cannot delete location while it is assigned to users." });
-        }
 
         db.LocationCodeOptions.Remove(locationOption);
         await db.SaveChangesAsync();
@@ -903,6 +998,16 @@ static string? ValidateUserCodeOptionRequest(UserCodeOptionRequest request)
     if (normalizedType is null) return "Type must be Department or Location.";
     if (string.IsNullOrWhiteSpace(request.Name)) return $"{normalizedType} name is required.";
     if (string.IsNullOrWhiteSpace(request.Status)) return $"{normalizedType} status is required.";
+    if (normalizedType == "Location")
+    {
+        if (string.IsNullOrWhiteSpace(request.Code)) return "Location code is required.";
+        if (string.IsNullOrWhiteSpace(request.LocationType)) return "Location type is required.";
+        if (string.IsNullOrWhiteSpace(request.Address)) return "Location address is required.";
+        if (string.IsNullOrWhiteSpace(request.City)) return "Location city is required.";
+        if (string.IsNullOrWhiteSpace(request.Country)) return "Location country is required.";
+        if (string.IsNullOrWhiteSpace(request.Phone)) return "Location phone is required.";
+        if (string.IsNullOrWhiteSpace(request.OperatingHours)) return "Operating hours are required.";
+    }
 
     var status = request.Status.Trim();
     return status is "Active" or "Disabled"
@@ -1001,7 +1106,6 @@ static async Task<Role?> FindRoleByNameAsync(string roleName, FleetDbContext db)
 static async Task<string?> ValidateUserCodeSelectionsAsync(UserRequest request, FleetDbContext db)
 {
     var department = request.Department.Trim();
-    var location = request.Location.Trim();
 
     var availableDepartments = await db.DepartmentCodeOptions
         .AsNoTracking()
@@ -1009,17 +1113,8 @@ static async Task<string?> ValidateUserCodeSelectionsAsync(UserRequest request, 
         .Select(option => option.Name)
         .ToListAsync();
 
-    var availableLocations = await db.LocationCodeOptions
-        .AsNoTracking()
-        .Where(option => option.Status == "Active" && option.Name == location)
-        .Select(option => option.Name)
-        .ToListAsync();
-
     var hasDepartment = availableDepartments.Count > 0;
     if (!hasDepartment) return "Selected department does not exist in code setup.";
-
-    var hasLocation = availableLocations.Count > 0;
-    if (!hasLocation) return "Selected location does not exist in code setup.";
 
     return null;
 }
@@ -1322,7 +1417,7 @@ END
 
 static async Task EnsureSeparatedUserCodeOptionSchemaAsync(FleetDbContext db)
 {
-    var schemaSql = """
+    var createTablesSql = """
 IF OBJECT_ID('DepartmentCodeOptions', 'U') IS NULL
 BEGIN
     CREATE TABLE [DepartmentCodeOptions]
@@ -1344,6 +1439,14 @@ BEGIN
     (
         [Id] int NOT NULL IDENTITY(1,1),
         [Name] nvarchar(120) NOT NULL,
+        [Code] nvarchar(40) NOT NULL CONSTRAINT DF_LocationCodeOptions_Code DEFAULT '',
+        [LocationType] nvarchar(50) NOT NULL CONSTRAINT DF_LocationCodeOptions_LocationType DEFAULT 'Warehouse',
+        [Address] nvarchar(300) NOT NULL CONSTRAINT DF_LocationCodeOptions_Address DEFAULT '',
+        [City] nvarchar(120) NOT NULL CONSTRAINT DF_LocationCodeOptions_City DEFAULT '',
+        [Country] nvarchar(120) NOT NULL CONSTRAINT DF_LocationCodeOptions_Country DEFAULT '',
+        [ContactPerson] nvarchar(120) NULL,
+        [Phone] nvarchar(40) NOT NULL CONSTRAINT DF_LocationCodeOptions_Phone DEFAULT '',
+        [OperatingHours] nvarchar(80) NOT NULL CONSTRAINT DF_LocationCodeOptions_OperatingHours DEFAULT '',
         [Description] nvarchar(300) NULL,
         [Status] nvarchar(20) NOT NULL CONSTRAINT DF_LocationCodeOptions_Status DEFAULT 'Active',
         [CreatedAt] datetimeoffset NOT NULL CONSTRAINT DF_LocationCodeOptions_CreatedAt DEFAULT SYSDATETIMEOFFSET(),
@@ -1351,8 +1454,46 @@ BEGIN
         CONSTRAINT [PK_LocationCodeOptions] PRIMARY KEY ([Id])
     );
     CREATE UNIQUE INDEX [IX_LocationCodeOptions_Name] ON [LocationCodeOptions] ([Name]);
+    CREATE UNIQUE INDEX [IX_LocationCodeOptions_Code] ON [LocationCodeOptions] ([Code]);
 END
+""";
 
+    await db.Database.ExecuteSqlRawAsync(createTablesSql);
+
+    var alterAndBackfillSql = """
+IF OBJECT_ID('LocationCodeOptions', 'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH('LocationCodeOptions', 'Code') IS NULL ALTER TABLE [LocationCodeOptions] ADD [Code] nvarchar(40) NOT NULL CONSTRAINT DF_LocationCodeOptions_Code_Alter DEFAULT '';
+    IF COL_LENGTH('LocationCodeOptions', 'LocationType') IS NULL ALTER TABLE [LocationCodeOptions] ADD [LocationType] nvarchar(50) NOT NULL CONSTRAINT DF_LocationCodeOptions_LocationType_Alter DEFAULT 'Warehouse';
+    IF COL_LENGTH('LocationCodeOptions', 'Address') IS NULL ALTER TABLE [LocationCodeOptions] ADD [Address] nvarchar(300) NOT NULL CONSTRAINT DF_LocationCodeOptions_Address_Alter DEFAULT '';
+    IF COL_LENGTH('LocationCodeOptions', 'City') IS NULL ALTER TABLE [LocationCodeOptions] ADD [City] nvarchar(120) NOT NULL CONSTRAINT DF_LocationCodeOptions_City_Alter DEFAULT '';
+    IF COL_LENGTH('LocationCodeOptions', 'Country') IS NULL ALTER TABLE [LocationCodeOptions] ADD [Country] nvarchar(120) NOT NULL CONSTRAINT DF_LocationCodeOptions_Country_Alter DEFAULT '';
+    IF COL_LENGTH('LocationCodeOptions', 'ContactPerson') IS NULL ALTER TABLE [LocationCodeOptions] ADD [ContactPerson] nvarchar(120) NULL;
+    IF COL_LENGTH('LocationCodeOptions', 'Phone') IS NULL ALTER TABLE [LocationCodeOptions] ADD [Phone] nvarchar(40) NOT NULL CONSTRAINT DF_LocationCodeOptions_Phone_Alter DEFAULT '';
+    IF COL_LENGTH('LocationCodeOptions', 'OperatingHours') IS NULL ALTER TABLE [LocationCodeOptions] ADD [OperatingHours] nvarchar(80) NOT NULL CONSTRAINT DF_LocationCodeOptions_OperatingHours_Alter DEFAULT '';
+
+    UPDATE [LocationCodeOptions]
+    SET
+        [Code] = CASE WHEN [Code] = '' THEN CONCAT('LOC-', RIGHT(CONCAT('0000', [Id]), 4)) ELSE [Code] END,
+        [LocationType] = CASE WHEN [LocationType] = '' THEN 'Warehouse' ELSE [LocationType] END,
+        [Address] = CASE WHEN [Address] = '' THEN [Name] ELSE [Address] END,
+        [City] = CASE WHEN [City] = '' THEN 'Unknown' ELSE [City] END,
+        [Country] = CASE WHEN [Country] = '' THEN 'Myanmar' ELSE [Country] END,
+        [Phone] = CASE WHEN [Phone] = '' THEN '-' ELSE [Phone] END,
+        [OperatingHours] = CASE WHEN [OperatingHours] = '' THEN '08:00 - 18:00' ELSE [OperatingHours] END
+    WHERE
+        [Code] = '' OR [LocationType] = '' OR [Address] = '' OR [City] = '' OR [Country] = '' OR [Phone] = '' OR [OperatingHours] = '';
+
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_LocationCodeOptions_Code' AND object_id = OBJECT_ID('LocationCodeOptions'))
+    BEGIN
+        CREATE UNIQUE INDEX [IX_LocationCodeOptions_Code] ON [LocationCodeOptions] ([Code]);
+    END
+END
+""";
+
+    await db.Database.ExecuteSqlRawAsync(alterAndBackfillSql);
+
+    var migrateLegacySql = """
 IF OBJECT_ID('UserCodeOptions', 'U') IS NOT NULL
 BEGIN
     INSERT INTO [DepartmentCodeOptions] ([Name], [Description], [Status], [CreatedAt], [UpdatedAt])
@@ -1363,17 +1504,30 @@ BEGIN
           SELECT 1 FROM [DepartmentCodeOptions] d WHERE d.[Name] = legacy.[Name]
       );
 
-    INSERT INTO [LocationCodeOptions] ([Name], [Description], [Status], [CreatedAt], [UpdatedAt])
-    SELECT legacy.[Name], legacy.[Description], legacy.[Status], legacy.[CreatedAt], legacy.[UpdatedAt]
+    INSERT INTO [LocationCodeOptions] ([Name], [Code], [LocationType], [Address], [City], [Country], [ContactPerson], [Phone], [OperatingHours], [Description], [Status], [CreatedAt], [UpdatedAt])
+    SELECT
+        legacy.[Name],
+        CONCAT('LOC-', RIGHT(CONCAT('0000', legacy.[Id]), 4)),
+        'Warehouse',
+        legacy.[Name],
+        'Unknown',
+        'Myanmar',
+        NULL,
+        '-',
+        '08:00 - 18:00',
+        legacy.[Description],
+        legacy.[Status],
+        legacy.[CreatedAt],
+        legacy.[UpdatedAt]
     FROM [UserCodeOptions] legacy
     WHERE legacy.[Type] = 'Location'
       AND NOT EXISTS (
-          SELECT 1 FROM [LocationCodeOptions] l WHERE l.[Name] = legacy.[Name]
+            SELECT 1 FROM [LocationCodeOptions] l WHERE l.[Name] = legacy.[Name]
       );
 END
 """;
 
-    await db.Database.ExecuteSqlRawAsync(schemaSql);
+    await db.Database.ExecuteSqlRawAsync(migrateLegacySql);
 }
 
 static async Task EnsureUserSchemaAsync(FleetDbContext db)
@@ -1447,6 +1601,14 @@ sealed record UserCodeOptionDto(
     int Id,
     string Type,
     string Name,
+    string? Code,
+    string? LocationType,
+    string? Address,
+    string? City,
+    string? Country,
+    string? ContactPerson,
+    string? Phone,
+    string? OperatingHours,
     string? Description,
     string Status,
     DateTimeOffset CreatedAt,

@@ -51,8 +51,17 @@ public sealed class FleetDbContext(DbContextOptions<FleetDbContext> options) : D
         {
             entity.ToTable("LocationCodeOptions");
             entity.HasIndex(option => option.Name).IsUnique();
+            entity.HasIndex(option => option.Code).IsUnique();
 
             entity.Property(option => option.Name).HasMaxLength(120).IsRequired();
+            entity.Property(option => option.Code).HasMaxLength(40).IsRequired();
+            entity.Property(option => option.LocationType).HasMaxLength(50).IsRequired();
+            entity.Property(option => option.Address).HasMaxLength(300).IsRequired();
+            entity.Property(option => option.City).HasMaxLength(120).IsRequired();
+            entity.Property(option => option.Country).HasMaxLength(120).IsRequired();
+            entity.Property(option => option.ContactPerson).HasMaxLength(120);
+            entity.Property(option => option.Phone).HasMaxLength(40).IsRequired();
+            entity.Property(option => option.OperatingHours).HasMaxLength(80).IsRequired();
             entity.Property(option => option.Description).HasMaxLength(300);
             entity.Property(option => option.Status).HasMaxLength(20).IsRequired();
         });

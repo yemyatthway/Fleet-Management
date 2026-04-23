@@ -20,9 +20,43 @@
           <label class="required">Name</label>
           <input v-model="form.name" type="text" :placeholder="`Enter ${itemLabel.toLowerCase()} name`" required />
         </div>
+        <template v-if="isLocationForm">
+          <div class="field">
+            <label class="required">Code</label>
+            <input v-model="form.code" type="text" placeholder="BG-WH-01" required />
+          </div>
+          <div class="field">
+            <label class="required">Location Type</label>
+            <input v-model="form.locationType" type="text" placeholder="Warehouse" required />
+          </div>
+          <div class="field full">
+            <label class="required">Address</label>
+            <input v-model="form.address" type="text" placeholder="No. 23, Main Road, Bago" required />
+          </div>
+          <div class="field">
+            <label class="required">City</label>
+            <input v-model="form.city" type="text" placeholder="Bago" required />
+          </div>
+          <div class="field">
+            <label class="required">Country</label>
+            <input v-model="form.country" type="text" placeholder="Myanmar" required />
+          </div>
+          <div class="field">
+            <label>Contact Person</label>
+            <input v-model="form.contactPerson" type="text" placeholder="Ko Aung" />
+          </div>
+          <div class="field">
+            <label class="required">Phone</label>
+            <input v-model="form.phone" type="text" placeholder="09-123456789" required />
+          </div>
+          <div class="field">
+            <label class="required">Operating Hours</label>
+            <input v-model="form.operatingHours" type="text" placeholder="08:00 - 18:00" required />
+          </div>
+        </template>
         <div class="field">
-          <label>Description</label>
-          <textarea v-model="form.description" rows="3" placeholder="Optional description"></textarea>
+          <label>{{ isLocationForm ? 'Notes' : 'Description' }}</label>
+          <textarea v-model="form.description" rows="3" :placeholder="isLocationForm ? 'Optional location notes' : 'Optional description'"></textarea>
         </div>
         <div class="field">
           <label>Status</label>
@@ -82,16 +116,33 @@ const form = reactive({
   id: '',
   type: 'Department',
   name: '',
+  code: '',
+  locationType: '',
+  address: '',
+  city: '',
+  country: '',
+  contactPerson: '',
+  phone: '',
+  operatingHours: '',
   description: '',
   status: 'Active'
 })
 
 const formError = ref('')
+const isLocationForm = computed(() => form.type === 'Location')
 
 const reset = () => {
   form.id = props.item?.id || ''
   form.type = props.item?.type || props.fixedType || 'Department'
   form.name = props.item?.name || ''
+  form.code = props.item?.code || ''
+  form.locationType = props.item?.locationType || ''
+  form.address = props.item?.address || ''
+  form.city = props.item?.city || ''
+  form.country = props.item?.country || ''
+  form.contactPerson = props.item?.contactPerson || ''
+  form.phone = props.item?.phone || ''
+  form.operatingHours = props.item?.operatingHours || ''
   form.description = props.item?.description || ''
   form.status = props.item?.status || 'Active'
   formError.value = ''
@@ -123,6 +174,36 @@ const submit = () => {
   if (!form.name) {
     formError.value = 'Name is required.'
     return
+  }
+  if (isLocationForm.value) {
+    if (!form.code) {
+      formError.value = 'Code is required.'
+      return
+    }
+    if (!form.locationType) {
+      formError.value = 'Location type is required.'
+      return
+    }
+    if (!form.address) {
+      formError.value = 'Address is required.'
+      return
+    }
+    if (!form.city) {
+      formError.value = 'City is required.'
+      return
+    }
+    if (!form.country) {
+      formError.value = 'Country is required.'
+      return
+    }
+    if (!form.phone) {
+      formError.value = 'Phone is required.'
+      return
+    }
+    if (!form.operatingHours) {
+      formError.value = 'Operating hours are required.'
+      return
+    }
   }
 
   formError.value = ''
