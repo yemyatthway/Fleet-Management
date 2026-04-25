@@ -18,8 +18,8 @@
         density="comfortable"
         @update:options="$emit('update:options', $event)"
       >
-        <template #item.id="{ item }">
-          <span class="user-id">{{ item.displayId }}</span>
+        <template #item.displayId="{ item }">
+          <span class="user-id">{{ item.displayId.replace('USR-', '') }}</span>
         </template>
 
         <template #item.name="{ item }">
@@ -35,10 +35,6 @@
             </button>
             <strong>{{ item.name }}</strong>
           </div>
-        </template>
-
-        <template #item.employeeId="{ item }">
-          <span class="text-muted">{{ item.employeeId }}</span>
         </template>
 
         <template #item.nrcNumber="{ item }">
@@ -177,7 +173,7 @@ const props = defineProps({
   },
   sortBy: {
     type: String,
-    default: 'id'
+    default: 'name'
   },
   sortOrder: {
     type: String,
@@ -188,9 +184,8 @@ const props = defineProps({
 defineEmits(['edit', 'toggle', 'remove', 'view-avatar', 'update:options'])
 
 const headers = [
-  { title: 'ID', key: 'id' },
+  { title: 'No.', key: 'displayId', sortable: false },
   { title: 'Name', key: 'name' },
-  { title: 'Employee ID', key: 'employeeId' },
   { title: 'NRC', key: 'nrcNumber' },
   { title: 'NRC Front', key: 'nrcFront', sortable: false },
   { title: 'NRC Back', key: 'nrcBack', sortable: false },

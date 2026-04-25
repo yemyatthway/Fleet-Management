@@ -1,18 +1,14 @@
 namespace FleetManagement.Api.Models;
 
-public sealed class Role
+public class Role
 {
-    public int Id { get; set; }
-
-    public required string Name { get; set; }
-
-    public required string Description { get; set; }
-
-    public required string Status { get; set; }
-
-    public DateTimeOffset CreatedAt { get; set; }
-
-    public DateTimeOffset? UpdatedAt { get; set; }
-
-    public ICollection<User> Users { get; set; } = [];
+  public string Id { get; set; } = string.Empty;
+  public string Code { get; set; } = string.Empty;
+  public string Name { get; set; } = string.Empty;
+  public string Description { get; set; } = string.Empty;
+  public string Status { get; set; } = "Active";
+  public int IsDeleted { get; set; }
+  public DateTime CreatedAt { get; set; }
+  public DateTime UpdatedAt { get; set; }
+  public ICollection<User> Users { get; set; } = new List<User>();
 }

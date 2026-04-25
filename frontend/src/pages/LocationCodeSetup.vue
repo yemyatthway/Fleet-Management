@@ -1,16 +1,10 @@
 <template>
   <DashboardLayout>
-    <UserCodeSetupContent
-      section-title="Location / Depot Setup"
-      section-subtitle="Manage location and depot master data used by user forms."
-      fixed-type="Location"
-      item-label="Location"
-      item-label-plural="Locations"
-    />
+    <LocationSetupContent />
   </DashboardLayout>
 </template>
 
 <script setup>
 import DashboardLayout from '../layouts/DashboardLayout.vue'
-import UserCodeSetupContent from '../components/users/UserCodeSetupContent.vue'
+import LocationSetupContent from '../components/locations/LocationSetupContent.vue'
 </script>

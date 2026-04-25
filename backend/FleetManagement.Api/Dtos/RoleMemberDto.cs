@@ -1,10 +1,10 @@
 namespace FleetManagement.Api.Dtos;
 
-public sealed record RoleMemberDto(
-    int Id,
-    string Name,
-    string Email,
-    string Phone,
-    string Status,
-    DateOnly JoinDate,
-    string? Avatar);
+public record RoleMemberDto(
+  string Id,
+  string Name,
+  string Email,
+  string Phone,
+  string Status,
+  string JoinDate,
+  string Avatar);

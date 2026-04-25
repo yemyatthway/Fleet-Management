@@ -24,9 +24,7 @@
 
         <template #item.type="{ item }">
           <div class="role-cell">
-            <div class="role-badge" :class="item.type === 'Department' ? 'role-dispatcher' : 'role-driver'">
-              {{ item.type === 'Location' ? 'Location / Depot' : item.type }}
-            </div>
+            <div class="role-badge role-driver">Location / Depot</div>
           </div>
         </template>
 
@@ -46,11 +44,11 @@
           <div class="inline-actions">
             <button class="icon-button tooltip" type="button" @click="$emit('edit', item)">
               <v-icon icon="mdi-pencil-outline" size="18" />
-              <span class="tooltip-text">Edit {{ itemLabel.toLowerCase() }}</span>
+              <span class="tooltip-text">Edit location</span>
             </button>
             <button class="icon-button danger tooltip" type="button" @click="$emit('remove', item)">
               <v-icon icon="mdi-trash-can-outline" size="18" />
-              <span class="tooltip-text">Delete {{ itemLabel.toLowerCase() }}</span>
+              <span class="tooltip-text">Delete location</span>
             </button>
           </div>
         </template>
@@ -60,7 +58,7 @@
         </template>
 
         <template #no-data>
-          <div class="empty-state">No records found</div>
+          <div class="empty-state">No locations found</div>
         </template>
       </v-data-table-server>
     </div>
@@ -98,10 +96,6 @@ const props = defineProps({
   sortOrder: {
     type: String,
     default: 'asc'
-  },
-  itemLabel: {
-    type: String,
-    default: 'Item'
   }
 })
 

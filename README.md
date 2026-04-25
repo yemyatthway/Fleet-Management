@@ -1,22 +1,19 @@
 # Fleet Management
 
-This repository is split into separate frontend and backend workspaces.
+This repository runs as a Vue 3 + Vite frontend with a Roles-only ASP.NET Core backend. Users, departments, locations, and the rest of the app still use local fake data in the frontend, but the Roles page now talks to SQL Server through the backend API.
 
-## Frontend
-
-Vue 3 + Vite app:
+## Run the app
 
 ```bash
+dotnet restore backend/FleetManagement.Api/FleetManagement.Api.csproj
+dotnet run --project backend/FleetManagement.Api
 cd frontend
 npm run dev
 ```
 
-## Backend
+## Notes
 
-ASP.NET Core 8 Web API:
-
-```bash
-dotnet run --project backend/FleetManagement.Api
-```
-
-The backend exposes the Roles API at `http://localhost:5215/api/roles`.
+- Roles page uses `http://localhost:5215/api/roles`.
+- Start your SQL Server container yourself in Docker Desktop, then run the API.
+- The backend seeds roles and members on first startup.
+- Other pages still use frontend-local fake data.

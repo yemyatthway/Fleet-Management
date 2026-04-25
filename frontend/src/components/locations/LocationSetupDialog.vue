@@ -2,23 +2,16 @@
   <v-dialog v-model="internalOpen" max-width="520">
     <v-card class="dialog-card">
       <div class="dialog-header">
-        <h2>{{ mode === 'edit' ? `Edit ${itemLabel}` : `Create ${itemLabel}` }}</h2>
+        <h2>{{ mode === 'edit' ? 'Edit Location' : 'Create Location' }}</h2>
         <button class="icon-button" type="button" @click="close">
           <v-icon icon="mdi-close" />
         </button>
       </div>
 
       <form class="dialog-body" @submit.prevent="submit">
-        <div v-if="!fixedType" class="field">
-          <label class="required">Type</label>
-          <select v-model="form.type" required>
-            <option value="Department">Department</option>
-            <option value="Location">Location / Depot</option>
-          </select>
-        </div>
         <div class="field">
           <label class="required">Name</label>
-          <input v-model="form.name" type="text" :placeholder="`Enter ${itemLabel.toLowerCase()} name`" required />
+          <input v-model="form.name" type="text" placeholder="Enter location name" required />
         </div>
         <div class="field">
           <label>Description</label>
@@ -36,7 +29,7 @@
 
         <div class="dialog-actions">
           <button class="ghost" type="button" @click="close">Cancel</button>
-          <button class="primary" type="submit">{{ mode === 'edit' ? 'Save Changes' : `Create ${itemLabel}` }}</button>
+          <button class="primary" type="submit">{{ mode === 'edit' ? 'Save Changes' : 'Create Location' }}</button>
         </div>
       </form>
     </v-card>
@@ -58,14 +51,6 @@ const props = defineProps({
   item: {
     type: Object,
     default: null
-  },
-  fixedType: {
-    type: String,
-    default: ''
-  },
-  itemLabel: {
-    type: String,
-    default: 'Item'
   }
 })
 
@@ -80,7 +65,7 @@ const internalOpen = computed({
 
 const form = reactive({
   id: '',
-  type: 'Department',
+  type: 'Location',
   name: '',
   description: '',
   status: 'Active'
@@ -90,7 +75,7 @@ const formError = ref('')
 
 const reset = () => {
   form.id = props.item?.id || ''
-  form.type = props.item?.type || props.fixedType || 'Department'
+  form.type = 'Location'
   form.name = props.item?.name || ''
   form.description = props.item?.description || ''
   form.status = props.item?.status || 'Active'
@@ -104,22 +89,9 @@ watch(
   }
 )
 
-watch(
-  () => props.fixedType,
-  (value) => {
-    if (value && props.open && props.mode !== 'edit') {
-      form.type = value
-    }
-  }
-)
-
 const close = () => emit('close')
 
 const submit = () => {
-  if (!form.type) {
-    formError.value = 'Type is required.'
-    return
-  }
   if (!form.name) {
     formError.value = 'Name is required.'
     return

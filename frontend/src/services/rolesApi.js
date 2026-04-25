@@ -1,33 +1,40 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5215'
+const API_BASE_URL = import.meta.env.VITE_ROLES_API_BASE_URL || 'http://localhost:5215'
+
+const resolveAssetUrl = (value) => {
+  if (!value) return ''
+  if (/^https?:\/\//i.test(value) || value.startsWith('data:')) return value
+  if (/^file:\/\/\/uploads\//i.test(value)) {
+    const relativePath = value.replace(/^file:\/\//i, '')
+    return `${API_BASE_URL}${relativePath.startsWith('/') ? relativePath : `/${relativePath}`}`
+  }
+  if (/^uploads\//i.test(value)) return `${API_BASE_URL}/${value}`
+  if (value.startsWith('/')) return `${API_BASE_URL}${value}`
+  return value
+}
 
 const parseResponse = async (response) => {
+  if (response.status === 204) return null
+
   const contentType = response.headers.get('content-type') || ''
   const body = contentType.includes('application/json') ? await response.json() : null
 
   if (!response.ok) {
-    const error = new Error(body?.message || `Request failed with status ${response.status}`)
-    console.error('[rolesApi] request failed', { status: response.status, body })
-    throw error
+    throw new Error(body?.message || `Request failed with status ${response.status}`)
   }
 
   return body
 }
 
 const request = async (path, options = {}) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-      },
-      ...options
-    })
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers
+    },
+    ...options
+  })
 
-    return parseResponse(response)
-  } catch (error) {
-    console.error('[rolesApi] request error', { path, error })
-    throw error
-  }
+  return parseResponse(response)
 }
 
 const toQueryString = (params = {}) => {
@@ -43,7 +50,15 @@ export const getRoles = (params = {}) => request(`/api/roles${toQueryString(para
 
 export const getRoleOptions = () => request('/api/roles/options')
 
-export const getRoleMembers = (roleId) => request(`/api/roles/${roleId}/members`)
+export const getRoleMembers = async (roleId) => {
+  const result = await request(`/api/roles/${roleId}/members`)
+  return Array.isArray(result)
+    ? result.map((member) => ({
+        ...member,
+        avatar: resolveAssetUrl(member?.avatar)
+      }))
+    : []
+}
 
 export const createRole = (role) =>
   request('/api/roles', {

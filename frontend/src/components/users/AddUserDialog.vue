@@ -28,10 +28,6 @@
             <label class="required">Full Name</label>
             <input v-model="form.name" type="text" placeholder="John Doe" required />
           </div>
-          <div class="field">
-            <label class="required">Employee ID</label>
-            <input v-model="form.employeeId" type="text" placeholder="EMP-1021" required />
-          </div>
           <div class="field full">
             <label class="required">NRC</label>
             <input
@@ -84,12 +80,7 @@
           </div>
           <div class="field">
             <label class="required">Location / Depot</label>
-            <select v-model="form.location" required>
-              <option value="" disabled>Select location</option>
-              <option v-for="location in locationChoices" :key="location" :value="location">
-                {{ location }}
-              </option>
-            </select>
+            <input v-model="form.location" type="text" placeholder="North Depot" required />
           </div>
           <div class="field">
             <label class="required">Manager</label>
@@ -209,10 +200,6 @@ const props = defineProps({
   departments: {
     type: Array,
     default: () => []
-  },
-  locations: {
-    type: Array,
-    default: () => []
   }
 })
 
@@ -223,7 +210,6 @@ const defaultRole = computed(() =>
   roleOptions.value.includes('Driver') ? 'Driver' : roleOptions.value[0] || 'Driver'
 )
 const departmentChoices = computed(() => props.departments.length ? props.departments : [])
-const locationChoices = computed(() => props.locations.length ? props.locations : [])
 
 const internalOpen = computed({
   get: () => props.open,
@@ -234,7 +220,6 @@ const internalOpen = computed({
 
 const form = reactive({
   name: '',
-  employeeId: '',
   nrcNumber: '',
   email: '',
   role: defaultRole.value,
@@ -269,10 +254,12 @@ const fileInput = ref(null)
 const nrcFrontInput = ref(null)
 const nrcBackInput = ref(null)
 const formError = ref('')
+const avatarFile = ref(null)
+const nrcFrontFile = ref(null)
+const nrcBackFile = ref(null)
 
 const reset = () => {
   form.name = ''
-  form.employeeId = ''
   form.nrcNumber = ''
   form.email = ''
   form.role = defaultRole.value
@@ -294,6 +281,9 @@ const reset = () => {
   form.address = ''
   form.twoFactorEnabled = false
   form.notes = ''
+  avatarFile.value = null
+  nrcFrontFile.value = null
+  nrcBackFile.value = null
   if (fileInput.value) fileInput.value.value = ''
   if (nrcFrontInput.value) nrcFrontInput.value.value = ''
   if (nrcBackInput.value) nrcBackInput.value.value = ''
@@ -327,7 +317,12 @@ const submit = () => {
     return
   }
   formError.value = ''
-  emit('add', { ...form })
+  emit('add', {
+    ...form,
+    avatarFile: avatarFile.value,
+    nrcFrontFile: nrcFrontFile.value,
+    nrcBackFile: nrcBackFile.value
+  })
   reset()
 }
 
@@ -379,7 +374,6 @@ const validate = () => {
 const validateStep = (step) => {
   if (step === 1) {
     if (!form.name) return 'Full name is required.'
-    if (!form.employeeId) return 'Employee ID is required.'
     if (!form.nrcNumber) return 'NRC is required.'
     if (!isValidNrc(form.nrcNumber)) return 'NRC format must be like 9/ZaYaTha/111111.'
     if (!form.email) return 'Email is required.'
@@ -418,6 +412,7 @@ const validateStep = (step) => {
 const handleAvatarUpload = (event) => {
   const file = event.target.files?.[0]
   if (!file) return
+  avatarFile.value = file
   const reader = new FileReader()
   reader.onload = (e) => {
     form.avatar = e.target?.result || ''
@@ -427,12 +422,14 @@ const handleAvatarUpload = (event) => {
 
 const handleAvatarRemove = () => {
   form.avatar = ''
+  avatarFile.value = null
   if (fileInput.value) fileInput.value.value = ''
 }
 
 const handleNrcFrontUpload = (event) => {
   const file = event.target.files?.[0]
   if (!file) return
+  nrcFrontFile.value = file
   const reader = new FileReader()
   reader.onload = (e) => {
     form.nrcFront = e.target?.result || ''
@@ -443,6 +440,7 @@ const handleNrcFrontUpload = (event) => {
 const handleNrcBackUpload = (event) => {
   const file = event.target.files?.[0]
   if (!file) return
+  nrcBackFile.value = file
   const reader = new FileReader()
   reader.onload = (e) => {
     form.nrcBack = e.target?.result || ''
@@ -452,11 +450,13 @@ const handleNrcBackUpload = (event) => {
 
 const handleNrcFrontRemove = () => {
   form.nrcFront = ''
+  nrcFrontFile.value = null
   if (nrcFrontInput.value) nrcFrontInput.value.value = ''
 }
 
 const handleNrcBackRemove = () => {
   form.nrcBack = ''
+  nrcBackFile.value = null
   if (nrcBackInput.value) nrcBackInput.value.value = ''
 }
 </script>

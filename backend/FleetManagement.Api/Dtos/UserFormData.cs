@@ -1,18 +1,15 @@
-namespace FleetManagement.Api.Models;
+using Microsoft.AspNetCore.Http;
 
-public class User
+namespace FleetManagement.Api.Dtos;
+
+public class UserFormData
 {
-  public string Id { get; set; } = string.Empty;
   public string Name { get; set; } = string.Empty;
-  public string EmployeeId { get; set; } = string.Empty;
   public string NrcNumber { get; set; } = string.Empty;
   public string Email { get; set; } = string.Empty;
-  public string RoleId { get; set; } = string.Empty;
-  public string Status { get; set; } = "Active";
+  public string Role { get; set; } = string.Empty;
+  public string? Status { get; set; }
   public string Phone { get; set; } = string.Empty;
-  public string Avatar { get; set; } = string.Empty;
-  public string NrcFront { get; set; } = string.Empty;
-  public string NrcBack { get; set; } = string.Empty;
   public string Department { get; set; } = string.Empty;
   public string Title { get; set; } = string.Empty;
   public string Location { get; set; } = string.Empty;
@@ -26,10 +23,7 @@ public class User
   public string Address { get; set; } = string.Empty;
   public bool TwoFactorEnabled { get; set; }
   public string? Notes { get; set; }
-  public string JoinDate { get; set; } = string.Empty;
-  public string? LastLogin { get; set; }
-  public int IsDeleted { get; set; }
-  public DateTime CreatedAt { get; set; }
-  public DateTime UpdatedAt { get; set; }
-  public Role? Role { get; set; }
+  public IFormFile? AvatarFile { get; set; }
+  public IFormFile? NrcFrontFile { get; set; }
+  public IFormFile? NrcBackFile { get; set; }
 }

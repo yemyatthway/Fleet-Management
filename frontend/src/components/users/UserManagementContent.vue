@@ -97,7 +97,6 @@
       :open="dialogOpen"
       :roles="userRoles"
       :departments="departmentOptions"
-      :locations="locationOptions"
       @close="dialogOpen = false"
       @add="handleAdd"
     />
@@ -107,7 +106,6 @@
       :user="selectedUser"
       :roles="userRoles"
       :departments="departmentOptions"
-      :locations="locationOptions"
       @close="editOpen = false"
       @save="handleUpdate"
     />
@@ -132,16 +130,19 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref } from "vue";
 import UserTable from "./UserTable.vue";
 import AddUserDialog from "./AddUserDialog.vue";
 import EditUserDialog from "./EditUserDialog.vue";
 import UserAvatarDialog from "./UserAvatarDialog.vue";
 import ConfirmDialog from "../common/ConfirmDialog.vue";
 import PageMessage from "../common/PageMessage.vue";
+import { useConfirmDialog } from "../../composables/useConfirmDialog";
+import { useListPage } from "../../composables/useListPage";
+import { usePageMessage } from "../../composables/usePageMessage";
 import { attachDisplayIds } from "../../utils/tableDisplayIds";
+import { getDepartmentOptions } from "../../services/departmentsApi";
 import { getRoleOptions } from "../../services/rolesApi";
-import { getDepartmentOptions, getLocationOptions } from "../../services/userCodeOptionsApi";
 import {
   createUser,
   deleteUser,
@@ -153,45 +154,16 @@ import {
 const ALL_ROLES_FILTER = "All";
 const ACTIVE_STATUS = "Active";
 const DISABLED_STATUS = "Disabled";
-const SEARCH_DELAY_MS = 350;
-const PAGE_MESSAGE_DURATION_MS = 5000;
-const useDebouncedRef = (source, delay = SEARCH_DELAY_MS) => {
-  const debounced = ref(source.value);
-  let timerId = null;
-
-  const clearTimer = () => {
-    if (timerId) clearTimeout(timerId);
-  };
-
-  watch(
-    source,
-    (value) => {
-      clearTimer();
-      timerId = setTimeout(() => {
-        debounced.value = value;
-      }, delay);
-    },
-    { immediate: true },
-  );
-
-  onBeforeUnmount(clearTimer);
-
-  return debounced;
-};
 
 const findUserById = (id) => users.value.find((item) => item.id === id);
 
 const toUserRequest = (payload) => ({
   name: payload.name,
-  employeeId: payload.employeeId,
   nrcNumber: payload.nrcNumber,
   email: payload.email,
   role: payload.role,
   status: payload.status || ACTIVE_STATUS,
   phone: payload.phone,
-  avatar: payload.avatar,
-  nrcFront: payload.nrcFront,
-  nrcBack: payload.nrcBack,
   department: payload.department,
   title: payload.title,
   location: payload.location,
@@ -205,33 +177,67 @@ const toUserRequest = (payload) => ({
   address: payload.address,
   twoFactorEnabled: Boolean(payload.twoFactorEnabled),
   notes: payload.notes || null,
+  avatarFile: payload.avatarFile || null,
+  nrcFrontFile: payload.nrcFrontFile || null,
+  nrcBackFile: payload.nrcBackFile || null,
 });
 
-const users = ref([]);
-const searchQuery = ref("");
-const debouncedQuery = useDebouncedRef(searchQuery);
 const userRoles = ref([]);
 const departmentOptions = ref([]);
-const locationOptions = ref([]);
 const roleFilter = ref(ALL_ROLES_FILTER);
-const totalUsers = ref(0);
 const userStats = ref({ total: 0, active: 0, drivers: 0, admins: 0 });
-const tableOptions = ref({ page: 1, itemsPerPage: 10, sortBy: "id", sortOrder: "asc" });
-const pageMessage = ref({ tone: "info", title: "", message: "" });
-const loadingUsers = ref(false);
 const dialogOpen = ref(false);
 const editOpen = ref(false);
 const selectedUser = ref(null);
-const confirmOpen = ref(false);
-const confirmTitle = ref("Are you sure?");
-const confirmMessage = ref("");
-const confirmButton = ref("Confirm");
-const confirmTone = ref("danger");
-const pendingAction = ref(() => {});
 const avatarOpen = ref(false);
 const avatarUrl = ref("");
 const avatarName = ref("");
-let pageMessageTimerId = null;
+const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage();
+const {
+  confirmOpen,
+  confirmTitle,
+  confirmMessage,
+  confirmButton,
+  confirmTone,
+  openConfirm,
+  runConfirm,
+} = useConfirmDialog();
+const {
+  items: users,
+  total: totalUsers,
+  searchQuery,
+  tableOptions,
+  loading: loadingUsers,
+  loadItems: loadUsers,
+  handleTableOptions,
+} = useListPage({
+  fetchPage: ({ page, pageSize, search, sortBy, sortOrder }) =>
+    getUsers({
+      page,
+      pageSize,
+      search,
+      role: roleFilter.value === ALL_ROLES_FILTER ? "" : roleFilter.value,
+      sortBy,
+      sortOrder,
+    }),
+  clearPageMessage,
+  showPageMessage,
+  errorTitle: "Could not load users",
+  watchSources: [roleFilter],
+  initialTableOptions: {
+    sortBy: "name",
+    sortOrder: "asc",
+  },
+  onLoaded: (result) => {
+    userStats.value = result?.stats || {
+      total: totalUsers.value,
+      active: 0,
+      drivers: 0,
+      admins: 0,
+    };
+  },
+  autoLoad: false,
+});
 
 const activeCount = computed(() => userStats.value.active);
 const driverCount = computed(() => userStats.value.drivers);
@@ -241,50 +247,15 @@ const tableUsers = computed(() =>
     users.value,
     tableOptions.value.page,
     tableOptions.value.itemsPerPage,
-    true,
+    false,
     () => "USR",
-  ),
-);
-
-const clearPageMessage = () => {
-  if (pageMessageTimerId) {
-    clearTimeout(pageMessageTimerId);
-    pageMessageTimerId = null;
-  }
-  pageMessage.value = { tone: "info", title: "", message: "" };
-};
-
-const showPageMessage = ({ tone = "info", title = "", message }) => {
-  if (pageMessageTimerId) clearTimeout(pageMessageTimerId);
-  pageMessage.value = { tone, title, message };
-  pageMessageTimerId = setTimeout(() => {
-    pageMessageTimerId = null;
-    clearPageMessage();
-  }, PAGE_MESSAGE_DURATION_MS);
-};
-
-const loadUsers = async () => {
-  loadingUsers.value = true;
-  clearPageMessage();
-
-  try {
-    const result = await getUsers({
-      page: tableOptions.value.page,
-      pageSize: tableOptions.value.itemsPerPage,
-      search: debouncedQuery.value,
-      role: roleFilter.value === ALL_ROLES_FILTER ? '' : roleFilter.value,
+    {
+      total: totalUsers.value,
       sortBy: tableOptions.value.sortBy,
       sortOrder: tableOptions.value.sortOrder,
-    });
-    users.value = result.items || [];
-    totalUsers.value = result.total || 0;
-    userStats.value = result.stats || { total: totalUsers.value, active: 0, drivers: 0, admins: 0 };
-  } catch (error) {
-    showPageMessage({ tone: "error", title: "Could not load users", message: error.message });
-  } finally {
-    loadingUsers.value = false;
-  }
-};
+    },
+  ),
+);
 
 const loadUserRoles = async () => {
   try {
@@ -297,43 +268,12 @@ const loadUserRoles = async () => {
 
 const loadUserCodeOptions = async () => {
   try {
-    const [departments, locations] = await Promise.all([getDepartmentOptions(), getLocationOptions()]);
-    departmentOptions.value = departments;
-    locationOptions.value = locations;
+    departmentOptions.value = await getDepartmentOptions();
   } catch (error) {
     console.error("[users] failed to load code setup options", error);
     showPageMessage({ tone: "error", title: "Could not load code setup", message: error.message });
   }
 };
-
-const normalizeSortOption = (sortBy) => {
-  const firstSort = sortBy?.[0];
-  if (!firstSort) return null;
-  if (typeof firstSort === "string") return { key: firstSort, order: "asc" };
-
-  const key = firstSort.key || firstSort.field || "";
-  const order =
-    firstSort.order ||
-    (typeof firstSort.desc === "boolean" ? (firstSort.desc ? "desc" : "asc") : "asc");
-
-  return key ? { key, order } : null;
-};
-
-const handleTableOptions = (options) => {
-  const firstSort = normalizeSortOption(options.sortBy);
-  tableOptions.value = {
-    page: options.page || 1,
-    itemsPerPage: options.itemsPerPage || 10,
-    sortBy: firstSort?.key || tableOptions.value.sortBy || "id",
-    sortOrder: firstSort?.order || tableOptions.value.sortOrder || "asc",
-  };
-  loadUsers();
-};
-
-watch([debouncedQuery, roleFilter], () => {
-  tableOptions.value.page = 1;
-  loadUsers();
-});
 
 const handleAdd = async (payload) => {
   clearPageMessage();
@@ -357,20 +297,6 @@ const handleEdit = (id) => {
   if (!user) return;
   selectedUser.value = { ...user };
   editOpen.value = true;
-};
-
-const openConfirm = ({ title, message, confirmText, tone, action }) => {
-  confirmTitle.value = title;
-  confirmMessage.value = message;
-  confirmButton.value = confirmText;
-  confirmTone.value = tone;
-  pendingAction.value = action;
-  confirmOpen.value = true;
-};
-
-const runConfirm = async () => {
-  await pendingAction.value();
-  confirmOpen.value = false;
 };
 
 const openAvatar = (user) => {
@@ -458,10 +384,6 @@ const handleUpdate = async (payload) => {
 
 onMounted(async () => {
   await Promise.all([loadUserRoles(), loadUserCodeOptions(), loadUsers()]);
-});
-
-onBeforeUnmount(() => {
-  if (pageMessageTimerId) clearTimeout(pageMessageTimerId);
 });
 </script>
 
