@@ -11,12 +11,14 @@
       <form class="dialog-body" @submit.prevent="submit">
         <div class="field">
           <label class="required">Name</label>
-          <input v-model="form.name" type="text" placeholder="Enter department name" required />
+          <input v-model.trim="form.name" type="text" placeholder="Operations" required />
         </div>
+
         <div class="field">
           <label>Description</label>
-          <textarea v-model="form.description" rows="3" placeholder="Optional description"></textarea>
+          <textarea v-model.trim="form.description" rows="3" placeholder="Optional description" />
         </div>
+
         <div class="field">
           <label>Status</label>
           <select v-model="form.status">
@@ -65,7 +67,6 @@ const internalOpen = computed({
 
 const form = reactive({
   id: '',
-  type: 'Department',
   name: '',
   description: '',
   status: 'Active'
@@ -75,7 +76,6 @@ const formError = ref('')
 
 const reset = () => {
   form.id = props.item?.id || ''
-  form.type = 'Department'
   form.name = props.item?.name || ''
   form.description = props.item?.description || ''
   form.status = props.item?.status || 'Active'

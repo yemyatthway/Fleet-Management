@@ -102,7 +102,6 @@ import { useListPage } from '../../composables/useListPage'
 import { usePageMessage } from '../../composables/usePageMessage'
 import { useReferenceMetrics } from '../../composables/useReferenceMetrics'
 import { attachDisplayIds } from '../../utils/tableDisplayIds'
-import { buildReferenceRequest } from '../../utils/referenceData'
 import {
   createDepartmentCodeOption,
   deleteDepartmentCodeOption,
@@ -162,7 +161,7 @@ const tableDepartments = computed(() =>
 
 const openAdd = () => {
   dialogMode.value = 'add'
-  selectedDepartment.value = { type: 'Department' }
+  selectedDepartment.value = { status: 'Active' }
   dialogOpen.value = true
 }
 
@@ -178,8 +177,8 @@ const handleSave = async (payload) => {
 
   try {
     const savedDepartment = isEdit
-      ? await updateDepartmentCodeOption(payload.id, buildReferenceRequest('Department', payload))
-      : await createDepartmentCodeOption(buildReferenceRequest('Department', payload))
+      ? await updateDepartmentCodeOption(payload.id, payload)
+      : await createDepartmentCodeOption(payload)
 
     if (isEdit) {
       departments.value = departments.value.map((item) =>

@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1 class="section-title">Location / Depot Setup</h1>
-        <p class="section-subtitle">Manage location and depot master data used by user forms.</p>
+        <p class="section-subtitle">Manage warehouse, depot, and hub master data for operations.</p>
       </div>
     </div>
 
@@ -30,7 +30,7 @@
       <div class="toolbar-row">
         <div class="toolbar-search">
           <v-icon icon="mdi-magnify" />
-          <input v-model="searchQuery" type="text" placeholder="Search location name or description..." />
+          <input v-model="searchQuery" type="text" placeholder="Search location name, code, city, or notes..." />
           <button
             v-if="searchQuery"
             class="clear-button"
@@ -102,7 +102,6 @@ import { useListPage } from '../../composables/useListPage'
 import { usePageMessage } from '../../composables/usePageMessage'
 import { useReferenceMetrics } from '../../composables/useReferenceMetrics'
 import { attachDisplayIds } from '../../utils/tableDisplayIds'
-import { buildReferenceRequest } from '../../utils/referenceData'
 import {
   createLocationCodeOption,
   deleteLocationCodeOption,
@@ -162,7 +161,7 @@ const tableLocations = computed(() =>
 
 const openAdd = () => {
   dialogMode.value = 'add'
-  selectedLocation.value = { type: 'Location' }
+  selectedLocation.value = { type: 'Warehouse', status: 'Active' }
   dialogOpen.value = true
 }
 
@@ -178,8 +177,8 @@ const handleSave = async (payload) => {
 
   try {
     const savedLocation = isEdit
-      ? await updateLocationCodeOption(payload.id, buildReferenceRequest('Location', payload))
-      : await createLocationCodeOption(buildReferenceRequest('Location', payload))
+      ? await updateLocationCodeOption(payload.id, payload)
+      : await createLocationCodeOption(payload)
 
     if (isEdit) {
       locations.value = locations.value.map((item) =>

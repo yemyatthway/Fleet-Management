@@ -92,6 +92,97 @@ public static class SchemaBootstrapper
         """
       );
     }
+
+    var hasDepartmentsTable = await TableExistsAsync(db, "DepartmentCodeOptions");
+    if (!hasDepartmentsTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE DepartmentCodeOptions (
+          Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+          Name nvarchar(120) NOT NULL,
+          Description nvarchar(500) NULL,
+          Status nvarchar(20) NOT NULL,
+          CreatedAt datetimeoffset NOT NULL,
+          UpdatedAt datetimeoffset NULL
+        );
+        CREATE UNIQUE INDEX IX_DepartmentCodeOptions_Name ON DepartmentCodeOptions(Name);
+        """
+      );
+    }
+    else
+    {
+      var hasDepartmentNameIndex = await IndexExistsAsync(db, "DepartmentCodeOptions", "IX_DepartmentCodeOptions_Name");
+      if (!hasDepartmentNameIndex)
+      {
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_DepartmentCodeOptions_Name ON DepartmentCodeOptions(Name);");
+      }
+    }
+
+    var hasLocationsTable = await TableExistsAsync(db, "LocationCodeOptions");
+    if (!hasLocationsTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE LocationCodeOptions (
+          Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+          Name nvarchar(120) NOT NULL,
+          Code nvarchar(40) NOT NULL,
+          Type nvarchar(50) NOT NULL,
+          Address nvarchar(300) NOT NULL,
+          City nvarchar(120) NOT NULL,
+          Country nvarchar(120) NOT NULL,
+          ContactPerson nvarchar(120) NULL,
+          Phone nvarchar(40) NOT NULL,
+          OperatingHours nvarchar(80) NOT NULL,
+          Notes nvarchar(500) NULL,
+          Status nvarchar(20) NOT NULL,
+          CreatedAt datetimeoffset NOT NULL,
+          UpdatedAt datetimeoffset NULL
+        );
+        CREATE UNIQUE INDEX IX_LocationCodeOptions_Name ON LocationCodeOptions(Name);
+        CREATE UNIQUE INDEX IX_LocationCodeOptions_Code ON LocationCodeOptions(Code);
+        """
+      );
+    }
+    else
+    {
+      var hasTypeColumn = await ColumnExistsAsync(db, "LocationCodeOptions", "Type");
+      if (!hasTypeColumn)
+      {
+        await db.Database.ExecuteSqlRawAsync("ALTER TABLE LocationCodeOptions ADD Type nvarchar(50) NULL;");
+        var hasLegacyType = await ColumnExistsAsync(db, "LocationCodeOptions", "LocationType");
+        if (hasLegacyType)
+        {
+          await db.Database.ExecuteSqlRawAsync("UPDATE LocationCodeOptions SET Type = LocationType WHERE Type IS NULL;");
+        }
+        await db.Database.ExecuteSqlRawAsync("UPDATE LocationCodeOptions SET Type = 'Warehouse' WHERE Type IS NULL OR Type = '';");
+        await db.Database.ExecuteSqlRawAsync("ALTER TABLE LocationCodeOptions ALTER COLUMN Type nvarchar(50) NOT NULL;");
+      }
+
+      var hasNotesColumn = await ColumnExistsAsync(db, "LocationCodeOptions", "Notes");
+      if (!hasNotesColumn)
+      {
+        await db.Database.ExecuteSqlRawAsync("ALTER TABLE LocationCodeOptions ADD Notes nvarchar(500) NULL;");
+        var hasLegacyDescription = await ColumnExistsAsync(db, "LocationCodeOptions", "Description");
+        if (hasLegacyDescription)
+        {
+          await db.Database.ExecuteSqlRawAsync("UPDATE LocationCodeOptions SET Notes = Description WHERE Notes IS NULL;");
+        }
+      }
+
+      var hasNameIndex = await IndexExistsAsync(db, "LocationCodeOptions", "IX_LocationCodeOptions_Name");
+      if (!hasNameIndex)
+      {
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_LocationCodeOptions_Name ON LocationCodeOptions(Name);");
+      }
+
+      var hasLocationCodeIndex = await IndexExistsAsync(db, "LocationCodeOptions", "IX_LocationCodeOptions_Code");
+      if (!hasLocationCodeIndex)
+      {
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_LocationCodeOptions_Code ON LocationCodeOptions(Code);");
+      }
+    }
   }
 
   private static async Task<bool> TableExistsAsync(FleetDbContext db, string tableName)

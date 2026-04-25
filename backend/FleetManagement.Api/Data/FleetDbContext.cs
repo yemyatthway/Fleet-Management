@@ -7,6 +7,8 @@ public class FleetDbContext(DbContextOptions<FleetDbContext> options) : DbContex
 {
   public DbSet<Role> Roles => Set<Role>();
   public DbSet<User> Users => Set<User>();
+  public DbSet<DepartmentCodeOption> DepartmentCodeOptions => Set<DepartmentCodeOption>();
+  public DbSet<LocationCodeOption> LocationCodeOptions => Set<LocationCodeOption>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -57,6 +59,35 @@ public class FleetDbContext(DbContextOptions<FleetDbContext> options) : DbContex
         .WithMany(r => r.Users)
         .HasForeignKey(u => u.RoleId)
         .OnDelete(DeleteBehavior.Cascade);
+    });
+
+    modelBuilder.Entity<LocationCodeOption>(entity =>
+    {
+      entity.ToTable("LocationCodeOptions");
+      entity.HasKey(location => location.Id);
+      entity.HasIndex(location => location.Name).IsUnique();
+      entity.HasIndex(location => location.Code).IsUnique();
+      entity.Property(location => location.Name).HasMaxLength(120).IsRequired();
+      entity.Property(location => location.Code).HasMaxLength(40).IsRequired();
+      entity.Property(location => location.Type).HasMaxLength(50).IsRequired();
+      entity.Property(location => location.Address).HasMaxLength(300).IsRequired();
+      entity.Property(location => location.City).HasMaxLength(120).IsRequired();
+      entity.Property(location => location.Country).HasMaxLength(120).IsRequired();
+      entity.Property(location => location.ContactPerson).HasMaxLength(120);
+      entity.Property(location => location.Phone).HasMaxLength(40).IsRequired();
+      entity.Property(location => location.OperatingHours).HasMaxLength(80).IsRequired();
+      entity.Property(location => location.Notes).HasMaxLength(500);
+      entity.Property(location => location.Status).HasMaxLength(20).IsRequired();
+    });
+
+    modelBuilder.Entity<DepartmentCodeOption>(entity =>
+    {
+      entity.ToTable("DepartmentCodeOptions");
+      entity.HasKey(department => department.Id);
+      entity.HasIndex(department => department.Name).IsUnique();
+      entity.Property(department => department.Name).HasMaxLength(120).IsRequired();
+      entity.Property(department => department.Description).HasMaxLength(500);
+      entity.Property(department => department.Status).HasMaxLength(20).IsRequired();
     });
   }
 }

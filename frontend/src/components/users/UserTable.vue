@@ -18,8 +18,8 @@
         density="comfortable"
         @update:options="$emit('update:options', $event)"
       >
-        <template #item.displayId="{ item }">
-          <span class="user-id">{{ item.displayId.replace('USR-', '') }}</span>
+        <template #item.displayId="{ index }">
+          <span class="user-id">{{ rowNumber(index) }}</span>
         </template>
 
         <template #item.name="{ item }">
@@ -76,7 +76,7 @@
         </template>
 
         <template #item.phone="{ item }">
-          <span class="text-muted">{{ item.phone }}</span>
+          <span class="text-muted no-wrap-cell">{{ item.phone }}</span>
         </template>
 
         <template #item.department="{ item }">
@@ -102,11 +102,11 @@
         </template>
 
         <template #item.joinDate="{ item }">
-          <span class="text-muted">{{ formatDate(item.joinDate) }}</span>
+          <span class="text-muted no-wrap-cell">{{ formatDate(item.joinDate) }}</span>
         </template>
 
         <template #item.lastLogin="{ item }">
-          <span class="text-muted">{{ formatDateTime(item.lastLogin) }}</span>
+          <span class="text-muted no-wrap-cell">{{ formatDateTime(item.lastLogin) }}</span>
         </template>
 
         <template #item.twoFactorEnabled="{ item }">
@@ -186,20 +186,20 @@ defineEmits(['edit', 'toggle', 'remove', 'view-avatar', 'update:options'])
 const headers = [
   { title: 'No.', key: 'displayId', sortable: false },
   { title: 'Name', key: 'name' },
-  { title: 'NRC', key: 'nrcNumber' },
+  { title: 'NRC', key: 'nrcNumber', sortable: false },
   { title: 'NRC Front', key: 'nrcFront', sortable: false },
   { title: 'NRC Back', key: 'nrcBack', sortable: false },
-  { title: 'Email', key: 'email' },
+  { title: 'Email', key: 'email', sortable: false },
   { title: 'Role', key: 'role' },
-  { title: 'Phone', key: 'phone' },
-  { title: 'Department', key: 'department' },
-  { title: 'Title', key: 'title' },
-  { title: 'Location', key: 'location' },
-  { title: 'Manager', key: 'manager' },
-  { title: 'Status', key: 'status' },
-  { title: 'Join Date', key: 'joinDate' },
-  { title: 'Last Login', key: 'lastLogin' },
-  { title: '2FA', key: 'twoFactorEnabled' },
+  { title: 'Phone', key: 'phone', sortable: false },
+  { title: 'Department', key: 'department', sortable: false },
+  { title: 'Title', key: 'title', sortable: false },
+  { title: 'Location', key: 'location', sortable: false },
+  { title: 'Manager', key: 'manager', sortable: false },
+  { title: 'Status', key: 'status', sortable: false },
+  { title: 'Join Date', key: 'joinDate', sortable: false },
+  { title: 'Last Login', key: 'lastLogin', sortable: false },
+  { title: '2FA', key: 'twoFactorEnabled', sortable: false },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false }
 ]
 
@@ -209,6 +209,18 @@ const normalizedSortBy = computed(() => [
     order: props.sortOrder
   }
 ])
+
+const rowNumber = (index) => {
+  const safePage = Math.max(Number(props.page) || 1, 1)
+  const safeItemsPerPage = Math.max(Number(props.itemsPerPage) || 1, 1)
+  const safeTotal = Math.max(Number(props.total) || 0, 0)
+  const startIndex = (safePage - 1) * safeItemsPerPage
+  const descending = String(props.sortOrder || '').toLowerCase() === 'desc'
+
+  return descending
+    ? Math.max(safeTotal - startIndex - index, 1)
+    : startIndex + index + 1
+}
 
 const roleClass = (role) => roleClassMap[role] || 'role-driver'
 
@@ -228,9 +240,16 @@ const formatDateTime = (value) => {
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
-    minute: '2-digit'
+    minute: '2-digit',
+    hour12: true
   })
 }
 </script>
 
 <style scoped src="./users_styles/UserTable.css"></style>
+
+<style scoped>
+.no-wrap-cell {
+  white-space: nowrap;
+}
+</style>

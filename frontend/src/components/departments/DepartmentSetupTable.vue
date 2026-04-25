@@ -18,14 +18,8 @@
         density="comfortable"
         @update:options="$emit('update:options', $event)"
       >
-        <template #item.id="{ item }">
-          <span class="text-muted">{{ item.displayId }}</span>
-        </template>
-
-        <template #item.type="{ item }">
-          <div class="role-cell">
-            <div class="role-badge role-dispatcher">Department</div>
-          </div>
+        <template #item.displayId="{ item }">
+          <span class="text-muted">{{ item.displayId.replace('DEP-', '') }}</span>
         </template>
 
         <template #item.description="{ item }">
@@ -102,8 +96,7 @@ const props = defineProps({
 defineEmits(['edit', 'remove', 'update:options'])
 
 const headers = [
-  { title: 'ID', key: 'id' },
-  { title: 'Type', key: 'type' },
+  { title: 'No.', key: 'displayId', sortable: false },
   { title: 'Name', key: 'name' },
   { title: 'Description', key: 'description' },
   { title: 'Status', key: 'status' },

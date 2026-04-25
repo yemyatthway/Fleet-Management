@@ -44,19 +44,6 @@
           </button>
         </template>
 
-        <template #item.actions="{ item }">
-          <div class="inline-actions">
-            <button class="icon-button tooltip" type="button" @click="$emit('edit', item)">
-              <v-icon icon="mdi-pencil-outline" size="18" />
-              <span class="tooltip-text">Edit role</span>
-            </button>
-            <button class="icon-button danger tooltip" type="button" @click="$emit('remove', item)">
-              <v-icon icon="mdi-trash-can-outline" size="18" />
-              <span class="tooltip-text">Delete role</span>
-            </button>
-          </div>
-        </template>
-
         <template #item.createdAt="{ item }">
           <span class="text-muted">{{ formatDate(item.createdAt || item.updatedAt) }}</span>
         </template>
@@ -104,7 +91,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['view', 'edit', 'remove', 'update:options'])
+defineEmits(['view', 'update:options'])
 
 const headers = [
   { title: 'ID', key: 'code' },
@@ -112,7 +99,6 @@ const headers = [
   { title: 'Description', key: 'description' },
   { title: 'Members', key: 'members' },
   { title: 'View', key: 'view', align: 'end', sortable: false },
-  { title: 'Actions', key: 'actions', align: 'end', sortable: false },
   { title: 'Created At', key: 'createdAt' }
 ]
 

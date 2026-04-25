@@ -18,18 +18,38 @@
         density="comfortable"
         @update:options="$emit('update:options', $event)"
       >
-        <template #item.id="{ item }">
-          <span class="text-muted">{{ item.displayId }}</span>
+        <template #item.displayId="{ index }">
+          <span class="text-muted">{{ rowNumber(index) }}</span>
         </template>
 
         <template #item.type="{ item }">
           <div class="role-cell">
-            <div class="role-badge role-driver">Location / Depot</div>
+            <div class="role-badge role-driver">{{ item.type }}</div>
           </div>
         </template>
 
-        <template #item.description="{ item }">
-          <span class="text-muted">{{ item.description || '—' }}</span>
+        <template #item.code="{ item }">
+          <span class="text-muted">{{ item.code || '—' }}</span>
+        </template>
+
+        <template #item.city="{ item }">
+          <span class="text-muted">{{ item.city || '—' }}</span>
+        </template>
+
+        <template #item.country="{ item }">
+          <span class="text-muted">{{ item.country || '—' }}</span>
+        </template>
+
+        <template #item.contactPerson="{ item }">
+          <span class="text-muted">{{ item.contactPerson || '—' }}</span>
+        </template>
+
+        <template #item.phone="{ item }">
+          <span class="text-muted">{{ item.phone || '—' }}</span>
+        </template>
+
+        <template #item.notes="{ item }">
+          <span class="text-muted notes-cell">{{ item.notes || '—' }}</span>
         </template>
 
         <template #item.status="{ item }">
@@ -102,13 +122,18 @@ const props = defineProps({
 defineEmits(['edit', 'remove', 'update:options'])
 
 const headers = [
-  { title: 'ID', key: 'id' },
-  { title: 'Type', key: 'type' },
+  { title: 'No.', key: 'displayId', sortable: false },
   { title: 'Name', key: 'name' },
-  { title: 'Description', key: 'description' },
-  { title: 'Status', key: 'status' },
+  { title: 'Code', key: 'code', sortable: false },
+  { title: 'Type', key: 'type', sortable: false },
+  { title: 'City', key: 'city' },
+  { title: 'Country', key: 'country', sortable: false },
+  { title: 'Contact Person', key: 'contactPerson', sortable: false },
+  { title: 'Phone', key: 'phone', sortable: false },
+  { title: 'Notes', key: 'notes', sortable: false },
+  { title: 'Status', key: 'status', sortable: false },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
-  { title: 'Created At', key: 'createdAt' }
+  { title: 'Created At', key: 'createdAt', sortable: false }
 ]
 
 const normalizedSortBy = computed(() => [
@@ -117,6 +142,18 @@ const normalizedSortBy = computed(() => [
     order: props.sortOrder
   }
 ])
+
+const rowNumber = (index) => {
+  const safePage = Math.max(Number(props.page) || 1, 1)
+  const safeItemsPerPage = Math.max(Number(props.itemsPerPage) || 1, 1)
+  const safeTotal = Math.max(Number(props.total) || 0, 0)
+  const startIndex = (safePage - 1) * safeItemsPerPage
+  const descending = String(props.sortOrder || '').toLowerCase() === 'desc'
+
+  return descending
+    ? Math.max(safeTotal - startIndex - index, 1)
+    : startIndex + index + 1
+}
 
 const formatDate = (value) =>
   new Date(value).toLocaleDateString('en-US', {
@@ -127,3 +164,13 @@ const formatDate = (value) =>
 </script>
 
 <style scoped src="../roles/roles_styles/RoleTable.css"></style>
+
+<style scoped>
+.notes-cell {
+  display: -webkit-box;
+  max-width: 220px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+</style>

@@ -100,7 +100,7 @@
 
 .table-base :deep(thead th:nth-child(8)),
 .table-base :deep(tbody td:nth-child(8)) {
-  width: 180px;
+  width: 170px;
 }
 
 .table-base :deep(thead th:nth-child(9)),
@@ -130,12 +130,12 @@
 
 .table-base :deep(thead th:nth-child(14)),
 .table-base :deep(tbody td:nth-child(14)) {
-  width: 180px;
+  width: 150px;
 }
 
 .table-base :deep(thead th:nth-child(15)),
 .table-base :deep(tbody td:nth-child(15)) {
-  width: 90px;
+  width: 210px;
 }
 
 .table-base :deep(thead th:nth-child(16)),

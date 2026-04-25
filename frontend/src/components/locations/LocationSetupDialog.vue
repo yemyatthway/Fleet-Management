@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="internalOpen" max-width="520">
+  <v-dialog v-model="internalOpen" max-width="760">
     <v-card class="dialog-card">
       <div class="dialog-header">
         <h2>{{ mode === 'edit' ? 'Edit Location' : 'Create Location' }}</h2>
@@ -8,21 +8,77 @@
         </button>
       </div>
 
-      <form class="dialog-body" @submit.prevent="submit">
-        <div class="field">
-          <label class="required">Name</label>
-          <input v-model="form.name" type="text" placeholder="Enter location name" required />
+      <form class="dialog-body location-form" @submit.prevent="submit">
+        <div class="field-grid">
+          <div class="field">
+            <label class="required">Name</label>
+            <input v-model.trim="form.name" type="text" placeholder="Bago Main Warehouse" required />
+          </div>
+
+          <div class="field">
+            <label class="required">Code</label>
+            <input v-model.trim="form.code" type="text" placeholder="BG-WH-01" required />
+          </div>
+
+          <div class="field">
+            <label class="required">Type</label>
+            <select v-model="form.type">
+              <option value="Warehouse">Warehouse</option>
+              <option value="Depot">Depot</option>
+              <option value="Hub">Hub</option>
+              <option value="Yard">Yard</option>
+              <option value="Office">Office</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="required">Status</label>
+            <select v-model="form.status">
+              <option value="Active">Active</option>
+              <option value="Disabled">Disabled</option>
+            </select>
+          </div>
         </div>
+
         <div class="field">
-          <label>Description</label>
-          <textarea v-model="form.description" rows="3" placeholder="Optional description"></textarea>
+          <label class="required">Address</label>
+          <input v-model.trim="form.address" type="text" placeholder="No. 23, Main Road, Bago" required />
         </div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label class="required">City</label>
+            <input v-model.trim="form.city" type="text" placeholder="Bago" required />
+          </div>
+
+          <div class="field">
+            <label class="required">Country</label>
+            <input v-model.trim="form.country" type="text" placeholder="Myanmar" required />
+          </div>
+
+          <div class="field">
+            <label>Contact Person</label>
+            <input v-model.trim="form.contactPerson" type="text" placeholder="Ko Aung" />
+          </div>
+
+          <div class="field">
+            <label class="required">Phone</label>
+            <input v-model.trim="form.phone" type="text" placeholder="09-123456789" required />
+          </div>
+        </div>
+
         <div class="field">
-          <label>Status</label>
-          <select v-model="form.status">
-            <option value="Active">Active</option>
-            <option value="Disabled">Disabled</option>
-          </select>
+          <label class="required">Operating Hours</label>
+          <input v-model.trim="form.operatingHours" type="text" placeholder="08:00 - 18:00" required />
+        </div>
+
+        <div class="field">
+          <label>Notes</label>
+          <textarea
+            v-model.trim="form.notes"
+            rows="3"
+            placeholder="Near highway, easy truck access"
+          />
         </div>
 
         <p v-if="formError" class="form-error">{{ formError }}</p>
@@ -65,20 +121,34 @@ const internalOpen = computed({
 
 const form = reactive({
   id: '',
-  type: 'Location',
   name: '',
-  description: '',
-  status: 'Active'
+  code: '',
+  type: 'Warehouse',
+  address: '',
+  city: '',
+  country: 'Myanmar',
+  contactPerson: '',
+  phone: '',
+  operatingHours: '08:00 - 18:00',
+  status: 'Active',
+  notes: ''
 })
 
 const formError = ref('')
 
 const reset = () => {
   form.id = props.item?.id || ''
-  form.type = 'Location'
   form.name = props.item?.name || ''
-  form.description = props.item?.description || ''
+  form.code = props.item?.code || ''
+  form.type = props.item?.type || 'Warehouse'
+  form.address = props.item?.address || ''
+  form.city = props.item?.city || ''
+  form.country = props.item?.country || 'Myanmar'
+  form.contactPerson = props.item?.contactPerson || ''
+  form.phone = props.item?.phone || ''
+  form.operatingHours = props.item?.operatingHours || '08:00 - 18:00'
   form.status = props.item?.status || 'Active'
+  form.notes = props.item?.notes || ''
   formError.value = ''
 }
 
@@ -92,8 +162,17 @@ watch(
 const close = () => emit('close')
 
 const submit = () => {
-  if (!form.name) {
-    formError.value = 'Name is required.'
+  if (
+    !form.name ||
+    !form.code ||
+    !form.type ||
+    !form.address ||
+    !form.city ||
+    !form.country ||
+    !form.phone ||
+    !form.operatingHours
+  ) {
+    formError.value = 'Please complete all required fields.'
     return
   }
 
@@ -103,3 +182,21 @@ const submit = () => {
 </script>
 
 <style scoped src="../roles/roles_styles/RoleDialog.css"></style>
+
+<style scoped>
+.location-form {
+  gap: 18px;
+}
+
+.field-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

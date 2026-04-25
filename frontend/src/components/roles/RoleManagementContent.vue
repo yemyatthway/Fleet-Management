@@ -4,7 +4,7 @@
       <div>
         <h1 class="section-title">Role Management</h1>
         <p class="section-subtitle">
-          Define access levels and operational ownership
+          View the four fixed system roles and their assigned users
         </p>
       </div>
     </div>
@@ -19,7 +19,7 @@
         <h3 class="text-info">{{ totalMembers }}</h3>
       </div>
       <div class="stat-card">
-        <p>Driver Roles</p>
+        <p>Drivers</p>
         <h3 class="text-success">{{ driverMembers }}</h3>
       </div>
       <div class="stat-card">
@@ -57,11 +57,6 @@
             </option>
           </select>
         </div>
-
-        <button class="primary-button" type="button" @click="openAdd">
-          <v-icon icon="mdi-shield-plus" size="18" />
-          Create Role
-        </button>
       </div>
 
       <div class="toolbar-count text-muted">
@@ -81,7 +76,7 @@
     />
 
     <RoleTable
-      :roles="tableRoles"
+      :roles="roles"
       :total="totalRoles"
       :loading="loadingRoles"
       :page="tableOptions.page"
@@ -90,26 +85,6 @@
       :sort-order="tableOptions.sortOrder"
       @update:options="handleTableOptions"
       @view="openMembers"
-      @edit="openEdit"
-      @remove="handleDelete"
-    />
-
-    <RoleDialog
-      :open="dialogOpen"
-      :mode="dialogMode"
-      :role="selectedRole"
-      @close="dialogOpen = false"
-      @save="handleSave"
-    />
-
-    <ConfirmDialog
-      :open="confirmOpen"
-      :title="confirmTitle"
-      :message="confirmMessage"
-      :confirm-text="confirmButton"
-      :tone="confirmTone"
-      @confirm="runConfirm"
-      @cancel="confirmOpen = false"
     />
 
     <RoleMembersDialog
@@ -136,22 +111,16 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import RoleTable from "./RoleTable.vue";
-import RoleDialog from "./RoleDialog.vue";
 import RoleMembersDialog from "./RoleMembersDialog.vue";
 import MemberAvatarDialog from "./MemberAvatarDialog.vue";
-import ConfirmDialog from "../common/ConfirmDialog.vue";
 import PageMessage from "../common/PageMessage.vue";
-import { useConfirmDialog } from "../../composables/useConfirmDialog";
 import { useDebouncedRef } from "../../composables/useDebouncedRef";
 import { useListPage } from "../../composables/useListPage";
 import { usePageMessage } from "../../composables/usePageMessage";
 import {
-  createRole,
-  deleteRole,
-  getRoleOptions,
   getRoleMembers,
+  getRoleOptions,
   getRoles,
-  updateRole,
 } from "../../services/rolesApi";
 
 const ALL_ROLES_FILTER = "All";
@@ -171,18 +140,10 @@ const normalizeText = (value) => String(value ?? "").toLowerCase();
 const matchesSearch = (item, fields, query) =>
   !query || fields.some((field) => normalizeText(item[field]).includes(query));
 
-const toRoleRequest = (payload) => ({
-  name: payload.name,
-  description: payload.description,
-  status: payload.status || "Active",
-});
-
 const roleMembers = ref([]);
 const roleOptions = ref([]);
 const activeTab = ref(ALL_ROLES_FILTER);
 const loadingMembers = ref(false);
-const dialogOpen = ref(false);
-const dialogMode = ref("add");
 const selectedRole = ref(null);
 const membersOpen = ref(false);
 const memberSearch = ref("");
@@ -190,15 +151,6 @@ const memberAvatarOpen = ref(false);
 const memberAvatarUrl = ref("");
 const memberAvatarName = ref("");
 const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage();
-const {
-  confirmOpen,
-  confirmTitle,
-  confirmMessage,
-  confirmButton,
-  confirmTone,
-  openConfirm,
-  runConfirm,
-} = useConfirmDialog();
 
 const debouncedMemberQuery = useDebouncedRef(memberSearch);
 const {
@@ -228,7 +180,6 @@ const {
 });
 
 const roleTabs = computed(() => roleOptions.value);
-
 const totalMembers = computed(() =>
   roles.value.reduce((total, role) => total + (role.members || 0), 0),
 );
@@ -238,7 +189,6 @@ const driverMembers = computed(
 const adminMembers = computed(
   () => roles.value.find((role) => role.name === "Admin")?.members || 0,
 );
-const tableRoles = computed(() => roles.value);
 
 const filteredMembers = computed(() => {
   const query = debouncedMemberQuery.value.toLowerCase();
@@ -255,50 +205,6 @@ const loadRoleOptions = async () => {
     showPageMessage({
       tone: "error",
       title: "Could not load roles",
-      message: error.message,
-    });
-  }
-};
-
-const openAdd = () => {
-  dialogMode.value = "add";
-  selectedRole.value = null;
-  dialogOpen.value = true;
-};
-
-const openEdit = (role) => {
-  dialogMode.value = "edit";
-  selectedRole.value = { ...role };
-  dialogOpen.value = true;
-};
-
-const handleSave = async (payload) => {
-  clearPageMessage();
-  const isEdit = dialogMode.value === "edit";
-
-  try {
-    const savedRole = isEdit
-      ? await updateRole(payload.id, toRoleRequest(payload))
-      : await createRole(toRoleRequest(payload));
-
-    if (isEdit) {
-      roles.value = roles.value.map((role) =>
-        role.id === savedRole.id ? savedRole : role,
-      );
-    } else {
-      await loadRoles();
-    }
-
-    dialogOpen.value = false;
-    showPageMessage({
-      tone: "success",
-      title: isEdit ? "Role updated" : "Role created",
-      message: `${savedRole.name} has been ${isEdit ? "updated" : "created"} successfully.`,
-    });
-  } catch (error) {
-    showPageMessage({
-      tone: "error",
-      title: "Role was not saved",
       message: error.message,
     });
   }
@@ -323,34 +229,6 @@ const openMembers = async (role) => {
   } finally {
     loadingMembers.value = false;
   }
-};
-
-const handleDelete = (role) => {
-  openConfirm({
-    title: "Delete Role?",
-    message: `This will permanently remove ${role.name}.`,
-    confirmText: "Delete",
-    tone: "danger",
-    action: async () => {
-      clearPageMessage();
-
-      try {
-        await deleteRole(role.id);
-        await loadRoles();
-        showPageMessage({
-          tone: "warning",
-          title: "Role deleted",
-          message: `${role.name} has been removed.`,
-        });
-      } catch (error) {
-        showPageMessage({
-          tone: "error",
-          title: "Role was not deleted",
-          message: error.message,
-        });
-      }
-    },
-  });
 };
 
 const openMemberAvatar = (member) => {

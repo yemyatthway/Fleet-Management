@@ -58,7 +58,8 @@ app.MapGet("/api/roles", async (
   string? sortBy = "id",
   string? sortOrder = "asc") =>
 {
-  var query = db.Roles.Where(r => r.IsDeleted == 0).AsQueryable();
+  var fixedRoleIds = SeedData.FixedRoleIds;
+  var query = db.Roles.Where(r => r.IsDeleted == 0 && fixedRoleIds.Contains(r.Id)).AsQueryable();
 
   if (!string.IsNullOrWhiteSpace(search))
   {
@@ -114,8 +115,9 @@ app.MapGet("/api/roles", async (
 
 app.MapGet("/api/roles/options", async (FleetDbContext db) =>
 {
+  var fixedRoleIds = SeedData.FixedRoleIds;
   var items = await db.Roles
-    .Where(r => r.IsDeleted == 0)
+    .Where(r => r.IsDeleted == 0 && fixedRoleIds.Contains(r.Id))
     .OrderBy(r => r.Name)
     .Select(r => r.Name)
     .ToListAsync();
@@ -147,65 +149,19 @@ app.MapGet("/api/roles/{roleId}/members", async (string roleId, HttpRequest requ
   return Results.Ok(items);
 });
 
-app.MapPost("/api/roles", async (RoleRequest request, FleetDbContext db) =>
+app.MapPost("/api/roles", (RoleRequest request, FleetDbContext db) =>
 {
-  var normalizedName = request.Name.Trim();
-  var exists = await db.Roles.AnyAsync(r => r.IsDeleted == 0 && r.Name.ToLower() == normalizedName.ToLower());
-  if (exists) return Results.BadRequest(new ApiError($"{normalizedName} already exists."));
-
-  var now = DateTime.UtcNow;
-  var role = new Role
-  {
-    Id = SeedData.ToSlug(normalizedName, await db.Roles.Select(r => r.Id).ToListAsync()),
-    Code = SeedData.NextRoleCode(await db.Roles.Select(r => r.Code).ToListAsync()),
-    Name = normalizedName,
-    Description = request.Description.Trim(),
-    Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim(),
-    IsDeleted = 0,
-    CreatedAt = now,
-    UpdatedAt = now
-  };
-
-  db.Roles.Add(role);
-  await db.SaveChangesAsync();
-
-  return Results.Ok(new RoleDto(role.Id, role.Code, role.Name, role.Description, role.Status, 0, role.CreatedAt, role.UpdatedAt));
+  return Results.BadRequest(new ApiError("Roles are fixed system roles and cannot be created."));
 });
 
-app.MapPut("/api/roles/{roleId}", async (string roleId, RoleRequest request, FleetDbContext db) =>
+app.MapPut("/api/roles/{roleId}", (string roleId, RoleRequest request, FleetDbContext db) =>
 {
-  var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == roleId && r.IsDeleted == 0);
-  if (role is null) return Results.NotFound(new ApiError("Role not found."));
-
-  var normalizedName = request.Name.Trim();
-  var duplicate = await db.Roles.AnyAsync(r => r.Id != roleId && r.IsDeleted == 0 && r.Name.ToLower() == normalizedName.ToLower());
-  if (duplicate) return Results.BadRequest(new ApiError($"{normalizedName} already exists."));
-
-  role.Name = normalizedName;
-  role.Description = request.Description.Trim();
-  role.Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim();
-  role.UpdatedAt = DateTime.UtcNow;
-
-  await db.SaveChangesAsync();
-
-  var memberCount = await db.Users.CountAsync(u => u.RoleId == role.Id && u.IsDeleted == 0);
-  return Results.Ok(new RoleDto(role.Id, role.Code, role.Name, role.Description, role.Status, memberCount, role.CreatedAt, role.UpdatedAt));
+  return Results.BadRequest(new ApiError("Roles are fixed system roles and cannot be edited."));
 });
 
-app.MapDelete("/api/roles/{roleId}", async (string roleId, FleetDbContext db) =>
+app.MapDelete("/api/roles/{roleId}", (string roleId, FleetDbContext db) =>
 {
-  var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == roleId && r.IsDeleted == 0);
-  if (role is null) return Results.NotFound(new ApiError("Role not found."));
-  var activeUsers = await db.Users.CountAsync(u => u.RoleId == roleId && u.IsDeleted == 0);
-  if (activeUsers > 0)
-  {
-    return Results.BadRequest(new ApiError($"Cannot delete {role.Name} while users are assigned to it."));
-  }
-
-  role.IsDeleted = 1;
-  role.UpdatedAt = DateTime.UtcNow;
-  await db.SaveChangesAsync();
-  return Results.NoContent();
+  return Results.BadRequest(new ApiError("Roles are fixed system roles and cannot be deleted."));
 });
 
 app.MapGet("/api/users", async (
@@ -283,6 +239,146 @@ app.MapGet("/api/users", async (
   return Results.Ok(new UserPagedResult(items, total, stats));
 });
 
+app.MapGet("/api/departments", async (
+  FleetDbContext db,
+  int page = 1,
+  int pageSize = 10,
+  string? search = null,
+  string? sortBy = "name",
+  string? sortOrder = "asc") =>
+{
+  var query = db.DepartmentCodeOptions.AsQueryable();
+
+  if (!string.IsNullOrWhiteSpace(search))
+  {
+    var normalizedSearch = search.Trim().ToLower();
+    query = query.Where(department =>
+      department.Name.ToLower().Contains(normalizedSearch) ||
+      (department.Description ?? string.Empty).ToLower().Contains(normalizedSearch) ||
+      department.Status.ToLower().Contains(normalizedSearch));
+  }
+
+  query = (sortBy?.ToLowerInvariant(), sortOrder?.ToLowerInvariant()) switch
+  {
+    ("name", "desc") => query.OrderByDescending(department => department.Name),
+    ("name", _) => query.OrderBy(department => department.Name),
+    ("description", "desc") => query.OrderByDescending(department => department.Description),
+    ("description", _) => query.OrderBy(department => department.Description),
+    ("status", "desc") => query.OrderByDescending(department => department.Status),
+    ("status", _) => query.OrderBy(department => department.Status),
+    ("createdat", "desc") => query.OrderByDescending(department => department.CreatedAt),
+    ("createdat", _) => query.OrderBy(department => department.CreatedAt),
+    ("id", "desc") => query.OrderByDescending(department => department.Id),
+    ("id", _) => query.OrderBy(department => department.Id),
+    _ => query.OrderBy(department => department.Name)
+  };
+
+  var total = await query.CountAsync();
+  var items = await query
+    .Skip(Math.Max(page - 1, 0) * pageSize)
+    .Take(pageSize)
+    .Select(department => new DepartmentDto(
+      department.Id,
+      department.Name,
+      department.Description,
+      department.Status,
+      department.CreatedAt,
+      department.UpdatedAt))
+    .ToListAsync();
+
+  return Results.Ok(new PagedResult<DepartmentDto>(items, total));
+});
+
+app.MapGet("/api/departments/options", async (FleetDbContext db) =>
+{
+  var items = await db.DepartmentCodeOptions
+    .Where(department => department.Status == "Active")
+    .OrderBy(department => department.Name)
+    .Select(department => department.Name)
+    .ToListAsync();
+
+  return Results.Ok(items);
+});
+
+app.MapPost("/api/departments", async (DepartmentRequest request, FleetDbContext db) =>
+{
+  var validationError = ValidateDepartmentRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var normalizedName = request.Name.Trim();
+  var exists = await db.DepartmentCodeOptions.AnyAsync(department =>
+    department.Name.ToLower() == normalizedName.ToLower());
+
+  if (exists) return Results.BadRequest(new ApiError($"{normalizedName} already exists."));
+
+  var now = DateTimeOffset.UtcNow;
+  var department = new DepartmentCodeOption
+  {
+    Name = normalizedName,
+    Description = NormalizeOptional(request.Description),
+    Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim(),
+    CreatedAt = now,
+    UpdatedAt = now
+  };
+
+  db.DepartmentCodeOptions.Add(department);
+  await db.SaveChangesAsync();
+
+  return Results.Ok(new DepartmentDto(
+    department.Id,
+    department.Name,
+    department.Description,
+    department.Status,
+    department.CreatedAt,
+    department.UpdatedAt));
+});
+
+app.MapPut("/api/departments/{id:int}", async (int id, DepartmentRequest request, FleetDbContext db) =>
+{
+  var validationError = ValidateDepartmentRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var department = await db.DepartmentCodeOptions.FirstOrDefaultAsync(item => item.Id == id);
+  if (department is null) return Results.NotFound(new ApiError("Department not found."));
+
+  var normalizedName = request.Name.Trim();
+  var duplicate = await db.DepartmentCodeOptions.AnyAsync(item =>
+    item.Id != id && item.Name.ToLower() == normalizedName.ToLower());
+
+  if (duplicate) return Results.BadRequest(new ApiError($"{normalizedName} already exists."));
+
+  department.Name = normalizedName;
+  department.Description = NormalizeOptional(request.Description);
+  department.Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim();
+  department.UpdatedAt = DateTimeOffset.UtcNow;
+
+  await db.SaveChangesAsync();
+
+  return Results.Ok(new DepartmentDto(
+    department.Id,
+    department.Name,
+    department.Description,
+    department.Status,
+    department.CreatedAt,
+    department.UpdatedAt));
+});
+
+app.MapDelete("/api/departments/{id:int}", async (int id, FleetDbContext db) =>
+{
+  var department = await db.DepartmentCodeOptions.FirstOrDefaultAsync(item => item.Id == id);
+  if (department is null) return Results.NotFound(new ApiError("Department not found."));
+
+  var assignedUsers = await db.Users.CountAsync(user => user.IsDeleted == 0 && user.Department == department.Name);
+  if (assignedUsers > 0)
+  {
+    return Results.BadRequest(new ApiError($"Cannot delete {department.Name} while users are assigned to it."));
+  }
+
+  db.DepartmentCodeOptions.Remove(department);
+  await db.SaveChangesAsync();
+  return Results.NoContent();
+});
+
 app.MapPost("/api/users", async (
   [FromForm] UserFormData form,
   HttpRequest request,
@@ -291,6 +387,11 @@ app.MapPost("/api/users", async (
 {
   var roleEntity = await db.Roles.FirstOrDefaultAsync(r => r.Name == form.Role && r.IsDeleted == 0);
   if (roleEntity is null) return Results.BadRequest(new ApiError("Selected role does not exist."));
+
+  var normalizedDepartment = form.Department.Trim();
+  var departmentExists = await db.DepartmentCodeOptions.AnyAsync(department =>
+    department.Status == "Active" && department.Name.ToLower() == normalizedDepartment.ToLower());
+  if (!departmentExists) return Results.BadRequest(new ApiError("Selected department does not exist."));
 
   if (form.AvatarFile is null || form.NrcFrontFile is null || form.NrcBackFile is null)
   {
@@ -301,16 +402,13 @@ app.MapPost("/api/users", async (
   if (duplicateEmail) return Results.BadRequest(new ApiError("Email already exists."));
 
   var now = DateTime.UtcNow;
-  var existingIds = await db.Users
-    .Select(u => u.Id)
-    .ToListAsync();
+  var existingIds = await db.Users.Select(u => u.Id).ToListAsync();
   var nextId = existingIds
     .Select(id => int.TryParse(id, out var value) ? value : 0)
     .DefaultIfEmpty(0)
     .Max() + 1;
-  var existingEmployeeIds = await db.Users
-    .Select(u => u.EmployeeId)
-    .ToListAsync();
+
+  var existingEmployeeIds = await db.Users.Select(u => u.EmployeeId).ToListAsync();
 
   var user = new User
   {
@@ -325,7 +423,7 @@ app.MapPost("/api/users", async (
     Avatar = string.Empty,
     NrcFront = string.Empty,
     NrcBack = string.Empty,
-    Department = form.Department.Trim(),
+    Department = normalizedDepartment,
     Title = form.Title.Trim(),
     Location = form.Location.Trim(),
     Manager = form.Manager.Trim(),
@@ -355,8 +453,7 @@ app.MapPost("/api/users", async (
   await db.SaveChangesAsync();
 
   return Results.Ok(ToUserDto(user, roleEntity.Name, request));
-})
-.DisableAntiforgery();
+}).DisableAntiforgery();
 
 app.MapPut("/api/users/{userId}", async (
   string userId,
@@ -371,6 +468,11 @@ app.MapPut("/api/users/{userId}", async (
   var roleEntity = await db.Roles.FirstOrDefaultAsync(r => r.Name == form.Role && r.IsDeleted == 0);
   if (roleEntity is null) return Results.BadRequest(new ApiError("Selected role does not exist."));
 
+  var normalizedDepartment = form.Department.Trim();
+  var departmentExists = await db.DepartmentCodeOptions.AnyAsync(department =>
+    department.Status == "Active" && department.Name.ToLower() == normalizedDepartment.ToLower());
+  if (!departmentExists) return Results.BadRequest(new ApiError("Selected department does not exist."));
+
   var duplicateEmail = await db.Users.AnyAsync(u => u.Id != userId && u.IsDeleted == 0 && u.Email.ToLower() == form.Email.Trim().ToLower());
   if (duplicateEmail) return Results.BadRequest(new ApiError("Email already exists."));
 
@@ -380,7 +482,7 @@ app.MapPut("/api/users/{userId}", async (
   user.RoleId = roleEntity.Id;
   user.Status = string.IsNullOrWhiteSpace(form.Status) ? "Active" : form.Status.Trim();
   user.Phone = form.Phone.Trim();
-  user.Department = form.Department.Trim();
+  user.Department = normalizedDepartment;
   user.Title = form.Title.Trim();
   user.Location = form.Location.Trim();
   user.Manager = form.Manager.Trim();
@@ -415,12 +517,10 @@ app.MapPut("/api/users/{userId}", async (
   }
 
   user.UpdatedAt = DateTime.UtcNow;
-
   await db.SaveChangesAsync();
 
   return Results.Ok(ToUserDto(user, roleEntity.Name, request));
-})
-.DisableAntiforgery();
+}).DisableAntiforgery();
 
 app.MapPatch("/api/users/{userId}/status", async (string userId, UserStatusRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
@@ -442,6 +542,166 @@ app.MapDelete("/api/users/{userId}", async (string userId, FleetDbContext db) =>
   user.IsDeleted = 1;
   user.Status = "Disabled";
   user.UpdatedAt = DateTime.UtcNow;
+  await db.SaveChangesAsync();
+  return Results.NoContent();
+});
+
+app.MapGet("/api/locations", async (
+  FleetDbContext db,
+  int page = 1,
+  int pageSize = 10,
+  string? search = null,
+  string? sortBy = "name",
+  string? sortOrder = "asc") =>
+{
+  var query = db.LocationCodeOptions.AsNoTracking().AsQueryable();
+
+  if (!string.IsNullOrWhiteSpace(search))
+  {
+    var normalizedSearch = search.Trim().ToLower();
+    query = query.Where(location =>
+      location.Name.ToLower().Contains(normalizedSearch) ||
+      location.Code.ToLower().Contains(normalizedSearch) ||
+      location.Type.ToLower().Contains(normalizedSearch) ||
+      location.Address.ToLower().Contains(normalizedSearch) ||
+      location.City.ToLower().Contains(normalizedSearch) ||
+      location.Country.ToLower().Contains(normalizedSearch) ||
+      location.Phone.ToLower().Contains(normalizedSearch) ||
+      (location.ContactPerson ?? string.Empty).ToLower().Contains(normalizedSearch) ||
+      (location.Notes ?? string.Empty).ToLower().Contains(normalizedSearch));
+  }
+
+  query = (sortBy?.ToLowerInvariant(), sortOrder?.ToLowerInvariant()) switch
+  {
+    ("id", "desc") => query.OrderByDescending(location => location.Id),
+    ("id", _) => query.OrderBy(location => location.Id),
+    ("code", "desc") => query.OrderByDescending(location => location.Code),
+    ("code", _) => query.OrderBy(location => location.Code),
+    ("type", "desc") => query.OrderByDescending(location => location.Type),
+    ("type", _) => query.OrderBy(location => location.Type),
+    ("city", "desc") => query.OrderByDescending(location => location.City),
+    ("city", _) => query.OrderBy(location => location.City),
+    ("country", "desc") => query.OrderByDescending(location => location.Country),
+    ("country", _) => query.OrderBy(location => location.Country),
+    ("status", "desc") => query.OrderByDescending(location => location.Status),
+    ("status", _) => query.OrderBy(location => location.Status),
+    ("createdat", "desc") => query.OrderByDescending(location => location.CreatedAt),
+    ("createdat", _) => query.OrderBy(location => location.CreatedAt),
+    ("updatedat", "desc") => query.OrderByDescending(location => location.UpdatedAt),
+    ("updatedat", _) => query.OrderBy(location => location.UpdatedAt),
+    ("name", "desc") => query.OrderByDescending(location => location.Name),
+    _ => query.OrderBy(location => location.Name)
+  };
+
+  var total = await query.CountAsync();
+  var items = await query
+    .Skip(Math.Max(page - 1, 0) * pageSize)
+    .Take(pageSize)
+    .Select(location => new LocationDto(
+      location.Id,
+      location.Name,
+      location.Code,
+      location.Type,
+      location.Address,
+      location.City,
+      location.Country,
+      location.ContactPerson,
+      location.Phone,
+      location.OperatingHours,
+      location.Notes,
+      location.Status,
+      location.CreatedAt,
+      location.UpdatedAt))
+    .ToListAsync();
+
+  return Results.Ok(new PagedResult<LocationDto>(items, total));
+});
+
+app.MapGet("/api/locations/options", async (FleetDbContext db) =>
+{
+  var items = await db.LocationCodeOptions
+    .AsNoTracking()
+    .Where(location => location.Status == "Active")
+    .OrderBy(location => location.Name)
+    .Select(location => location.Name)
+    .ToListAsync();
+
+  return Results.Ok(items);
+});
+
+app.MapPost("/api/locations", async (LocationRequest request, FleetDbContext db) =>
+{
+  var validationError = ValidateLocationRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var normalizedName = request.Name.Trim();
+  var normalizedCode = request.Code.Trim();
+  var duplicateExists = await db.LocationCodeOptions.AnyAsync(location =>
+    location.Name.ToLower() == normalizedName.ToLower() ||
+    location.Code.ToLower() == normalizedCode.ToLower());
+  if (duplicateExists) return Results.BadRequest(new ApiError("Location name or code already exists."));
+
+  var location = new LocationCodeOption
+  {
+    Name = normalizedName,
+    Code = normalizedCode,
+    Type = request.Type.Trim(),
+    Address = request.Address.Trim(),
+    City = request.City.Trim(),
+    Country = request.Country.Trim(),
+    ContactPerson = NormalizeOptional(request.ContactPerson),
+    Phone = request.Phone.Trim(),
+    OperatingHours = request.OperatingHours.Trim(),
+    Notes = NormalizeOptional(request.Notes),
+    Status = request.Status.Trim(),
+    CreatedAt = DateTimeOffset.UtcNow
+  };
+
+  db.LocationCodeOptions.Add(location);
+  await db.SaveChangesAsync();
+
+  return Results.Ok(ToLocationDto(location));
+});
+
+app.MapPut("/api/locations/{id:int}", async (int id, LocationRequest request, FleetDbContext db) =>
+{
+  var validationError = ValidateLocationRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var location = await db.LocationCodeOptions.FindAsync(id);
+  if (location is null) return Results.NotFound(new ApiError("Location not found."));
+
+  var normalizedName = request.Name.Trim();
+  var normalizedCode = request.Code.Trim();
+  var duplicateExists = await db.LocationCodeOptions.AnyAsync(item =>
+    item.Id != id &&
+    (item.Name.ToLower() == normalizedName.ToLower() || item.Code.ToLower() == normalizedCode.ToLower()));
+  if (duplicateExists) return Results.BadRequest(new ApiError("Location name or code already exists."));
+
+  location.Name = normalizedName;
+  location.Code = normalizedCode;
+  location.Type = request.Type.Trim();
+  location.Address = request.Address.Trim();
+  location.City = request.City.Trim();
+  location.Country = request.Country.Trim();
+  location.ContactPerson = NormalizeOptional(request.ContactPerson);
+  location.Phone = request.Phone.Trim();
+  location.OperatingHours = request.OperatingHours.Trim();
+  location.Notes = NormalizeOptional(request.Notes);
+  location.Status = request.Status.Trim();
+  location.UpdatedAt = DateTimeOffset.UtcNow;
+
+  await db.SaveChangesAsync();
+
+  return Results.Ok(ToLocationDto(location));
+});
+
+app.MapDelete("/api/locations/{id:int}", async (int id, FleetDbContext db) =>
+{
+  var location = await db.LocationCodeOptions.FindAsync(id);
+  if (location is null) return Results.NotFound(new ApiError("Location not found."));
+
+  db.LocationCodeOptions.Remove(location);
   await db.SaveChangesAsync();
   return Results.NoContent();
 });
@@ -477,6 +737,23 @@ static UserDto ToUserDto(User user, string roleName, HttpRequest request) =>
     user.JoinDate,
     user.LastLogin);
 
+static LocationDto ToLocationDto(LocationCodeOption location) =>
+  new(
+    location.Id,
+    location.Name,
+    location.Code,
+    location.Type,
+    location.Address,
+    location.City,
+    location.Country,
+    location.ContactPerson,
+    location.Phone,
+    location.OperatingHours,
+    location.Notes,
+    location.Status,
+    location.CreatedAt,
+    location.UpdatedAt);
+
 static string NextEmployeeId(IEnumerable<string> existingEmployeeIds)
 {
   var max = existingEmployeeIds
@@ -494,6 +771,38 @@ static string NextEmployeeId(IEnumerable<string> existingEmployeeIds)
     .Max();
 
   return $"EMP-{max + 1:D4}";
+}
+
+static string? ValidateLocationRequest(LocationRequest request)
+{
+  if (string.IsNullOrWhiteSpace(request.Name)) return "Location name is required.";
+  if (string.IsNullOrWhiteSpace(request.Code)) return "Location code is required.";
+  if (string.IsNullOrWhiteSpace(request.Type)) return "Location type is required.";
+  if (string.IsNullOrWhiteSpace(request.Address)) return "Location address is required.";
+  if (string.IsNullOrWhiteSpace(request.City)) return "Location city is required.";
+  if (string.IsNullOrWhiteSpace(request.Country)) return "Location country is required.";
+  if (string.IsNullOrWhiteSpace(request.Phone)) return "Location phone is required.";
+  if (string.IsNullOrWhiteSpace(request.OperatingHours)) return "Operating hours are required.";
+  if (string.IsNullOrWhiteSpace(request.Status)) return "Status is required.";
+  return null;
+}
+
+static string? NormalizeOptional(string? value) =>
+  string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+static string? ValidateDepartmentRequest(DepartmentRequest request)
+{
+  if (string.IsNullOrWhiteSpace(request.Name)) return "Department name is required.";
+  if (request.Name.Trim().Length > 120) return "Department name must be 120 characters or fewer.";
+  if (!string.IsNullOrWhiteSpace(request.Description) && request.Description.Trim().Length > 500)
+  {
+    return "Department description must be 500 characters or fewer.";
+  }
+
+  var normalizedStatus = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim();
+  return normalizedStatus is "Active" or "Disabled"
+    ? null
+    : "Department status must be Active or Disabled.";
 }
 
 static string ToPublicAssetUrl(HttpRequest request, string? path)
