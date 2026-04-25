@@ -64,6 +64,9 @@ export const getUsers = async (params = {}) => {
   }
 }
 
+export const getUserOptions = (params = {}) =>
+  request(`/api/users/options${toQueryString(params)}`)
+
 const appendIfPresent = (formData, key, value) => {
   if (value === undefined || value === null || value === '') return
   formData.append(key, value)

@@ -122,6 +122,20 @@ public static class SeedData
       db.LocationCodeOptions.AddRange(locations);
     }
 
+    if (!await db.MaintenanceTickets.AnyAsync())
+    {
+      var tickets = new List<MaintenanceTicket>
+      {
+        new() { Id = "MT-2031", Vehicle = "Box Truck", VehicleId = "VH-2048", Issue = "Brake Inspection", Details = "Scheduled brake pad replacement", ReportedDate = "2026-02-28", Mechanic = "Daniel Harris", Status = "Pending", IsDeleted = 0, CreatedAt = now.AddDays(-20), UpdatedAt = now.AddDays(-20) },
+        new() { Id = "MT-2032", Vehicle = "Cargo Van", VehicleId = "VH-3054", Issue = "Engine Overheat", Details = "Cooling system diagnostics", ReportedDate = "2026-03-02", Mechanic = "Maya Lopez", Status = "Repairing", IsDeleted = 0, CreatedAt = now.AddDays(-18), UpdatedAt = now.AddDays(-16) },
+        new() { Id = "MT-2033", Vehicle = "Reefer Truck", VehicleId = "VH-1987", Issue = "Refrigeration Unit", Details = "Temperature fluctuation detected", ReportedDate = "2026-02-22", Mechanic = "Alex Chen", Status = "Completed", IsDeleted = 0, CreatedAt = now.AddDays(-25), UpdatedAt = now.AddDays(-12) },
+        new() { Id = "MT-2034", Vehicle = "Flatbed", VehicleId = "VH-4129", Issue = "Hydraulic Leak", Details = "Seal replacement required", ReportedDate = "2026-03-05", Mechanic = "Isabella Park", Status = "Repairing", IsDeleted = 0, CreatedAt = now.AddDays(-15), UpdatedAt = now.AddDays(-8) },
+        new() { Id = "MT-2035", Vehicle = "Delivery Van", VehicleId = "VH-2661", Issue = "Tire Alignment", Details = "Front axle alignment", ReportedDate = "2026-03-01", Mechanic = "Marcus Reed", Status = "Pending", IsDeleted = 0, CreatedAt = now.AddDays(-17), UpdatedAt = now.AddDays(-17) }
+      };
+
+      db.MaintenanceTickets.AddRange(tickets);
+    }
+
     if (await db.Users.AnyAsync())
     {
       await db.SaveChangesAsync();

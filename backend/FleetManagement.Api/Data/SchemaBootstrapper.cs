@@ -183,6 +183,29 @@ public static class SchemaBootstrapper
         await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_LocationCodeOptions_Code ON LocationCodeOptions(Code);");
       }
     }
+
+    var hasMaintenanceTicketsTable = await TableExistsAsync(db, "MaintenanceTickets");
+    if (!hasMaintenanceTicketsTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE MaintenanceTickets (
+          Id nvarchar(40) NOT NULL PRIMARY KEY,
+          Vehicle nvarchar(120) NOT NULL,
+          VehicleId nvarchar(80) NOT NULL,
+          Issue nvarchar(160) NOT NULL,
+          Details nvarchar(500) NOT NULL,
+          ReportedDate nvarchar(40) NOT NULL,
+          Mechanic nvarchar(120) NOT NULL,
+          Status nvarchar(30) NOT NULL,
+          IsDeleted int NOT NULL CONSTRAINT DF_MaintenanceTickets_IsDeleted DEFAULT 0,
+          CreatedAt datetime2 NOT NULL,
+          UpdatedAt datetime2 NOT NULL
+        );
+        CREATE UNIQUE INDEX IX_MaintenanceTickets_Id ON MaintenanceTickets(Id);
+        """
+      );
+    }
   }
 
   private static async Task<bool> TableExistsAsync(FleetDbContext db, string tableName)

@@ -546,6 +546,32 @@ app.MapDelete("/api/users/{userId}", async (string userId, FleetDbContext db) =>
   return Results.NoContent();
 });
 
+app.MapGet("/api/users/options", async (FleetDbContext db, string? role = null) =>
+{
+  var query = db.Users
+    .Include(user => user.Role)
+    .Where(user =>
+      user.IsDeleted == 0 &&
+      user.Status == "Active" &&
+      user.Role != null &&
+      user.Role.IsDeleted == 0)
+    .AsNoTracking()
+    .AsQueryable();
+
+  if (!string.IsNullOrWhiteSpace(role))
+  {
+    var normalizedRole = role.Trim().ToLower();
+    query = query.Where(user => user.Role!.Name.ToLower() == normalizedRole);
+  }
+
+  var items = await query
+    .OrderBy(user => user.Name)
+    .Select(user => user.Name)
+    .ToListAsync();
+
+  return Results.Ok(items);
+});
+
 app.MapGet("/api/locations", async (
   FleetDbContext db,
   int page = 1,
@@ -706,6 +732,151 @@ app.MapDelete("/api/locations/{id:int}", async (int id, FleetDbContext db) =>
   return Results.NoContent();
 });
 
+app.MapGet("/api/maintenance-tickets", async (
+  FleetDbContext db,
+  int page = 1,
+  int pageSize = 10,
+  string? search = null,
+  string? status = null,
+  string? sortBy = "reportedDate",
+  string? sortOrder = "desc") =>
+{
+  var query = db.MaintenanceTickets
+    .Where(ticket => ticket.IsDeleted == 0)
+    .AsNoTracking()
+    .AsQueryable();
+
+  if (!string.IsNullOrWhiteSpace(search))
+  {
+    var normalizedSearch = search.Trim().ToLower();
+    query = query.Where(ticket =>
+      ticket.Id.ToLower().Contains(normalizedSearch) ||
+      ticket.Vehicle.ToLower().Contains(normalizedSearch) ||
+      ticket.VehicleId.ToLower().Contains(normalizedSearch) ||
+      ticket.Issue.ToLower().Contains(normalizedSearch) ||
+      ticket.Mechanic.ToLower().Contains(normalizedSearch));
+  }
+
+  if (!string.IsNullOrWhiteSpace(status))
+  {
+    var normalizedStatus = status.Trim().ToLower();
+    query = query.Where(ticket => ticket.Status.ToLower() == normalizedStatus);
+  }
+
+  query = (sortBy?.ToLowerInvariant(), sortOrder?.ToLowerInvariant()) switch
+  {
+    ("id", "asc") => query.OrderBy(ticket => ticket.Id),
+    ("id", "desc") => query.OrderByDescending(ticket => ticket.Id),
+    ("vehicle", "asc") => query.OrderBy(ticket => ticket.Vehicle),
+    ("vehicle", "desc") => query.OrderByDescending(ticket => ticket.Vehicle),
+    ("issue", "asc") => query.OrderBy(ticket => ticket.Issue),
+    ("issue", "desc") => query.OrderByDescending(ticket => ticket.Issue),
+    ("reporteddate", "asc") => query.OrderBy(ticket => ticket.ReportedDate),
+    ("reporteddate", "desc") => query.OrderByDescending(ticket => ticket.ReportedDate),
+    ("mechanic", "asc") => query.OrderBy(ticket => ticket.Mechanic),
+    ("mechanic", "desc") => query.OrderByDescending(ticket => ticket.Mechanic),
+    ("status", "asc") => query.OrderBy(ticket => ticket.Status),
+    ("status", "desc") => query.OrderByDescending(ticket => ticket.Status),
+    _ => query.OrderByDescending(ticket => ticket.ReportedDate)
+  };
+
+  var total = await query.CountAsync();
+  var statsSource = db.MaintenanceTickets.Where(ticket => ticket.IsDeleted == 0);
+  var stats = new MaintenanceTicketStatsDto(
+    await statsSource.CountAsync(),
+    await statsSource.CountAsync(ticket => ticket.Status == "Pending"),
+    await statsSource.CountAsync(ticket => ticket.Status == "Repairing"),
+    await statsSource.CountAsync(ticket => ticket.Status == "Completed"));
+
+  var records = await query
+    .Skip(Math.Max(page - 1, 0) * pageSize)
+    .Take(pageSize)
+    .ToListAsync();
+
+  var items = records
+    .Select(ToMaintenanceTicketDto)
+    .ToList();
+
+  return Results.Ok(new MaintenanceTicketPagedResult(items, total, stats));
+});
+
+app.MapPost("/api/maintenance-tickets", async (MaintenanceTicketRequest request, FleetDbContext db) =>
+{
+  var validationError = ValidateMaintenanceTicketRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var ticket = new MaintenanceTicket
+  {
+    Id = NextMaintenanceTicketId(await db.MaintenanceTickets.Select(item => item.Id).ToListAsync()),
+    Vehicle = request.Vehicle.Trim(),
+    VehicleId = request.VehicleId.Trim(),
+    Issue = request.Issue.Trim(),
+    Details = request.Details.Trim(),
+    ReportedDate = request.ReportedDate.Trim(),
+    Mechanic = request.Mechanic.Trim(),
+    Status = request.Status.Trim(),
+    IsDeleted = 0,
+    CreatedAt = DateTime.UtcNow,
+    UpdatedAt = DateTime.UtcNow
+  };
+
+  db.MaintenanceTickets.Add(ticket);
+  await db.SaveChangesAsync();
+
+  return Results.Ok(ToMaintenanceTicketDto(ticket));
+});
+
+app.MapPut("/api/maintenance-tickets/{ticketId}", async (string ticketId, MaintenanceTicketRequest request, FleetDbContext db) =>
+{
+  var validationError = ValidateMaintenanceTicketRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var ticket = await db.MaintenanceTickets.FirstOrDefaultAsync(item => item.Id == ticketId && item.IsDeleted == 0);
+  if (ticket is null) return Results.NotFound(new ApiError("Ticket not found."));
+
+  ticket.Vehicle = request.Vehicle.Trim();
+  ticket.VehicleId = request.VehicleId.Trim();
+  ticket.Issue = request.Issue.Trim();
+  ticket.Details = request.Details.Trim();
+  ticket.ReportedDate = request.ReportedDate.Trim();
+  ticket.Mechanic = request.Mechanic.Trim();
+  ticket.Status = request.Status.Trim();
+  ticket.UpdatedAt = DateTime.UtcNow;
+
+  await db.SaveChangesAsync();
+
+  return Results.Ok(ToMaintenanceTicketDto(ticket));
+});
+
+app.MapPatch("/api/maintenance-tickets/{ticketId}/status", async (string ticketId, MaintenanceTicketStatusRequest request, FleetDbContext db) =>
+{
+  var normalizedStatus = string.IsNullOrWhiteSpace(request.Status) ? string.Empty : request.Status.Trim();
+  if (normalizedStatus is not ("Pending" or "Repairing" or "Completed"))
+  {
+    return Results.BadRequest(new ApiError("Ticket status must be Pending, Repairing, or Completed."));
+  }
+
+  var ticket = await db.MaintenanceTickets.FirstOrDefaultAsync(item => item.Id == ticketId && item.IsDeleted == 0);
+  if (ticket is null) return Results.NotFound(new ApiError("Ticket not found."));
+
+  ticket.Status = normalizedStatus;
+  ticket.UpdatedAt = DateTime.UtcNow;
+  await db.SaveChangesAsync();
+
+  return Results.Ok(ToMaintenanceTicketDto(ticket));
+});
+
+app.MapDelete("/api/maintenance-tickets/{ticketId}", async (string ticketId, FleetDbContext db) =>
+{
+  var ticket = await db.MaintenanceTickets.FirstOrDefaultAsync(item => item.Id == ticketId && item.IsDeleted == 0);
+  if (ticket is null) return Results.NotFound(new ApiError("Ticket not found."));
+
+  ticket.IsDeleted = 1;
+  ticket.UpdatedAt = DateTime.UtcNow;
+  await db.SaveChangesAsync();
+  return Results.NoContent();
+});
+
 app.Run();
 
 static UserDto ToUserDto(User user, string roleName, HttpRequest request) =>
@@ -754,6 +925,19 @@ static LocationDto ToLocationDto(LocationCodeOption location) =>
     location.CreatedAt,
     location.UpdatedAt);
 
+static MaintenanceTicketDto ToMaintenanceTicketDto(MaintenanceTicket ticket) =>
+  new(
+    ticket.Id,
+    ticket.Vehicle,
+    ticket.VehicleId,
+    ticket.Issue,
+    ticket.Details,
+    ticket.ReportedDate,
+    ticket.Mechanic,
+    ticket.Status,
+    ticket.CreatedAt,
+    ticket.UpdatedAt);
+
 static string NextEmployeeId(IEnumerable<string> existingEmployeeIds)
 {
   var max = existingEmployeeIds
@@ -771,6 +955,22 @@ static string NextEmployeeId(IEnumerable<string> existingEmployeeIds)
     .Max();
 
   return $"EMP-{max + 1:D4}";
+}
+
+static string NextMaintenanceTicketId(IEnumerable<string> existingIds)
+{
+  var max = existingIds
+    .Select(value =>
+    {
+      var normalized = value.StartsWith("MT-", StringComparison.OrdinalIgnoreCase)
+        ? value[3..]
+        : value;
+      return int.TryParse(normalized, out var number) ? number : 0;
+    })
+    .DefaultIfEmpty(2030)
+    .Max();
+
+  return $"MT-{max + 1}";
 }
 
 static string? ValidateLocationRequest(LocationRequest request)
@@ -803,6 +1003,21 @@ static string? ValidateDepartmentRequest(DepartmentRequest request)
   return normalizedStatus is "Active" or "Disabled"
     ? null
     : "Department status must be Active or Disabled.";
+}
+
+static string? ValidateMaintenanceTicketRequest(MaintenanceTicketRequest request)
+{
+  if (string.IsNullOrWhiteSpace(request.Vehicle)) return "Vehicle is required.";
+  if (string.IsNullOrWhiteSpace(request.VehicleId)) return "Vehicle ID is required.";
+  if (string.IsNullOrWhiteSpace(request.Issue)) return "Issue is required.";
+  if (string.IsNullOrWhiteSpace(request.Details)) return "Details are required.";
+  if (string.IsNullOrWhiteSpace(request.ReportedDate)) return "Reported date is required.";
+  if (string.IsNullOrWhiteSpace(request.Mechanic)) return "Mechanic is required.";
+
+  var normalizedStatus = string.IsNullOrWhiteSpace(request.Status) ? string.Empty : request.Status.Trim();
+  return normalizedStatus is "Pending" or "Repairing" or "Completed"
+    ? null
+    : "Ticket status must be Pending, Repairing, or Completed.";
 }
 
 static string ToPublicAssetUrl(HttpRequest request, string? path)

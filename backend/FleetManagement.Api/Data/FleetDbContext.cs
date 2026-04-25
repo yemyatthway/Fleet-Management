@@ -9,6 +9,7 @@ public class FleetDbContext(DbContextOptions<FleetDbContext> options) : DbContex
   public DbSet<User> Users => Set<User>();
   public DbSet<DepartmentCodeOption> DepartmentCodeOptions => Set<DepartmentCodeOption>();
   public DbSet<LocationCodeOption> LocationCodeOptions => Set<LocationCodeOption>();
+  public DbSet<MaintenanceTicket> MaintenanceTickets => Set<MaintenanceTicket>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -88,6 +89,21 @@ public class FleetDbContext(DbContextOptions<FleetDbContext> options) : DbContex
       entity.Property(department => department.Name).HasMaxLength(120).IsRequired();
       entity.Property(department => department.Description).HasMaxLength(500);
       entity.Property(department => department.Status).HasMaxLength(20).IsRequired();
+    });
+
+    modelBuilder.Entity<MaintenanceTicket>(entity =>
+    {
+      entity.ToTable("MaintenanceTickets");
+      entity.HasKey(ticket => ticket.Id);
+      entity.Property(ticket => ticket.Id).HasMaxLength(40);
+      entity.Property(ticket => ticket.Vehicle).HasMaxLength(120).IsRequired();
+      entity.Property(ticket => ticket.VehicleId).HasMaxLength(80).IsRequired();
+      entity.Property(ticket => ticket.Issue).HasMaxLength(160).IsRequired();
+      entity.Property(ticket => ticket.Details).HasMaxLength(500).IsRequired();
+      entity.Property(ticket => ticket.ReportedDate).HasMaxLength(40).IsRequired();
+      entity.Property(ticket => ticket.Mechanic).HasMaxLength(120).IsRequired();
+      entity.Property(ticket => ticket.Status).HasMaxLength(30).IsRequired();
+      entity.HasIndex(ticket => ticket.Id).IsUnique();
     });
   }
 }

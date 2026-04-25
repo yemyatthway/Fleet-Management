@@ -18,8 +18,8 @@
         density="comfortable"
         @update:options="$emit('update:options', $event)"
       >
-        <template #item.displayId="{ item }">
-          <span class="text-muted">{{ item.displayId.replace('DEP-', '') }}</span>
+        <template #item.displayId="{ index }">
+          <span class="text-muted">{{ rowNumber(index) }}</span>
         </template>
 
         <template #item.description="{ item }">
@@ -98,10 +98,10 @@ defineEmits(['edit', 'remove', 'update:options'])
 const headers = [
   { title: 'No.', key: 'displayId', sortable: false },
   { title: 'Name', key: 'name' },
-  { title: 'Description', key: 'description' },
-  { title: 'Status', key: 'status' },
+  { title: 'Description', key: 'description', sortable: false },
+  { title: 'Status', key: 'status', sortable: false },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
-  { title: 'Created At', key: 'createdAt' }
+  { title: 'Created At', key: 'createdAt', sortable: false }
 ]
 
 const normalizedSortBy = computed(() => [
@@ -110,6 +110,19 @@ const normalizedSortBy = computed(() => [
     order: props.sortOrder
   }
 ])
+
+const rowNumber = (index) => {
+  const safePage = Math.max(Number(props.page) || 1, 1)
+  const safeItemsPerPage = Math.max(Number(props.itemsPerPage) || 1, 1)
+  const safeTotal = Math.max(Number(props.total) || 0, 0)
+  const startIndex = (safePage - 1) * safeItemsPerPage
+  const descending = String(props.sortOrder || '').toLowerCase() === 'desc'
+  const value = descending
+    ? Math.max(safeTotal - startIndex - index, 1)
+    : startIndex + index + 1
+
+  return String(value).padStart(3, '0')
+}
 
 const formatDate = (value) =>
   new Date(value).toLocaleDateString('en-US', {
