@@ -184,6 +184,108 @@ public static class SchemaBootstrapper
       }
     }
 
+    var hasLocationTypesTable = await TableExistsAsync(db, "LocationTypeCodeOptions");
+    if (!hasLocationTypesTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE LocationTypeCodeOptions (
+          Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+          Name nvarchar(120) NOT NULL,
+          Code nvarchar(40) NOT NULL,
+          Description nvarchar(500) NULL,
+          Status nvarchar(20) NOT NULL,
+          CreatedAt datetimeoffset NOT NULL,
+          UpdatedAt datetimeoffset NULL
+        );
+        CREATE UNIQUE INDEX IX_LocationTypeCodeOptions_Name ON LocationTypeCodeOptions(Name);
+        CREATE UNIQUE INDEX IX_LocationTypeCodeOptions_Code ON LocationTypeCodeOptions(Code);
+        """
+      );
+    }
+    else
+    {
+      var hasLocationTypeNameIndex = await IndexExistsAsync(db, "LocationTypeCodeOptions", "IX_LocationTypeCodeOptions_Name");
+      if (!hasLocationTypeNameIndex)
+      {
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_LocationTypeCodeOptions_Name ON LocationTypeCodeOptions(Name);");
+      }
+
+      var hasLocationTypeCodeIndex = await IndexExistsAsync(db, "LocationTypeCodeOptions", "IX_LocationTypeCodeOptions_Code");
+      if (!hasLocationTypeCodeIndex)
+      {
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_LocationTypeCodeOptions_Code ON LocationTypeCodeOptions(Code);");
+      }
+    }
+
+    var hasVehicleTypesTable = await TableExistsAsync(db, "VehicleTypeCodeOptions");
+    if (!hasVehicleTypesTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE VehicleTypeCodeOptions (
+          Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+          Name nvarchar(120) NOT NULL,
+          Code nvarchar(40) NOT NULL,
+          Description nvarchar(500) NULL,
+          Status nvarchar(20) NOT NULL,
+          CreatedAt datetimeoffset NOT NULL,
+          UpdatedAt datetimeoffset NULL
+        );
+        CREATE UNIQUE INDEX IX_VehicleTypeCodeOptions_Name ON VehicleTypeCodeOptions(Name);
+        CREATE UNIQUE INDEX IX_VehicleTypeCodeOptions_Code ON VehicleTypeCodeOptions(Code);
+        """
+      );
+    }
+    else
+    {
+      var hasVehicleTypeNameIndex = await IndexExistsAsync(db, "VehicleTypeCodeOptions", "IX_VehicleTypeCodeOptions_Name");
+      if (!hasVehicleTypeNameIndex)
+      {
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_VehicleTypeCodeOptions_Name ON VehicleTypeCodeOptions(Name);");
+      }
+
+      var hasVehicleTypeCodeIndex = await IndexExistsAsync(db, "VehicleTypeCodeOptions", "IX_VehicleTypeCodeOptions_Code");
+      if (!hasVehicleTypeCodeIndex)
+      {
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_VehicleTypeCodeOptions_Code ON VehicleTypeCodeOptions(Code);");
+      }
+    }
+
+    var hasFuelTypesTable = await TableExistsAsync(db, "FuelTypeCodeOptions");
+    if (!hasFuelTypesTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE FuelTypeCodeOptions (
+          Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+          Name nvarchar(120) NOT NULL,
+          Code nvarchar(40) NOT NULL,
+          Description nvarchar(500) NULL,
+          Status nvarchar(20) NOT NULL,
+          CreatedAt datetimeoffset NOT NULL,
+          UpdatedAt datetimeoffset NULL
+        );
+        CREATE UNIQUE INDEX IX_FuelTypeCodeOptions_Name ON FuelTypeCodeOptions(Name);
+        CREATE UNIQUE INDEX IX_FuelTypeCodeOptions_Code ON FuelTypeCodeOptions(Code);
+        """
+      );
+    }
+    else
+    {
+      var hasFuelTypeNameIndex = await IndexExistsAsync(db, "FuelTypeCodeOptions", "IX_FuelTypeCodeOptions_Name");
+      if (!hasFuelTypeNameIndex)
+      {
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_FuelTypeCodeOptions_Name ON FuelTypeCodeOptions(Name);");
+      }
+
+      var hasFuelTypeCodeIndex = await IndexExistsAsync(db, "FuelTypeCodeOptions", "IX_FuelTypeCodeOptions_Code");
+      if (!hasFuelTypeCodeIndex)
+      {
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_FuelTypeCodeOptions_Code ON FuelTypeCodeOptions(Code);");
+      }
+    }
+
     var hasMaintenanceTicketsTable = await TableExistsAsync(db, "MaintenanceTickets");
     if (!hasMaintenanceTicketsTable)
     {

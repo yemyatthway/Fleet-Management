@@ -9,7 +9,7 @@
         :loading="loading"
         :page="page"
         :items-per-page="itemsPerPage"
-        :sort-by="normalizedSortBy"
+        :sort-by="[]"
         :items-per-page-options="[10, 20, 30]"
         :mobile-breakpoint="0"
         :mobile="false"
@@ -57,7 +57,6 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import { roleClassMap } from '../../data/roles'
 
 const props = defineProps({
@@ -94,20 +93,13 @@ const props = defineProps({
 defineEmits(['view', 'update:options'])
 
 const headers = [
-  { title: 'ID', key: 'code' },
-  { title: 'Role', key: 'name' },
-  { title: 'Description', key: 'description' },
-  { title: 'Members', key: 'members' },
+  { title: 'ID', key: 'code', sortable: false },
+  { title: 'Role', key: 'name', sortable: false },
+  { title: 'Description', key: 'description', sortable: false },
+  { title: 'Members', key: 'members', sortable: false },
   { title: 'View', key: 'view', align: 'end', sortable: false },
-  { title: 'Created At', key: 'createdAt' }
+  { title: 'Created At', key: 'createdAt', sortable: false }
 ]
-
-const normalizedSortBy = computed(() => [
-  {
-    key: props.sortBy,
-    order: props.sortOrder
-  }
-])
 
 const roleClass = (role) => roleClassMap[role] || 'role-driver'
 

@@ -23,11 +23,9 @@
           <div class="field">
             <label class="required">Type</label>
             <select v-model="form.type">
-              <option value="Warehouse">Warehouse</option>
-              <option value="Depot">Depot</option>
-              <option value="Hub">Hub</option>
-              <option value="Yard">Yard</option>
-              <option value="Office">Office</option>
+              <option v-for="type in locationTypes" :key="type" :value="type">
+                {{ type }}
+              </option>
             </select>
           </div>
 
@@ -107,6 +105,10 @@ const props = defineProps({
   item: {
     type: Object,
     default: null
+  },
+  locationTypes: {
+    type: Array,
+    default: () => ['Warehouse', 'Depot', 'Hub', 'Yard', 'Office']
   }
 })
 

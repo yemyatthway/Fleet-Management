@@ -2,27 +2,27 @@
   <div class="role-page">
     <div class="page-header">
       <div>
-        <h1 class="section-title">Location / Depot Setup</h1>
-        <p class="section-subtitle">Manage warehouse, depot, and hub master data for operations.</p>
+        <h1 class="section-title">Fuel Type Setup</h1>
+        <p class="section-subtitle">Manage fuel type master data for vehicle assignment and maintenance workflows.</p>
       </div>
     </div>
 
     <div class="stats-grid">
       <div class="stat-card">
-        <p>Total Locations</p>
-        <h3>{{ totalLocations }}</h3>
+        <p>Total Fuel Types</p>
+        <h3>{{ totalFuelTypes }}</h3>
       </div>
       <div class="stat-card">
-        <p>Active Locations</p>
-        <h3 class="text-info">{{ activeLocations }}</h3>
+        <p>Active Fuel Types</p>
+        <h3 class="text-info">{{ activeFuelTypes }}</h3>
       </div>
       <div class="stat-card">
-        <p>Disabled Locations</p>
-        <h3 class="text-success">{{ disabledLocations }}</h3>
+        <p>Disabled Fuel Types</p>
+        <h3 class="text-success">{{ disabledFuelTypes }}</h3>
       </div>
       <div class="stat-card">
         <p>Recently Updated</p>
-        <h3 class="text-purple">{{ recentlyUpdatedLocations }}</h3>
+        <h3 class="text-purple">{{ recentlyUpdatedFuelTypes }}</h3>
       </div>
     </div>
 
@@ -30,7 +30,7 @@
       <div class="toolbar-row">
         <div class="toolbar-search">
           <v-icon icon="mdi-magnify" />
-          <input v-model="searchQuery" type="text" placeholder="Search location name, code, city, or notes..." />
+          <input v-model="searchQuery" type="text" placeholder="Search fuel type name, code, or description..." />
           <button
             v-if="searchQuery"
             class="clear-button"
@@ -44,12 +44,12 @@
 
         <button class="primary-button" type="button" @click="openAdd">
           <v-icon icon="mdi-plus" size="18" />
-          Add Location
+          Add Fuel Type
         </button>
       </div>
 
       <div class="toolbar-count text-muted">
-        {{ loadingLocations ? 'Loading locations...' : `Showing ${locations.length} of ${totalLocations} locations` }}
+        {{ loadingFuelTypes ? 'Loading fuel types...' : `Showing ${fuelTypes.length} of ${totalFuelTypes} fuel types` }}
       </div>
     </div>
 
@@ -60,10 +60,10 @@
       @close="clearPageMessage"
     />
 
-    <LocationSetupTable
-      :items="tableLocations"
-      :total="totalLocations"
-      :loading="loadingLocations"
+    <FuelTypeSetupTable
+      :items="tableFuelTypes"
+      :total="totalFuelTypes"
+      :loading="loadingFuelTypes"
       :page="tableOptions.page"
       :items-per-page="tableOptions.itemsPerPage"
       :sort-by="tableOptions.sortBy"
@@ -73,11 +73,10 @@
       @remove="handleDelete"
     />
 
-    <LocationSetupDialog
+    <FuelTypeSetupDialog
       :open="dialogOpen"
       :mode="dialogMode"
-      :item="selectedLocation"
-      :location-types="locationTypeOptions"
+      :item="selectedFuelType"
       @close="dialogOpen = false"
       @save="handleSave"
     />
@@ -104,19 +103,17 @@ import { usePageMessage } from '../../composables/usePageMessage'
 import { useReferenceMetrics } from '../../composables/useReferenceMetrics'
 import { attachDisplayIds } from '../../utils/tableDisplayIds'
 import {
-  createLocationCodeOption,
-  deleteLocationCodeOption,
-  getLocationCodeOptions,
-  updateLocationCodeOption
-} from '../../services/locationsApi'
-import { getLocationTypeOptions } from '../../services/locationTypesApi'
-import LocationSetupDialog from './LocationSetupDialog.vue'
-import LocationSetupTable from './LocationSetupTable.vue'
+  createFuelTypeCodeOption,
+  deleteFuelTypeCodeOption,
+  getFuelTypeCodeOptions,
+  updateFuelTypeCodeOption
+} from '../../services/fuelTypesApi'
+import FuelTypeSetupDialog from './FuelTypeSetupDialog.vue'
+import FuelTypeSetupTable from './FuelTypeSetupTable.vue'
 
 const dialogOpen = ref(false)
 const dialogMode = ref('add')
-const selectedLocation = ref(null)
-const locationTypeOptions = ref(['Warehouse', 'Depot', 'Hub', 'Yard', 'Office'])
+const selectedFuelType = ref(null)
 const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage()
 const {
   confirmOpen,
@@ -128,43 +125,34 @@ const {
   runConfirm
 } = useConfirmDialog()
 const {
-  items: locations,
-  total: totalLocations,
+  items: fuelTypes,
+  total: totalFuelTypes,
   searchQuery,
   tableOptions,
-  loading: loadingLocations,
-  loadItems: loadLocations,
+  loading: loadingFuelTypes,
+  loadItems: loadFuelTypes,
   handleTableOptions
 } = useListPage({
   fetchPage: ({ page, pageSize, search, sortBy, sortOrder }) =>
-    getLocationCodeOptions({ page, pageSize, search, sortBy, sortOrder }),
+    getFuelTypeCodeOptions({ page, pageSize, search, sortBy, sortOrder }),
   clearPageMessage,
   showPageMessage,
-  errorTitle: 'Could not load locations'
+  errorTitle: 'Could not load fuel types'
 })
-
-const loadLocationTypeOptions = async () => {
-  try {
-    const options = await getLocationTypeOptions()
-    if (options.length) locationTypeOptions.value = options
-  } catch (error) {
-    showPageMessage({ tone: 'error', title: 'Could not load location types', message: error.message })
-  }
-}
 const {
-  activeCount: activeLocations,
-  disabledCount: disabledLocations,
-  recentlyUpdatedCount: recentlyUpdatedLocations
-} = useReferenceMetrics(locations)
-const tableLocations = computed(() =>
+  activeCount: activeFuelTypes,
+  disabledCount: disabledFuelTypes,
+  recentlyUpdatedCount: recentlyUpdatedFuelTypes
+} = useReferenceMetrics(fuelTypes)
+const tableFuelTypes = computed(() =>
   attachDisplayIds(
-    locations.value,
+    fuelTypes.value,
     tableOptions.value.page,
     tableOptions.value.itemsPerPage,
     false,
-    () => 'LOC',
+    () => 'FTP',
     {
-      total: totalLocations.value,
+      total: totalFuelTypes.value,
       sortBy: tableOptions.value.sortBy,
       sortOrder: tableOptions.value.sortOrder
     }
@@ -173,16 +161,23 @@ const tableLocations = computed(() =>
 
 const openAdd = () => {
   dialogMode.value = 'add'
-  selectedLocation.value = { type: locationTypeOptions.value[0] || 'Warehouse', status: 'Active' }
-  loadLocationTypeOptions()
+  selectedFuelType.value = { status: 'Active' }
   dialogOpen.value = true
 }
 
 const openEdit = (item) => {
   dialogMode.value = 'edit'
-  selectedLocation.value = { ...item }
-  loadLocationTypeOptions()
+  selectedFuelType.value = { ...item }
   dialogOpen.value = true
+}
+
+const resetTableOrder = () => {
+  tableOptions.value = {
+    ...tableOptions.value,
+    page: 1,
+    sortBy: 'id',
+    sortOrder: 'asc'
+  }
 }
 
 const handleSave = async (payload) => {
@@ -190,32 +185,27 @@ const handleSave = async (payload) => {
   const isEdit = dialogMode.value === 'edit'
 
   try {
-    const savedLocation = isEdit
-      ? await updateLocationCodeOption(payload.id, payload)
-      : await createLocationCodeOption(payload)
+    const savedFuelType = isEdit
+      ? await updateFuelTypeCodeOption(payload.id, payload)
+      : await createFuelTypeCodeOption(payload)
 
-    if (isEdit) {
-      locations.value = locations.value.map((item) =>
-        item.id === savedLocation.id ? savedLocation : item
-      )
-    } else {
-      await loadLocations()
-    }
+    resetTableOrder()
+    await loadFuelTypes()
 
     dialogOpen.value = false
     showPageMessage({
       tone: 'success',
-      title: isEdit ? 'Location updated' : 'Location created',
-      message: `${savedLocation.name} has been ${isEdit ? 'updated' : 'created'} successfully.`
+      title: isEdit ? 'Fuel type updated' : 'Fuel type created',
+      message: `${savedFuelType.name} has been ${isEdit ? 'updated' : 'created'} successfully.`
     })
   } catch (error) {
-    showPageMessage({ tone: 'error', title: 'Location was not saved', message: error.message })
+    showPageMessage({ tone: 'error', title: 'Fuel type was not saved', message: error.message })
   }
 }
 
 const handleDelete = (item) => {
   openConfirm({
-    title: 'Delete Location?',
+    title: 'Delete Fuel Type?',
     message: `This will permanently remove ${item.name}.`,
     confirmText: 'Delete',
     tone: 'danger',
@@ -223,15 +213,15 @@ const handleDelete = (item) => {
       clearPageMessage()
 
       try {
-        await deleteLocationCodeOption(item.id)
-        await loadLocations()
+        await deleteFuelTypeCodeOption(item.id)
+        await loadFuelTypes()
         showPageMessage({
           tone: 'warning',
-          title: 'Location deleted',
+          title: 'Fuel type deleted',
           message: `${item.name} has been removed.`
         })
       } catch (error) {
-        showPageMessage({ tone: 'error', title: 'Location was not deleted', message: error.message })
+        showPageMessage({ tone: 'error', title: 'Fuel type was not deleted', message: error.message })
       }
     }
   })

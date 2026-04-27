@@ -332,7 +332,12 @@
           </div>
           <div class="form-field">
             <label>Fuel Type <span class="required">*</span></label>
-            <input v-model="formData.fuelType" type="text" placeholder="e.g., Diesel" />
+            <select v-model="formData.fuelType">
+              <option value="" disabled>Select fuel type</option>
+              <option v-for="type in fuelTypeOptions" :key="type" :value="type">
+                {{ type }}
+              </option>
+            </select>
           </div>
           <div class="form-field">
             <label>VIN / Chassis</label>
@@ -494,6 +499,7 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
+import { getFuelTypeOptions } from '../../services/fuelTypesApi'
 
 const vehicles = ref([
   {
@@ -692,6 +698,7 @@ const formMode = ref('add')
 const formError = ref('')
 const formData = ref({})
 const formStep = ref(1)
+const fuelTypeOptions = ref(['Diesel', 'Gasoline', 'Electric', 'Hybrid'])
 const formSteps = [
   { id: 1, title: 'Core Info', subtitle: 'Identity, ownership, assignment' },
   { id: 2, title: 'Compliance', subtitle: 'Registration, insurance, service' },
@@ -726,12 +733,12 @@ onBeforeUnmount(() => {
 })
 
 const vehicleHeaders = [
-  { title: 'Vehicle', key: 'vehicle' },
-  { title: 'Plate Number', key: 'plate' },
-  { title: 'Type', key: 'type' },
-  { title: 'Status', key: 'status' },
-  { title: 'Driver Assigned', key: 'driver' },
-  { title: 'Acquired Date', key: 'acquiredDate' },
+  { title: 'Vehicle', key: 'vehicle', sortable: false },
+  { title: 'Plate Number', key: 'plate', sortable: false },
+  { title: 'Type', key: 'type', sortable: false },
+  { title: 'Status', key: 'status', sortable: false },
+  { title: 'Driver Assigned', key: 'driver', sortable: false },
+  { title: 'Acquired Date', key: 'acquiredDate', sortable: false },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false }
 ]
 
@@ -815,9 +822,19 @@ const buildEmptyForm = () => ({
   image: ''
 })
 
+const loadFuelTypeOptions = async () => {
+  try {
+    const options = await getFuelTypeOptions()
+    if (options.length) fuelTypeOptions.value = options
+  } catch (error) {
+    console.error('[vehicles] failed to load fuel types', error)
+  }
+}
+
 const openAdd = () => {
   formMode.value = 'add'
   formData.value = buildEmptyForm()
+  loadFuelTypeOptions()
   formError.value = ''
   formStep.value = 1
   formOpen.value = true
@@ -826,6 +843,7 @@ const openAdd = () => {
 const openEdit = (vehicle) => {
   formMode.value = 'edit'
   formData.value = { ...buildEmptyForm(), ...vehicle }
+  loadFuelTypeOptions()
   formError.value = ''
   formStep.value = 1
   formOpen.value = true

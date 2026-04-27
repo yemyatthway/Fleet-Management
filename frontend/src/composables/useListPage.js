@@ -1,5 +1,4 @@
 import { onMounted, ref, watch } from 'vue'
-import { normalizeSortOption } from '../utils/tableOptions'
 import { useDebouncedRef } from './useDebouncedRef'
 
 const DEFAULT_TABLE_OPTIONS = {
@@ -36,9 +35,7 @@ export function useListPage({
       const result = await fetchPage({
         page: tableOptions.value.page,
         pageSize: tableOptions.value.itemsPerPage,
-        search: debouncedSearchQuery.value,
-        sortBy: tableOptions.value.sortBy,
-        sortOrder: tableOptions.value.sortOrder
+        search: debouncedSearchQuery.value
       })
 
       items.value = result?.items || []
@@ -56,12 +53,11 @@ export function useListPage({
   }
 
   const handleTableOptions = (options) => {
-    const firstSort = normalizeSortOption(options.sortBy)
     tableOptions.value = {
       page: options.page || 1,
       itemsPerPage: options.itemsPerPage || 10,
-      sortBy: firstSort?.key || tableOptions.value.sortBy || 'id',
-      sortOrder: firstSort?.order || tableOptions.value.sortOrder || 'asc'
+      sortBy: 'id',
+      sortOrder: 'asc'
     }
     loadItems()
   }

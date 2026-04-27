@@ -9,6 +9,9 @@ public class FleetDbContext(DbContextOptions<FleetDbContext> options) : DbContex
   public DbSet<User> Users => Set<User>();
   public DbSet<DepartmentCodeOption> DepartmentCodeOptions => Set<DepartmentCodeOption>();
   public DbSet<LocationCodeOption> LocationCodeOptions => Set<LocationCodeOption>();
+  public DbSet<LocationTypeCodeOption> LocationTypeCodeOptions => Set<LocationTypeCodeOption>();
+  public DbSet<VehicleTypeCodeOption> VehicleTypeCodeOptions => Set<VehicleTypeCodeOption>();
+  public DbSet<FuelTypeCodeOption> FuelTypeCodeOptions => Set<FuelTypeCodeOption>();
   public DbSet<MaintenanceTicket> MaintenanceTickets => Set<MaintenanceTicket>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -89,6 +92,42 @@ public class FleetDbContext(DbContextOptions<FleetDbContext> options) : DbContex
       entity.Property(department => department.Name).HasMaxLength(120).IsRequired();
       entity.Property(department => department.Description).HasMaxLength(500);
       entity.Property(department => department.Status).HasMaxLength(20).IsRequired();
+    });
+
+    modelBuilder.Entity<LocationTypeCodeOption>(entity =>
+    {
+      entity.ToTable("LocationTypeCodeOptions");
+      entity.HasKey(locationType => locationType.Id);
+      entity.HasIndex(locationType => locationType.Name).IsUnique();
+      entity.HasIndex(locationType => locationType.Code).IsUnique();
+      entity.Property(locationType => locationType.Name).HasMaxLength(120).IsRequired();
+      entity.Property(locationType => locationType.Code).HasMaxLength(40).IsRequired();
+      entity.Property(locationType => locationType.Description).HasMaxLength(500);
+      entity.Property(locationType => locationType.Status).HasMaxLength(20).IsRequired();
+    });
+
+    modelBuilder.Entity<VehicleTypeCodeOption>(entity =>
+    {
+      entity.ToTable("VehicleTypeCodeOptions");
+      entity.HasKey(vehicleType => vehicleType.Id);
+      entity.HasIndex(vehicleType => vehicleType.Name).IsUnique();
+      entity.HasIndex(vehicleType => vehicleType.Code).IsUnique();
+      entity.Property(vehicleType => vehicleType.Name).HasMaxLength(120).IsRequired();
+      entity.Property(vehicleType => vehicleType.Code).HasMaxLength(40).IsRequired();
+      entity.Property(vehicleType => vehicleType.Description).HasMaxLength(500);
+      entity.Property(vehicleType => vehicleType.Status).HasMaxLength(20).IsRequired();
+    });
+
+    modelBuilder.Entity<FuelTypeCodeOption>(entity =>
+    {
+      entity.ToTable("FuelTypeCodeOptions");
+      entity.HasKey(fuelType => fuelType.Id);
+      entity.HasIndex(fuelType => fuelType.Name).IsUnique();
+      entity.HasIndex(fuelType => fuelType.Code).IsUnique();
+      entity.Property(fuelType => fuelType.Name).HasMaxLength(120).IsRequired();
+      entity.Property(fuelType => fuelType.Code).HasMaxLength(40).IsRequired();
+      entity.Property(fuelType => fuelType.Description).HasMaxLength(500);
+      entity.Property(fuelType => fuelType.Status).HasMaxLength(20).IsRequired();
     });
 
     modelBuilder.Entity<MaintenanceTicket>(entity =>

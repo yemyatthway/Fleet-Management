@@ -38,6 +38,7 @@
               :headers="headers"
               :items="members"
               :items-per-page="10"
+              :sort-by="[]"
               :items-per-page-options="[10, 20, 30]"
               :mobile-breakpoint="0"
               :mobile="false"

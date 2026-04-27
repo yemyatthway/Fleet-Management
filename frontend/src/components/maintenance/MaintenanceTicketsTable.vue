@@ -9,7 +9,7 @@
         :loading="loading"
         :page="page"
         :items-per-page="itemsPerPage"
-        :sort-by="normalizedSortBy"
+        :sort-by="[]"
         :items-per-page-options="[10, 20, 30]"
         :mobile-breakpoint="0"
         :mobile="false"
@@ -91,8 +91,6 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-
 const props = defineProps({
   items: {
     type: Array,
@@ -128,21 +126,14 @@ defineEmits(['edit', 'advance-status', 'remove', 'update:options'])
 
 const headers = [
   { title: 'No.', key: 'displayNumber', sortable: false },
-  { title: 'Ticket ID', key: 'id' },
-  { title: 'Vehicle', key: 'vehicle' },
+  { title: 'Ticket ID', key: 'id', sortable: false },
+  { title: 'Vehicle', key: 'vehicle', sortable: false },
   { title: 'Issue', key: 'issue', sortable: false },
   { title: 'Reported Date', key: 'reportedDate', sortable: false },
-  { title: 'Mechanic', key: 'mechanic' },
+  { title: 'Mechanic', key: 'mechanic', sortable: false },
   { title: 'Status', key: 'status', sortable: false },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false }
 ]
-
-const normalizedSortBy = computed(() => [
-  {
-    key: props.sortBy,
-    order: props.sortOrder
-  }
-])
 
 const rowNumber = (index) => {
   const currentPage = Math.max(Number(props.page) || 1, 1)

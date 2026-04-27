@@ -133,7 +133,10 @@ const userItems = [
 
 const setupItems = [
   { icon: 'mdi-domain', label: 'Department Setup', path: '/user-code-setup/departments' },
-  { icon: 'mdi-map-marker-multiple', label: 'Location Setup', path: '/user-code-setup/locations' }
+  { icon: 'mdi-map-marker-multiple', label: 'Location Setup', path: '/user-code-setup/locations' },
+  { icon: 'mdi-map-marker-radius-outline', label: 'Location Type Setup', path: '/user-code-setup/location-types' },
+  { icon: 'mdi-truck-cargo-container', label: 'Vehicle Type Setup', path: '/user-code-setup/vehicle-types' },
+  { icon: 'mdi-fuel', label: 'Fuel Type Setup', path: '/user-code-setup/fuel-types' }
 ]
 
 const maintenanceItems = [

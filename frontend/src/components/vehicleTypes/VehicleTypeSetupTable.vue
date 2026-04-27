@@ -22,34 +22,12 @@
           <span class="text-muted">{{ rowNumber(index) }}</span>
         </template>
 
-        <template #item.type="{ item }">
-          <div class="role-cell">
-            <div class="role-badge role-driver">{{ item.type }}</div>
-          </div>
-        </template>
-
         <template #item.code="{ item }">
-          <span class="text-muted">{{ item.code || '—' }}</span>
+          <span class="text-muted">{{ item.code }}</span>
         </template>
 
-        <template #item.city="{ item }">
-          <span class="text-muted">{{ item.city || '—' }}</span>
-        </template>
-
-        <template #item.country="{ item }">
-          <span class="text-muted">{{ item.country || '—' }}</span>
-        </template>
-
-        <template #item.contactPerson="{ item }">
-          <span class="text-muted">{{ item.contactPerson || '—' }}</span>
-        </template>
-
-        <template #item.phone="{ item }">
-          <span class="text-muted">{{ item.phone || '—' }}</span>
-        </template>
-
-        <template #item.notes="{ item }">
-          <span class="text-muted notes-cell">{{ item.notes || '—' }}</span>
+        <template #item.description="{ item }">
+          <span class="text-muted">{{ item.description || '—' }}</span>
         </template>
 
         <template #item.status="{ item }">
@@ -64,11 +42,11 @@
           <div class="inline-actions">
             <button class="icon-button tooltip" type="button" @click="$emit('edit', item)">
               <v-icon icon="mdi-pencil-outline" size="18" />
-              <span class="tooltip-text">Edit location</span>
+              <span class="tooltip-text">Edit vehicle type</span>
             </button>
             <button class="icon-button danger tooltip" type="button" @click="$emit('remove', item)">
               <v-icon icon="mdi-trash-can-outline" size="18" />
-              <span class="tooltip-text">Delete location</span>
+              <span class="tooltip-text">Delete vehicle type</span>
             </button>
           </div>
         </template>
@@ -78,7 +56,7 @@
         </template>
 
         <template #no-data>
-          <div class="empty-state">No locations found</div>
+          <div class="empty-state">No vehicle types found</div>
         </template>
       </v-data-table-server>
     </div>
@@ -123,12 +101,7 @@ const headers = [
   { title: 'No.', key: 'displayId', sortable: false },
   { title: 'Name', key: 'name', sortable: false },
   { title: 'Code', key: 'code', sortable: false },
-  { title: 'Type', key: 'type', sortable: false },
-  { title: 'City', key: 'city', sortable: false },
-  { title: 'Country', key: 'country', sortable: false },
-  { title: 'Contact Person', key: 'contactPerson', sortable: false },
-  { title: 'Phone', key: 'phone', sortable: false },
-  { title: 'Notes', key: 'notes', sortable: false },
+  { title: 'Description', key: 'description', sortable: false },
   { title: 'Status', key: 'status', sortable: false },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
   { title: 'Created At', key: 'createdAt', sortable: false }
@@ -140,10 +113,11 @@ const rowNumber = (index) => {
   const safeTotal = Math.max(Number(props.total) || 0, 0)
   const startIndex = (safePage - 1) * safeItemsPerPage
   const descending = String(props.sortOrder || '').toLowerCase() === 'desc'
-
-  return descending
+  const value = descending
     ? Math.max(safeTotal - startIndex - index, 1)
     : startIndex + index + 1
+
+  return String(value).padStart(3, '0')
 }
 
 const formatDate = (value) =>
@@ -155,13 +129,3 @@ const formatDate = (value) =>
 </script>
 
 <style scoped src="../roles/roles_styles/RoleTable.css"></style>
-
-<style scoped>
-.notes-cell {
-  display: -webkit-box;
-  max-width: 220px;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-</style>

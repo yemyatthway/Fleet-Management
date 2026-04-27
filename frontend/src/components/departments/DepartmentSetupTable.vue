@@ -9,7 +9,7 @@
         :loading="loading"
         :page="page"
         :items-per-page="itemsPerPage"
-        :sort-by="normalizedSortBy"
+        :sort-by="[]"
         :items-per-page-options="[10, 20, 30]"
         :mobile-breakpoint="0"
         :mobile="false"
@@ -60,8 +60,6 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-
 const props = defineProps({
   items: {
     type: Array,
@@ -97,19 +95,12 @@ defineEmits(['edit', 'remove', 'update:options'])
 
 const headers = [
   { title: 'No.', key: 'displayId', sortable: false },
-  { title: 'Name', key: 'name' },
+  { title: 'Name', key: 'name', sortable: false },
   { title: 'Description', key: 'description', sortable: false },
   { title: 'Status', key: 'status', sortable: false },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
   { title: 'Created At', key: 'createdAt', sortable: false }
 ]
-
-const normalizedSortBy = computed(() => [
-  {
-    key: props.sortBy,
-    order: props.sortOrder
-  }
-])
 
 const rowNumber = (index) => {
   const safePage = Math.max(Number(props.page) || 1, 1)

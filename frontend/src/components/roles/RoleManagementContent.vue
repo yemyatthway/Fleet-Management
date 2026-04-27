@@ -126,11 +126,11 @@ import {
 const ALL_ROLES_FILTER = "All";
 
 const memberHeaders = [
-  { title: "Name", key: "name" },
-  { title: "Email", key: "email" },
-  { title: "Phone", key: "phone" },
-  { title: "Status", key: "status" },
-  { title: "Joined", key: "joinDate" },
+  { title: "Name", key: "name", sortable: false },
+  { title: "Email", key: "email", sortable: false },
+  { title: "Phone", key: "phone", sortable: false },
+  { title: "Status", key: "status", sortable: false },
+  { title: "Joined", key: "joinDate", sortable: false },
 ];
 
 const SEARCHABLE_MEMBER_FIELDS = ["name", "email", "phone"];

@@ -9,7 +9,7 @@
         :loading="loading"
         :page="page"
         :items-per-page="itemsPerPage"
-        :sort-by="normalizedSortBy"
+        :sort-by="[]"
         :items-per-page-options="[10, 20, 30]"
         :mobile-breakpoint="0"
         :mobile="false"
@@ -147,7 +147,6 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import { roleClassMap } from '../../data/roles'
 
 const props = defineProps({
@@ -185,12 +184,12 @@ defineEmits(['edit', 'toggle', 'remove', 'view-avatar', 'update:options'])
 
 const headers = [
   { title: 'No.', key: 'displayId', sortable: false },
-  { title: 'Name', key: 'name' },
+  { title: 'Name', key: 'name', sortable: false },
   { title: 'NRC', key: 'nrcNumber', sortable: false },
   { title: 'NRC Front', key: 'nrcFront', sortable: false },
   { title: 'NRC Back', key: 'nrcBack', sortable: false },
   { title: 'Email', key: 'email', sortable: false },
-  { title: 'Role', key: 'role' },
+  { title: 'Role', key: 'role', sortable: false },
   { title: 'Phone', key: 'phone', sortable: false },
   { title: 'Department', key: 'department', sortable: false },
   { title: 'Title', key: 'title', sortable: false },
@@ -202,13 +201,6 @@ const headers = [
   { title: '2FA', key: 'twoFactorEnabled', sortable: false },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false }
 ]
-
-const normalizedSortBy = computed(() => [
-  {
-    key: props.sortBy,
-    order: props.sortOrder
-  }
-])
 
 const rowNumber = (index) => {
   const safePage = Math.max(Number(props.page) || 1, 1)

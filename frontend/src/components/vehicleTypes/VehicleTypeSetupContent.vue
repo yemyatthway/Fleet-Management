@@ -2,27 +2,27 @@
   <div class="role-page">
     <div class="page-header">
       <div>
-        <h1 class="section-title">Location / Depot Setup</h1>
-        <p class="section-subtitle">Manage warehouse, depot, and hub master data for operations.</p>
+        <h1 class="section-title">Vehicle Type Setup</h1>
+        <p class="section-subtitle">Manage vehicle type master data used across fleet operations.</p>
       </div>
     </div>
 
     <div class="stats-grid">
       <div class="stat-card">
-        <p>Total Locations</p>
-        <h3>{{ totalLocations }}</h3>
+        <p>Total Vehicle Types</p>
+        <h3>{{ totalVehicleTypes }}</h3>
       </div>
       <div class="stat-card">
-        <p>Active Locations</p>
-        <h3 class="text-info">{{ activeLocations }}</h3>
+        <p>Active Vehicle Types</p>
+        <h3 class="text-info">{{ activeVehicleTypes }}</h3>
       </div>
       <div class="stat-card">
-        <p>Disabled Locations</p>
-        <h3 class="text-success">{{ disabledLocations }}</h3>
+        <p>Disabled Vehicle Types</p>
+        <h3 class="text-success">{{ disabledVehicleTypes }}</h3>
       </div>
       <div class="stat-card">
         <p>Recently Updated</p>
-        <h3 class="text-purple">{{ recentlyUpdatedLocations }}</h3>
+        <h3 class="text-purple">{{ recentlyUpdatedVehicleTypes }}</h3>
       </div>
     </div>
 
@@ -30,7 +30,7 @@
       <div class="toolbar-row">
         <div class="toolbar-search">
           <v-icon icon="mdi-magnify" />
-          <input v-model="searchQuery" type="text" placeholder="Search location name, code, city, or notes..." />
+          <input v-model="searchQuery" type="text" placeholder="Search vehicle type name, code, or description..." />
           <button
             v-if="searchQuery"
             class="clear-button"
@@ -44,12 +44,12 @@
 
         <button class="primary-button" type="button" @click="openAdd">
           <v-icon icon="mdi-plus" size="18" />
-          Add Location
+          Add Vehicle Type
         </button>
       </div>
 
       <div class="toolbar-count text-muted">
-        {{ loadingLocations ? 'Loading locations...' : `Showing ${locations.length} of ${totalLocations} locations` }}
+        {{ loadingVehicleTypes ? 'Loading vehicle types...' : `Showing ${vehicleTypes.length} of ${totalVehicleTypes} vehicle types` }}
       </div>
     </div>
 
@@ -60,10 +60,10 @@
       @close="clearPageMessage"
     />
 
-    <LocationSetupTable
-      :items="tableLocations"
-      :total="totalLocations"
-      :loading="loadingLocations"
+    <VehicleTypeSetupTable
+      :items="tableVehicleTypes"
+      :total="totalVehicleTypes"
+      :loading="loadingVehicleTypes"
       :page="tableOptions.page"
       :items-per-page="tableOptions.itemsPerPage"
       :sort-by="tableOptions.sortBy"
@@ -73,11 +73,10 @@
       @remove="handleDelete"
     />
 
-    <LocationSetupDialog
+    <VehicleTypeSetupDialog
       :open="dialogOpen"
       :mode="dialogMode"
-      :item="selectedLocation"
-      :location-types="locationTypeOptions"
+      :item="selectedVehicleType"
       @close="dialogOpen = false"
       @save="handleSave"
     />
@@ -104,19 +103,17 @@ import { usePageMessage } from '../../composables/usePageMessage'
 import { useReferenceMetrics } from '../../composables/useReferenceMetrics'
 import { attachDisplayIds } from '../../utils/tableDisplayIds'
 import {
-  createLocationCodeOption,
-  deleteLocationCodeOption,
-  getLocationCodeOptions,
-  updateLocationCodeOption
-} from '../../services/locationsApi'
-import { getLocationTypeOptions } from '../../services/locationTypesApi'
-import LocationSetupDialog from './LocationSetupDialog.vue'
-import LocationSetupTable from './LocationSetupTable.vue'
+  createVehicleTypeCodeOption,
+  deleteVehicleTypeCodeOption,
+  getVehicleTypeCodeOptions,
+  updateVehicleTypeCodeOption
+} from '../../services/vehicleTypesApi'
+import VehicleTypeSetupDialog from './VehicleTypeSetupDialog.vue'
+import VehicleTypeSetupTable from './VehicleTypeSetupTable.vue'
 
 const dialogOpen = ref(false)
 const dialogMode = ref('add')
-const selectedLocation = ref(null)
-const locationTypeOptions = ref(['Warehouse', 'Depot', 'Hub', 'Yard', 'Office'])
+const selectedVehicleType = ref(null)
 const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage()
 const {
   confirmOpen,
@@ -128,43 +125,34 @@ const {
   runConfirm
 } = useConfirmDialog()
 const {
-  items: locations,
-  total: totalLocations,
+  items: vehicleTypes,
+  total: totalVehicleTypes,
   searchQuery,
   tableOptions,
-  loading: loadingLocations,
-  loadItems: loadLocations,
+  loading: loadingVehicleTypes,
+  loadItems: loadVehicleTypes,
   handleTableOptions
 } = useListPage({
   fetchPage: ({ page, pageSize, search, sortBy, sortOrder }) =>
-    getLocationCodeOptions({ page, pageSize, search, sortBy, sortOrder }),
+    getVehicleTypeCodeOptions({ page, pageSize, search, sortBy, sortOrder }),
   clearPageMessage,
   showPageMessage,
-  errorTitle: 'Could not load locations'
+  errorTitle: 'Could not load vehicle types'
 })
-
-const loadLocationTypeOptions = async () => {
-  try {
-    const options = await getLocationTypeOptions()
-    if (options.length) locationTypeOptions.value = options
-  } catch (error) {
-    showPageMessage({ tone: 'error', title: 'Could not load location types', message: error.message })
-  }
-}
 const {
-  activeCount: activeLocations,
-  disabledCount: disabledLocations,
-  recentlyUpdatedCount: recentlyUpdatedLocations
-} = useReferenceMetrics(locations)
-const tableLocations = computed(() =>
+  activeCount: activeVehicleTypes,
+  disabledCount: disabledVehicleTypes,
+  recentlyUpdatedCount: recentlyUpdatedVehicleTypes
+} = useReferenceMetrics(vehicleTypes)
+const tableVehicleTypes = computed(() =>
   attachDisplayIds(
-    locations.value,
+    vehicleTypes.value,
     tableOptions.value.page,
     tableOptions.value.itemsPerPage,
     false,
-    () => 'LOC',
+    () => 'VTP',
     {
-      total: totalLocations.value,
+      total: totalVehicleTypes.value,
       sortBy: tableOptions.value.sortBy,
       sortOrder: tableOptions.value.sortOrder
     }
@@ -173,16 +161,23 @@ const tableLocations = computed(() =>
 
 const openAdd = () => {
   dialogMode.value = 'add'
-  selectedLocation.value = { type: locationTypeOptions.value[0] || 'Warehouse', status: 'Active' }
-  loadLocationTypeOptions()
+  selectedVehicleType.value = { status: 'Active' }
   dialogOpen.value = true
 }
 
 const openEdit = (item) => {
   dialogMode.value = 'edit'
-  selectedLocation.value = { ...item }
-  loadLocationTypeOptions()
+  selectedVehicleType.value = { ...item }
   dialogOpen.value = true
+}
+
+const resetTableOrder = () => {
+  tableOptions.value = {
+    ...tableOptions.value,
+    page: 1,
+    sortBy: 'id',
+    sortOrder: 'asc'
+  }
 }
 
 const handleSave = async (payload) => {
@@ -190,32 +185,27 @@ const handleSave = async (payload) => {
   const isEdit = dialogMode.value === 'edit'
 
   try {
-    const savedLocation = isEdit
-      ? await updateLocationCodeOption(payload.id, payload)
-      : await createLocationCodeOption(payload)
+    const savedVehicleType = isEdit
+      ? await updateVehicleTypeCodeOption(payload.id, payload)
+      : await createVehicleTypeCodeOption(payload)
 
-    if (isEdit) {
-      locations.value = locations.value.map((item) =>
-        item.id === savedLocation.id ? savedLocation : item
-      )
-    } else {
-      await loadLocations()
-    }
+    resetTableOrder()
+    await loadVehicleTypes()
 
     dialogOpen.value = false
     showPageMessage({
       tone: 'success',
-      title: isEdit ? 'Location updated' : 'Location created',
-      message: `${savedLocation.name} has been ${isEdit ? 'updated' : 'created'} successfully.`
+      title: isEdit ? 'Vehicle type updated' : 'Vehicle type created',
+      message: `${savedVehicleType.name} has been ${isEdit ? 'updated' : 'created'} successfully.`
     })
   } catch (error) {
-    showPageMessage({ tone: 'error', title: 'Location was not saved', message: error.message })
+    showPageMessage({ tone: 'error', title: 'Vehicle type was not saved', message: error.message })
   }
 }
 
 const handleDelete = (item) => {
   openConfirm({
-    title: 'Delete Location?',
+    title: 'Delete Vehicle Type?',
     message: `This will permanently remove ${item.name}.`,
     confirmText: 'Delete',
     tone: 'danger',
@@ -223,15 +213,15 @@ const handleDelete = (item) => {
       clearPageMessage()
 
       try {
-        await deleteLocationCodeOption(item.id)
-        await loadLocations()
+        await deleteVehicleTypeCodeOption(item.id)
+        await loadVehicleTypes()
         showPageMessage({
           tone: 'warning',
-          title: 'Location deleted',
+          title: 'Vehicle type deleted',
           message: `${item.name} has been removed.`
         })
       } catch (error) {
-        showPageMessage({ tone: 'error', title: 'Location was not deleted', message: error.message })
+        showPageMessage({ tone: 'error', title: 'Vehicle type was not deleted', message: error.message })
       }
     }
   })

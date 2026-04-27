@@ -122,6 +122,48 @@ public static class SeedData
       db.LocationCodeOptions.AddRange(locations);
     }
 
+    if (!await db.LocationTypeCodeOptions.AnyAsync())
+    {
+      var locationTypeNow = DateTimeOffset.UtcNow;
+      var locationTypes = new List<LocationTypeCodeOption>
+      {
+        new() { Name = "Warehouse", Code = "LT-WH", Description = "Storage location for inventory, cargo, and staging.", Status = "Active", CreatedAt = locationTypeNow.AddDays(-12), UpdatedAt = locationTypeNow.AddDays(-4) },
+        new() { Name = "Depot", Code = "LT-DP", Description = "Fleet depot for dispatch, parking, and route support.", Status = "Active", CreatedAt = locationTypeNow.AddDays(-11), UpdatedAt = locationTypeNow.AddDays(-3) },
+        new() { Name = "Hub", Code = "LT-HB", Description = "Central transfer point for routing and consolidation.", Status = "Active", CreatedAt = locationTypeNow.AddDays(-10), UpdatedAt = locationTypeNow.AddDays(-2) },
+        new() { Name = "Yard", Code = "LT-YD", Description = "Outdoor staging or service yard for fleet operations.", Status = "Active", CreatedAt = locationTypeNow.AddDays(-9), UpdatedAt = locationTypeNow.AddDays(-1) }
+      };
+
+      db.LocationTypeCodeOptions.AddRange(locationTypes);
+    }
+
+    if (!await db.VehicleTypeCodeOptions.AnyAsync())
+    {
+      var vehicleTypeNow = DateTimeOffset.UtcNow;
+      var vehicleTypes = new List<VehicleTypeCodeOption>
+      {
+        new() { Name = "Box Truck", Code = "VT-BOX", Description = "Enclosed cargo vehicle for general delivery routes.", Status = "Active", CreatedAt = vehicleTypeNow.AddDays(-12), UpdatedAt = vehicleTypeNow.AddDays(-4) },
+        new() { Name = "Cargo Van", Code = "VT-VAN", Description = "Light-duty van for city deliveries and small loads.", Status = "Active", CreatedAt = vehicleTypeNow.AddDays(-11), UpdatedAt = vehicleTypeNow.AddDays(-3) },
+        new() { Name = "Reefer Truck", Code = "VT-REEFER", Description = "Temperature-controlled vehicle for cold-chain shipments.", Status = "Active", CreatedAt = vehicleTypeNow.AddDays(-10), UpdatedAt = vehicleTypeNow.AddDays(-2) },
+        new() { Name = "Flatbed", Code = "VT-FLAT", Description = "Open-bed truck for oversized or palletized freight.", Status = "Active", CreatedAt = vehicleTypeNow.AddDays(-9), UpdatedAt = vehicleTypeNow.AddDays(-1) }
+      };
+
+      db.VehicleTypeCodeOptions.AddRange(vehicleTypes);
+    }
+
+    if (!await db.FuelTypeCodeOptions.AnyAsync())
+    {
+      var fuelTypeNow = DateTimeOffset.UtcNow;
+      var fuelTypes = new List<FuelTypeCodeOption>
+      {
+        new() { Name = "Diesel", Code = "FT-DIESEL", Description = "Standard diesel fuel for commercial vehicles.", Status = "Active", CreatedAt = fuelTypeNow.AddDays(-12), UpdatedAt = fuelTypeNow.AddDays(-4) },
+        new() { Name = "Gasoline", Code = "FT-GAS", Description = "Gasoline fuel for light-duty vehicles.", Status = "Active", CreatedAt = fuelTypeNow.AddDays(-11), UpdatedAt = fuelTypeNow.AddDays(-3) },
+        new() { Name = "Electric", Code = "FT-EV", Description = "Battery electric vehicle power source.", Status = "Active", CreatedAt = fuelTypeNow.AddDays(-10), UpdatedAt = fuelTypeNow.AddDays(-2) },
+        new() { Name = "Hybrid", Code = "FT-HYBRID", Description = "Hybrid fuel and electric powertrain.", Status = "Active", CreatedAt = fuelTypeNow.AddDays(-9), UpdatedAt = fuelTypeNow.AddDays(-1) }
+      };
+
+      db.FuelTypeCodeOptions.AddRange(fuelTypes);
+    }
+
     if (!await db.MaintenanceTickets.AnyAsync())
     {
       var tickets = new List<MaintenanceTicket>
