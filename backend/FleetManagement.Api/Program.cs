@@ -150,18 +150,27 @@ app.MapGet("/api/roles/{roleId}/members", async (string roleId, HttpRequest requ
   return Results.Ok(items);
 });
 
-app.MapPost("/api/roles", (RoleRequest request, FleetDbContext db) =>
+app.MapPost("/api/roles", async (RoleRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "roles", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
   return Results.BadRequest(new ApiError("Roles are fixed system roles and cannot be created."));
 });
 
-app.MapPut("/api/roles/{roleId}", (string roleId, RoleRequest request, FleetDbContext db) =>
+app.MapPut("/api/roles/{roleId}", async (string roleId, RoleRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "roles", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
   return Results.BadRequest(new ApiError("Roles are fixed system roles and cannot be edited."));
 });
 
-app.MapDelete("/api/roles/{roleId}", (string roleId, FleetDbContext db) =>
+app.MapDelete("/api/roles/{roleId}", async (string roleId, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "roles", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
   return Results.BadRequest(new ApiError("Roles are fixed system roles and cannot be deleted."));
 });
 
@@ -170,8 +179,11 @@ app.MapGet("/api/permissions", async (FleetDbContext db) =>
   return Results.Ok(await BuildPermissionMatrixAsync(db));
 });
 
-app.MapPut("/api/permissions", async (PermissionBulkUpdateRequest request, FleetDbContext db) =>
+app.MapPut("/api/permissions", async (PermissionBulkUpdateRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "permissions", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
   var fixedRoleIds = SeedData.FixedRoleIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
   var moduleKeys = GetPermissionModules().Select(module => module.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
   var submitted = request.Permissions ?? [];
@@ -221,7 +233,79 @@ app.MapPut("/api/permissions", async (PermissionBulkUpdateRequest request, Fleet
   }
 
   await db.SaveChangesAsync();
+  await LogAuditAsync(db, httpRequest, "permissions", "Edit", "matrix", "Updated role permission matrix.");
+  await db.SaveChangesAsync();
   return Results.Ok(await BuildPermissionMatrixAsync(db));
+});
+
+app.MapGet("/api/dashboard/summary", async (FleetDbContext db) =>
+{
+  var vehicles = db.Vehicles.Where(vehicle => vehicle.IsDeleted == 0);
+  var trips = db.Trips.Where(trip => trip.IsDeleted == 0);
+  var tickets = db.MaintenanceTickets.Where(ticket => ticket.IsDeleted == 0);
+  var incidents = db.Incidents.Where(incident => incident.IsDeleted == 0);
+
+  var vehicleStatuses = await SafeDashboardValueAsync(async () => await vehicles
+    .GroupBy(vehicle => vehicle.Status)
+    .Select(group => new NamedCountDto(group.Key, group.Count()))
+    .OrderByDescending(item => item.Value)
+    .ToListAsync(), new List<NamedCountDto>());
+
+  var tripStatuses = await SafeDashboardValueAsync(async () => await trips
+    .GroupBy(trip => trip.Status)
+    .Select(group => new NamedCountDto(group.Key, group.Count()))
+    .OrderByDescending(item => item.Value)
+    .ToListAsync(), new List<NamedCountDto>());
+
+  var recentTripRows = await SafeDashboardValueAsync(async () => await trips
+    .OrderByDescending(trip => trip.UpdatedAt)
+    .ThenByDescending(trip => trip.Id)
+    .Take(8)
+    .Select(trip => new
+    {
+      trip.Id,
+      trip.TripNumber,
+      trip.VehiclePlate,
+      trip.DriverName,
+      trip.PickupLocation,
+      trip.DropoffLocation,
+      trip.Status,
+      trip.TripType,
+      trip.Priority
+    })
+    .ToListAsync(), []);
+
+  var recentTrips = recentTripRows
+    .Select(trip => new DashboardRecentTripDto(
+      trip.Id,
+      trip.TripNumber,
+      trip.VehiclePlate,
+      trip.DriverName,
+      $"{trip.PickupLocation} to {trip.DropoffLocation}",
+      trip.Status,
+      string.IsNullOrWhiteSpace(trip.TripType) && string.IsNullOrWhiteSpace(trip.Priority)
+        ? "-"
+        : $"{trip.TripType} | {trip.Priority}"))
+    .ToList();
+
+  var upcomingExpiries = (await SafeDashboardValueAsync(
+      async () => await vehicles.AsNoTracking().ToListAsync(),
+      new List<Vehicle>()))
+    .SelectMany(GetUpcomingVehicleExpiries)
+    .OrderBy(expiry => expiry.DaysRemaining)
+    .Take(8)
+    .ToList();
+
+  var metrics = new List<DashboardMetricDto>
+  {
+    new("Total Vehicles", await SafeDashboardValueAsync(() => vehicles.CountAsync(), 0), "mdi-truck", "info"),
+    new("Active Trips", await SafeDashboardValueAsync(() => trips.CountAsync(trip => trip.Status == "In Transit" || trip.Status == "Active" || trip.Status == "Ongoing"), 0), "mdi-map-marker", "success"),
+    new("Open Maintenance", await SafeDashboardValueAsync(() => tickets.CountAsync(ticket => ticket.Status != "Completed" && ticket.Status != "Closed"), 0), "mdi-wrench", "warning"),
+    new("Incidents", await SafeDashboardValueAsync(() => incidents.CountAsync(), 0), "mdi-alert-circle-outline", "danger"),
+    new("Upcoming Expiries", upcomingExpiries.Count, "mdi-calendar-alert", "purple")
+  };
+
+  return Results.Ok(new DashboardSummaryDto(metrics, vehicleStatuses, tripStatuses, recentTrips, upcomingExpiries));
 });
 
 app.MapPost("/api/auth/login", async (LoginRequest request, HttpRequest httpRequest, FleetDbContext db) =>
@@ -410,8 +494,11 @@ app.MapGet("/api/departments/options", async (FleetDbContext db) =>
   return Results.Ok(items);
 });
 
-app.MapPost("/api/departments", async (DepartmentRequest request, FleetDbContext db) =>
+app.MapPost("/api/departments", async (DepartmentRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "department-setup", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
   var validationError = ValidateDepartmentRequest(request);
   if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
@@ -432,6 +519,7 @@ app.MapPost("/api/departments", async (DepartmentRequest request, FleetDbContext
   };
 
   db.DepartmentCodeOptions.Add(department);
+  await LogAuditAsync(db, httpRequest, "department-setup", "Create", normalizedName, $"Created department {normalizedName}.");
   await db.SaveChangesAsync();
 
   return Results.Ok(new DepartmentDto(
@@ -443,8 +531,11 @@ app.MapPost("/api/departments", async (DepartmentRequest request, FleetDbContext
     department.UpdatedAt));
 });
 
-app.MapPut("/api/departments/{id:int}", async (int id, DepartmentRequest request, FleetDbContext db) =>
+app.MapPut("/api/departments/{id:int}", async (int id, DepartmentRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "department-setup", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
   var validationError = ValidateDepartmentRequest(request);
   if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
@@ -462,6 +553,7 @@ app.MapPut("/api/departments/{id:int}", async (int id, DepartmentRequest request
   department.Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim();
   department.UpdatedAt = DateTimeOffset.UtcNow;
 
+  await LogAuditAsync(db, httpRequest, "department-setup", "Edit", id.ToString(), $"Updated department {normalizedName}.");
   await db.SaveChangesAsync();
 
   return Results.Ok(new DepartmentDto(
@@ -473,8 +565,11 @@ app.MapPut("/api/departments/{id:int}", async (int id, DepartmentRequest request
     department.UpdatedAt));
 });
 
-app.MapDelete("/api/departments/{id:int}", async (int id, FleetDbContext db) =>
+app.MapDelete("/api/departments/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "department-setup", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
   var department = await db.DepartmentCodeOptions.FirstOrDefaultAsync(item => item.Id == id);
   if (department is null) return Results.NotFound(new ApiError("Department not found."));
 
@@ -485,6 +580,7 @@ app.MapDelete("/api/departments/{id:int}", async (int id, FleetDbContext db) =>
   }
 
   db.DepartmentCodeOptions.Remove(department);
+  await LogAuditAsync(db, httpRequest, "department-setup", "Delete", id.ToString(), $"Deleted department {department.Name}.");
   await db.SaveChangesAsync();
   return Results.NoContent();
 });
@@ -495,6 +591,9 @@ app.MapPost("/api/users", async (
   IWebHostEnvironment environment,
   FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(request, db, "users", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
   var roleEntity = await db.Roles.FirstOrDefaultAsync(r => r.Name == form.Role && r.IsDeleted == 0);
   if (roleEntity is null) return Results.BadRequest(new ApiError("Selected role does not exist."));
 
@@ -563,6 +662,7 @@ app.MapPost("/api/users", async (
   user.NrcFront = await UserAssetStorage.SaveImageAsync(form.NrcFrontFile, user.Id, "nrc-front", environment);
   user.NrcBack = await UserAssetStorage.SaveImageAsync(form.NrcBackFile, user.Id, "nrc-back", environment);
   user.UpdatedAt = DateTime.UtcNow;
+  await LogAuditAsync(db, request, "users", "Create", user.Id, $"Created user {user.Name}.");
   await db.SaveChangesAsync();
 
   return Results.Ok(ToUserDto(user, roleEntity.Name, request));
@@ -575,6 +675,9 @@ app.MapPut("/api/users/{userId}", async (
   IWebHostEnvironment environment,
   FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(request, db, "users", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
   var user = await db.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == userId && u.IsDeleted == 0);
   if (user is null) return Results.NotFound(new ApiError("User not found."));
 
@@ -632,6 +735,7 @@ app.MapPut("/api/users/{userId}", async (
   }
 
   user.UpdatedAt = DateTime.UtcNow;
+  await LogAuditAsync(db, request, "users", "Edit", user.Id, $"Updated user {user.Name}.");
   await db.SaveChangesAsync();
 
   return Results.Ok(ToUserDto(user, roleEntity.Name, request));
@@ -639,24 +743,34 @@ app.MapPut("/api/users/{userId}", async (
 
 app.MapPatch("/api/users/{userId}/status", async (string userId, UserStatusRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "users", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
   var user = await db.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == userId && u.IsDeleted == 0);
   if (user is null) return Results.NotFound(new ApiError("User not found."));
 
+  var oldStatus = user.Status;
   user.Status = string.IsNullOrWhiteSpace(request.Status) ? user.Status : request.Status.Trim();
   user.UpdatedAt = DateTime.UtcNow;
+  AddStatusHistoryIfChanged(db, httpRequest, "User", user.Id, oldStatus, user.Status);
+  await LogAuditAsync(db, httpRequest, "users", "Edit", user.Id, $"Changed user status for {user.Name}.");
   await db.SaveChangesAsync();
 
   return Results.Ok(ToUserDto(user, user.Role!.Name, httpRequest));
 });
 
-app.MapDelete("/api/users/{userId}", async (string userId, FleetDbContext db) =>
+app.MapDelete("/api/users/{userId}", async (string userId, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "users", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
   var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId && u.IsDeleted == 0);
   if (user is null) return Results.NotFound(new ApiError("User not found."));
 
   user.IsDeleted = 1;
   user.Status = "Disabled";
   user.UpdatedAt = DateTime.UtcNow;
+  await LogAuditAsync(db, httpRequest, "users", "Delete", user.Id, $"Deleted user {user.Name}.");
   await db.SaveChangesAsync();
   return Results.NoContent();
 });
@@ -771,8 +885,11 @@ app.MapGet("/api/locations/options", async (FleetDbContext db) =>
   return Results.Ok(items);
 });
 
-app.MapPost("/api/locations", async (LocationRequest request, FleetDbContext db) =>
+app.MapPost("/api/locations", async (LocationRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "location-setup", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
   var validationError = ValidateLocationRequest(request);
   if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
@@ -805,8 +922,11 @@ app.MapPost("/api/locations", async (LocationRequest request, FleetDbContext db)
   return Results.Ok(ToLocationDto(location));
 });
 
-app.MapPut("/api/locations/{id:int}", async (int id, LocationRequest request, FleetDbContext db) =>
+app.MapPut("/api/locations/{id:int}", async (int id, LocationRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "location-setup", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
   var validationError = ValidateLocationRequest(request);
   if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
@@ -838,8 +958,11 @@ app.MapPut("/api/locations/{id:int}", async (int id, LocationRequest request, Fl
   return Results.Ok(ToLocationDto(location));
 });
 
-app.MapDelete("/api/locations/{id:int}", async (int id, FleetDbContext db) =>
+app.MapDelete("/api/locations/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "location-setup", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
   var location = await db.LocationCodeOptions.FindAsync(id);
   if (location is null) return Results.NotFound(new ApiError("Location not found."));
 
@@ -901,8 +1024,11 @@ app.MapGet("/api/location-types/options", async (FleetDbContext db) =>
   return Results.Ok(items);
 });
 
-app.MapPost("/api/location-types", async (LocationTypeRequest request, FleetDbContext db) =>
+app.MapPost("/api/location-types", async (LocationTypeRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "location-type-setup", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
   var validationError = ValidateLocationTypeRequest(request);
   if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
@@ -930,8 +1056,11 @@ app.MapPost("/api/location-types", async (LocationTypeRequest request, FleetDbCo
   return Results.Ok(ToLocationTypeDto(locationType));
 });
 
-app.MapPut("/api/location-types/{id:int}", async (int id, LocationTypeRequest request, FleetDbContext db) =>
+app.MapPut("/api/location-types/{id:int}", async (int id, LocationTypeRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "location-type-setup", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
   var validationError = ValidateLocationTypeRequest(request);
   if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
@@ -956,8 +1085,11 @@ app.MapPut("/api/location-types/{id:int}", async (int id, LocationTypeRequest re
   return Results.Ok(ToLocationTypeDto(locationType));
 });
 
-app.MapDelete("/api/location-types/{id:int}", async (int id, FleetDbContext db) =>
+app.MapDelete("/api/location-types/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "location-type-setup", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
   var locationType = await db.LocationTypeCodeOptions.FindAsync(id);
   if (locationType is null) return Results.NotFound(new ApiError("Location type not found."));
 
@@ -1034,8 +1166,11 @@ app.MapGet("/api/vehicle-types/options", async (FleetDbContext db) =>
   return Results.Ok(items);
 });
 
-app.MapPost("/api/vehicle-types", async (VehicleTypeRequest request, FleetDbContext db) =>
+app.MapPost("/api/vehicle-types", async (VehicleTypeRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "vehicle-type-setup", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
   var validationError = ValidateVehicleTypeRequest(request);
   if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
@@ -1063,8 +1198,11 @@ app.MapPost("/api/vehicle-types", async (VehicleTypeRequest request, FleetDbCont
   return Results.Ok(ToVehicleTypeDto(vehicleType));
 });
 
-app.MapPut("/api/vehicle-types/{id:int}", async (int id, VehicleTypeRequest request, FleetDbContext db) =>
+app.MapPut("/api/vehicle-types/{id:int}", async (int id, VehicleTypeRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "vehicle-type-setup", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
   var validationError = ValidateVehicleTypeRequest(request);
   if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
@@ -1089,8 +1227,11 @@ app.MapPut("/api/vehicle-types/{id:int}", async (int id, VehicleTypeRequest requ
   return Results.Ok(ToVehicleTypeDto(vehicleType));
 });
 
-app.MapDelete("/api/vehicle-types/{id:int}", async (int id, FleetDbContext db) =>
+app.MapDelete("/api/vehicle-types/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "vehicle-type-setup", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
   var vehicleType = await db.VehicleTypeCodeOptions.FindAsync(id);
   if (vehicleType is null) return Results.NotFound(new ApiError("Vehicle type not found."));
 
@@ -1152,8 +1293,11 @@ app.MapGet("/api/fuel-types/options", async (FleetDbContext db) =>
   return Results.Ok(items);
 });
 
-app.MapPost("/api/fuel-types", async (FuelTypeRequest request, FleetDbContext db) =>
+app.MapPost("/api/fuel-types", async (FuelTypeRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "fuel-type-setup", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
   var validationError = ValidateFuelTypeRequest(request);
   if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
@@ -1181,8 +1325,11 @@ app.MapPost("/api/fuel-types", async (FuelTypeRequest request, FleetDbContext db
   return Results.Ok(ToFuelTypeDto(fuelType));
 });
 
-app.MapPut("/api/fuel-types/{id:int}", async (int id, FuelTypeRequest request, FleetDbContext db) =>
+app.MapPut("/api/fuel-types/{id:int}", async (int id, FuelTypeRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "fuel-type-setup", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
   var validationError = ValidateFuelTypeRequest(request);
   if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
@@ -1207,8 +1354,11 @@ app.MapPut("/api/fuel-types/{id:int}", async (int id, FuelTypeRequest request, F
   return Results.Ok(ToFuelTypeDto(fuelType));
 });
 
-app.MapDelete("/api/fuel-types/{id:int}", async (int id, FleetDbContext db) =>
+app.MapDelete("/api/fuel-types/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "fuel-type-setup", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
   var fuelType = await db.FuelTypeCodeOptions.FindAsync(id);
   if (fuelType is null) return Results.NotFound(new ApiError("Fuel type not found."));
 
@@ -1279,6 +1429,13 @@ app.MapGet("/api/document-types/options", async (FleetDbContext db) => Results.O
 app.MapPost("/api/document-types", async (TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await CreateTripSetupOption<DocumentTypeCodeOption>(request, httpRequest, db, "document-type-setup"));
 app.MapPut("/api/document-types/{id:int}", async (int id, TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await UpdateTripSetupOption<DocumentTypeCodeOption>(id, request, httpRequest, db, "document-type-setup"));
 app.MapDelete("/api/document-types/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) => await DeleteTripSetupOption<DocumentTypeCodeOption>(id, httpRequest, db, "document-type-setup"));
+
+app.MapGet("/api/suppliers", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = "id", string? sortOrder = "asc") =>
+  Results.Ok(await GetTripSetupPage<SupplierCodeOption>(db, page, pageSize, search, sortBy, sortOrder)));
+app.MapGet("/api/suppliers/options", async (FleetDbContext db) => Results.Ok(await GetTripSetupOptions<SupplierCodeOption>(db)));
+app.MapPost("/api/suppliers", async (TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await CreateTripSetupOption<SupplierCodeOption>(request, httpRequest, db, "supplier-setup"));
+app.MapPut("/api/suppliers/{id:int}", async (int id, TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await UpdateTripSetupOption<SupplierCodeOption>(id, request, httpRequest, db, "supplier-setup"));
+app.MapDelete("/api/suppliers/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) => await DeleteTripSetupOption<SupplierCodeOption>(id, httpRequest, db, "supplier-setup"));
 
 app.MapGet("/api/vehicles", async (
   HttpRequest request,
@@ -1402,6 +1559,7 @@ app.MapPost("/api/vehicles", async (
   }
 
   vehicle.UpdatedAt = DateTime.UtcNow;
+  await LogAuditAsync(db, request, "vehicles", "Create", vehicle.Id, $"Created vehicle {vehicle.Id}.");
   await db.SaveChangesAsync();
 
   return Results.Ok(ToVehicleDto(vehicle, request));
@@ -1498,6 +1656,7 @@ app.MapPut("/api/vehicles/{vehicleId}", async (
 
   vehicle.UpdatedAt = DateTime.UtcNow;
 
+  await LogAuditAsync(db, request, "vehicles", "Edit", vehicle.Id, $"Updated vehicle {vehicle.Id}.");
   await db.SaveChangesAsync();
 
   return Results.Ok(ToVehicleDto(vehicle, request));
@@ -1517,8 +1676,11 @@ app.MapPatch("/api/vehicles/{vehicleId}/status", async (string vehicleId, Vehicl
   var vehicle = await db.Vehicles.FirstOrDefaultAsync(item => item.Id == vehicleId && item.IsDeleted == 0);
   if (vehicle is null) return Results.NotFound(new ApiError("Vehicle not found."));
 
+  var oldStatus = vehicle.Status;
   vehicle.Status = normalizedStatus;
   vehicle.UpdatedAt = DateTime.UtcNow;
+  AddStatusHistoryIfChanged(db, httpRequest, "Vehicle", vehicle.Id, oldStatus, vehicle.Status);
+  await LogAuditAsync(db, httpRequest, "vehicles", "Edit", vehicle.Id, $"Changed vehicle status for {vehicle.Id}.");
   await db.SaveChangesAsync();
 
   return Results.Ok(ToVehicleDto(vehicle, httpRequest));
@@ -1534,8 +1696,407 @@ app.MapDelete("/api/vehicles/{vehicleId}", async (string vehicleId, HttpRequest 
 
   vehicle.IsDeleted = 1;
   vehicle.UpdatedAt = DateTime.UtcNow;
+  await LogAuditAsync(db, httpRequest, "vehicles", "Delete", vehicle.Id, $"Deleted vehicle {vehicle.Id}.");
   await db.SaveChangesAsync();
   return Results.NoContent();
+});
+
+app.MapGet("/api/incidents", async (
+  FleetDbContext db,
+  int page = 1,
+  int pageSize = 10,
+  string? search = null,
+  string? status = null,
+  string? severity = null,
+  string? sortBy = "date",
+  string? sortOrder = "desc") =>
+{
+  var query = db.Incidents
+    .Where(incident => incident.IsDeleted == 0)
+    .AsNoTracking()
+    .AsQueryable();
+
+  if (!string.IsNullOrWhiteSpace(search))
+  {
+    var normalizedSearch = search.Trim().ToLower();
+    query = query.Where(incident =>
+      incident.Id.ToLower().Contains(normalizedSearch) ||
+      incident.VehicleId.ToLower().Contains(normalizedSearch) ||
+      incident.Driver.ToLower().Contains(normalizedSearch) ||
+      incident.Type.ToLower().Contains(normalizedSearch) ||
+      (incident.Notes ?? string.Empty).ToLower().Contains(normalizedSearch));
+  }
+
+  if (!string.IsNullOrWhiteSpace(status) && status != "All")
+  {
+    var normalizedStatus = status.Trim().ToLower();
+    query = query.Where(incident => incident.Status.ToLower() == normalizedStatus);
+  }
+
+  if (!string.IsNullOrWhiteSpace(severity) && severity != "All")
+  {
+    var normalizedSeverity = severity.Trim().ToLower();
+    query = query.Where(incident => incident.Severity.ToLower() == normalizedSeverity);
+  }
+
+  query = (sortBy?.ToLowerInvariant(), sortOrder?.ToLowerInvariant()) switch
+  {
+    ("id", "asc") => query.OrderBy(incident => incident.Id),
+    ("id", _) => query.OrderByDescending(incident => incident.Id),
+    ("status", "asc") => query.OrderBy(incident => incident.Status),
+    ("status", _) => query.OrderByDescending(incident => incident.Status),
+    ("severity", "asc") => query.OrderBy(incident => incident.Severity),
+    ("severity", _) => query.OrderByDescending(incident => incident.Severity),
+    ("date", "asc") => query.OrderBy(incident => incident.Date),
+    _ => query.OrderByDescending(incident => incident.Date)
+  };
+
+  var total = await query.CountAsync();
+  var records = await query
+    .Skip(Math.Max(page - 1, 0) * pageSize)
+    .Take(pageSize)
+    .ToListAsync();
+
+  return Results.Ok(new PagedResult<IncidentDto>(records.Select(ToIncidentDto).ToList(), total));
+});
+
+app.MapPost("/api/incidents", async (IncidentRequest request, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "incidents", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
+  var validationError = ValidateIncidentRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var now = DateTime.UtcNow;
+  var incident = new Incident
+  {
+    Id = NextIncidentId(await db.Incidents.Select(item => item.Id).ToListAsync()),
+    VehicleId = request.VehicleId.Trim(),
+    Driver = request.Driver.Trim(),
+    Date = request.Date.Trim(),
+    Type = request.Type.Trim(),
+    Severity = request.Severity.Trim(),
+    Status = request.Status.Trim(),
+    Cost = NormalizeOptional(request.Cost),
+    Notes = NormalizeOptional(request.Notes),
+    IsDeleted = 0,
+    CreatedAt = now,
+    UpdatedAt = now
+  };
+
+  db.Incidents.Add(incident);
+  await db.SaveChangesAsync();
+  return Results.Ok(ToIncidentDto(incident));
+});
+
+app.MapPut("/api/incidents/{incidentId}", async (string incidentId, IncidentRequest request, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "incidents", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
+  var validationError = ValidateIncidentRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var incident = await db.Incidents.FirstOrDefaultAsync(item => item.Id == incidentId && item.IsDeleted == 0);
+  if (incident is null) return Results.NotFound(new ApiError("Incident not found."));
+
+  var oldStatus = incident.Status;
+  incident.VehicleId = request.VehicleId.Trim();
+  incident.Driver = request.Driver.Trim();
+  incident.Date = request.Date.Trim();
+  incident.Type = request.Type.Trim();
+  incident.Severity = request.Severity.Trim();
+  incident.Status = request.Status.Trim();
+  incident.Cost = NormalizeOptional(request.Cost);
+  incident.Notes = NormalizeOptional(request.Notes);
+  incident.UpdatedAt = DateTime.UtcNow;
+
+  AddStatusHistoryIfChanged(db, httpRequest, "Incident", incident.Id, oldStatus, incident.Status);
+  await LogAuditAsync(db, httpRequest, "incidents", "Edit", incident.Id, $"Updated incident {incident.Id}.");
+  await db.SaveChangesAsync();
+  return Results.Ok(ToIncidentDto(incident));
+});
+
+app.MapDelete("/api/incidents/{incidentId}", async (string incidentId, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "incidents", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
+  var incident = await db.Incidents.FirstOrDefaultAsync(item => item.Id == incidentId && item.IsDeleted == 0);
+  if (incident is null) return Results.NotFound(new ApiError("Incident not found."));
+
+  incident.IsDeleted = 1;
+  incident.UpdatedAt = DateTime.UtcNow;
+  await LogAuditAsync(db, httpRequest, "incidents", "Delete", incident.Id, $"Deleted incident {incident.Id}.");
+  await db.SaveChangesAsync();
+  return Results.NoContent();
+});
+
+app.MapGet("/api/expenses", async (
+  HttpRequest httpRequest,
+  FleetDbContext db,
+  int page = 1,
+  int pageSize = 10,
+  string? search = null,
+  string? status = null,
+  string? dateFrom = null,
+  string? dateTo = null) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "expenses", PermissionAction.View);
+  if (permissionError is not null) return permissionError;
+
+  var query = db.Expenses.Where(expense => expense.IsDeleted == 0).AsNoTracking().AsQueryable();
+  if (!string.IsNullOrWhiteSpace(search))
+  {
+    var normalizedSearch = search.Trim().ToLower();
+    query = query.Where(expense =>
+      expense.ExpenseType.ToLower().Contains(normalizedSearch) ||
+      (expense.VehicleId ?? string.Empty).ToLower().Contains(normalizedSearch) ||
+      (expense.TripNumber ?? string.Empty).ToLower().Contains(normalizedSearch) ||
+      (expense.DriverName ?? string.Empty).ToLower().Contains(normalizedSearch) ||
+      (expense.Notes ?? string.Empty).ToLower().Contains(normalizedSearch));
+  }
+  if (!string.IsNullOrWhiteSpace(status) && status != "All") query = query.Where(expense => expense.Status == status);
+  if (!string.IsNullOrWhiteSpace(dateFrom)) query = query.Where(expense => string.Compare(expense.ExpenseDate, dateFrom) >= 0);
+  if (!string.IsNullOrWhiteSpace(dateTo)) query = query.Where(expense => string.Compare(expense.ExpenseDate, dateTo) <= 0);
+
+  var total = await query.CountAsync();
+  var records = await query.OrderByDescending(expense => expense.ExpenseDate).Skip(Math.Max(page - 1, 0) * pageSize).Take(pageSize).ToListAsync();
+  return Results.Ok(new PagedResult<ExpenseDto>(records.Select(ToExpenseDto).ToList(), total));
+});
+
+app.MapPost("/api/expenses", async (ExpenseRequest request, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "expenses", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+  var validationError = ValidateExpenseRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var now = DateTime.UtcNow;
+  var expense = new Expense
+  {
+    ExpenseDate = request.ExpenseDate.Trim(),
+    ExpenseType = request.ExpenseType.Trim(),
+    VehicleId = NormalizeOptional(request.VehicleId),
+    TripNumber = NormalizeOptional(request.TripNumber),
+    DriverName = NormalizeOptional(request.DriverName),
+    Amount = request.Amount,
+    Status = request.Status.Trim(),
+    Notes = NormalizeOptional(request.Notes),
+    CreatedAt = now,
+    UpdatedAt = now
+  };
+  db.Expenses.Add(expense);
+  await db.SaveChangesAsync();
+  await LogAuditAsync(db, httpRequest, "expenses", "Create", expense.Id.ToString(), $"Created expense {expense.ExpenseType}.");
+  await db.SaveChangesAsync();
+  return Results.Ok(ToExpenseDto(expense));
+});
+
+app.MapPut("/api/expenses/{id:int}", async (int id, ExpenseRequest request, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "expenses", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+  var validationError = ValidateExpenseRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var expense = await db.Expenses.FirstOrDefaultAsync(item => item.Id == id && item.IsDeleted == 0);
+  if (expense is null) return Results.NotFound(new ApiError("Expense not found."));
+  var oldStatus = expense.Status;
+  expense.ExpenseDate = request.ExpenseDate.Trim();
+  expense.ExpenseType = request.ExpenseType.Trim();
+  expense.VehicleId = NormalizeOptional(request.VehicleId);
+  expense.TripNumber = NormalizeOptional(request.TripNumber);
+  expense.DriverName = NormalizeOptional(request.DriverName);
+  expense.Amount = request.Amount;
+  expense.Status = request.Status.Trim();
+  expense.Notes = NormalizeOptional(request.Notes);
+  expense.UpdatedAt = DateTime.UtcNow;
+  AddStatusHistoryIfChanged(db, httpRequest, "Expense", expense.Id.ToString(), oldStatus, expense.Status);
+  await LogAuditAsync(db, httpRequest, "expenses", "Edit", expense.Id.ToString(), $"Updated expense {expense.ExpenseType}.");
+  await db.SaveChangesAsync();
+  return Results.Ok(ToExpenseDto(expense));
+});
+
+app.MapDelete("/api/expenses/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "expenses", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+  var expense = await db.Expenses.FirstOrDefaultAsync(item => item.Id == id && item.IsDeleted == 0);
+  if (expense is null) return Results.NotFound(new ApiError("Expense not found."));
+  expense.IsDeleted = 1;
+  expense.UpdatedAt = DateTime.UtcNow;
+  await LogAuditAsync(db, httpRequest, "expenses", "Delete", expense.Id.ToString(), $"Deleted expense {expense.ExpenseType}.");
+  await db.SaveChangesAsync();
+  return Results.NoContent();
+});
+
+app.MapGet("/api/documents", async (
+  HttpRequest httpRequest,
+  FleetDbContext db,
+  string? ownerType = null,
+  string? search = null,
+  string? status = null,
+  int page = 1,
+  int pageSize = 10) =>
+{
+  var moduleKey = ownerType == "Driver" ? "driver-documents" : "vehicle-documents";
+  var permissionError = await RequirePermissionAsync(httpRequest, db, moduleKey, PermissionAction.View);
+  if (permissionError is not null) return permissionError;
+
+  var query = db.FleetDocuments.Where(document => document.IsDeleted == 0).AsNoTracking().AsQueryable();
+  if (!string.IsNullOrWhiteSpace(ownerType)) query = query.Where(document => document.OwnerType == ownerType);
+  if (!string.IsNullOrWhiteSpace(status) && status != "All") query = query.Where(document => document.Status == status);
+  if (!string.IsNullOrWhiteSpace(search))
+  {
+    var normalizedSearch = search.Trim().ToLower();
+    query = query.Where(document =>
+      document.OwnerId.ToLower().Contains(normalizedSearch) ||
+      document.OwnerName.ToLower().Contains(normalizedSearch) ||
+      document.DocumentType.ToLower().Contains(normalizedSearch) ||
+      (document.DocumentNumber ?? string.Empty).ToLower().Contains(normalizedSearch));
+  }
+  var total = await query.CountAsync();
+  var records = await query.OrderBy(document => document.ExpiryDate).Skip(Math.Max(page - 1, 0) * pageSize).Take(pageSize).ToListAsync();
+  return Results.Ok(new PagedResult<FleetDocumentDto>(records.Select(ToFleetDocumentDto).ToList(), total));
+});
+
+app.MapPost("/api/documents", async (FleetDocumentRequest request, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var moduleKey = request.OwnerType == "Driver" ? "driver-documents" : "vehicle-documents";
+  var permissionError = await RequirePermissionAsync(httpRequest, db, moduleKey, PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+  var validationError = ValidateFleetDocumentRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+  var now = DateTime.UtcNow;
+  var document = new FleetDocument
+  {
+    OwnerType = request.OwnerType.Trim(),
+    OwnerId = request.OwnerId.Trim(),
+    OwnerName = request.OwnerName.Trim(),
+    DocumentType = request.DocumentType.Trim(),
+    DocumentNumber = NormalizeOptional(request.DocumentNumber),
+    IssueDate = NormalizeOptional(request.IssueDate),
+    ExpiryDate = NormalizeOptional(request.ExpiryDate),
+    Status = request.Status.Trim(),
+    Notes = NormalizeOptional(request.Notes),
+    CreatedAt = now,
+    UpdatedAt = now
+  };
+  db.FleetDocuments.Add(document);
+  await db.SaveChangesAsync();
+  await LogAuditAsync(db, httpRequest, moduleKey, "Create", document.Id.ToString(), $"Created {document.OwnerType} document {document.DocumentType}.");
+  await db.SaveChangesAsync();
+  return Results.Ok(ToFleetDocumentDto(document));
+});
+
+app.MapPut("/api/documents/{id:int}", async (int id, FleetDocumentRequest request, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var moduleKey = request.OwnerType == "Driver" ? "driver-documents" : "vehicle-documents";
+  var permissionError = await RequirePermissionAsync(httpRequest, db, moduleKey, PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+  var validationError = ValidateFleetDocumentRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+  var document = await db.FleetDocuments.FirstOrDefaultAsync(item => item.Id == id && item.IsDeleted == 0);
+  if (document is null) return Results.NotFound(new ApiError("Document not found."));
+  var oldStatus = document.Status;
+  document.OwnerType = request.OwnerType.Trim();
+  document.OwnerId = request.OwnerId.Trim();
+  document.OwnerName = request.OwnerName.Trim();
+  document.DocumentType = request.DocumentType.Trim();
+  document.DocumentNumber = NormalizeOptional(request.DocumentNumber);
+  document.IssueDate = NormalizeOptional(request.IssueDate);
+  document.ExpiryDate = NormalizeOptional(request.ExpiryDate);
+  document.Status = request.Status.Trim();
+  document.Notes = NormalizeOptional(request.Notes);
+  document.UpdatedAt = DateTime.UtcNow;
+  AddStatusHistoryIfChanged(db, httpRequest, "Document", document.Id.ToString(), oldStatus, document.Status);
+  await LogAuditAsync(db, httpRequest, moduleKey, "Edit", document.Id.ToString(), $"Updated {document.OwnerType} document {document.DocumentType}.");
+  await db.SaveChangesAsync();
+  return Results.Ok(ToFleetDocumentDto(document));
+});
+
+app.MapDelete("/api/documents/{id:int}", async (int id, string ownerType, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var moduleKey = ownerType == "Driver" ? "driver-documents" : "vehicle-documents";
+  var permissionError = await RequirePermissionAsync(httpRequest, db, moduleKey, PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+  var document = await db.FleetDocuments.FirstOrDefaultAsync(item => item.Id == id && item.IsDeleted == 0);
+  if (document is null) return Results.NotFound(new ApiError("Document not found."));
+  document.IsDeleted = 1;
+  document.UpdatedAt = DateTime.UtcNow;
+  await LogAuditAsync(db, httpRequest, moduleKey, "Delete", document.Id.ToString(), $"Deleted {document.OwnerType} document {document.DocumentType}.");
+  await db.SaveChangesAsync();
+  return Results.NoContent();
+});
+
+app.MapGet("/api/audit-logs", async (HttpRequest httpRequest, FleetDbContext db, string? module = null, int page = 1, int pageSize = 20) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "audit-logs", PermissionAction.View);
+  if (permissionError is not null) return permissionError;
+
+  var query = db.AuditLogs.AsNoTracking().AsQueryable();
+  if (!string.IsNullOrWhiteSpace(module) && module != "All") query = query.Where(log => log.ModuleKey == module);
+  var total = await query.CountAsync();
+  var records = await query.OrderByDescending(log => log.CreatedAt).Skip(Math.Max(page - 1, 0) * pageSize).Take(pageSize).ToListAsync();
+  return Results.Ok(new PagedResult<AuditLogDto>(records.Select(ToAuditLogDto).ToList(), total));
+});
+
+app.MapGet("/api/status-history", async (HttpRequest httpRequest, FleetDbContext db, string? entityType = null, string? entityId = null, int page = 1, int pageSize = 20) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "audit-logs", PermissionAction.View);
+  if (permissionError is not null) return permissionError;
+
+  var query = db.StatusHistories.AsNoTracking().AsQueryable();
+  if (!string.IsNullOrWhiteSpace(entityType)) query = query.Where(history => history.EntityType == entityType);
+  if (!string.IsNullOrWhiteSpace(entityId)) query = query.Where(history => history.EntityId == entityId);
+  var total = await query.CountAsync();
+  var records = await query.OrderByDescending(history => history.CreatedAt).Skip(Math.Max(page - 1, 0) * pageSize).Take(pageSize).ToListAsync();
+  return Results.Ok(new PagedResult<StatusHistoryDto>(records.Select(ToStatusHistoryDto).ToList(), total));
+});
+
+app.MapGet("/api/reports/{reportType}", async (
+  string reportType,
+  HttpRequest httpRequest,
+  FleetDbContext db,
+  string? dateFrom = null,
+  string? dateTo = null,
+  string? status = null,
+  string? vehicleId = null,
+  string? driver = null) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "reports", PermissionAction.View);
+  if (permissionError is not null) return permissionError;
+
+  DateTime? parsedDateFrom = DateTime.TryParse(dateFrom, out var startDate) ? startDate.Date : null;
+  DateTime? parsedDateTo = DateTime.TryParse(dateTo, out var endDate) ? endDate.Date.AddDays(1).AddTicks(-1) : null;
+
+  object rows = reportType.ToLowerInvariant() switch
+  {
+    "vehicles" => await db.Vehicles.AsNoTracking()
+      .Where(item => item.IsDeleted == 0 && (string.IsNullOrWhiteSpace(status) || item.Status == status) && (parsedDateFrom == null || item.CreatedAt >= parsedDateFrom) && (parsedDateTo == null || item.CreatedAt <= parsedDateTo))
+      .Select(item => new { item.Id, item.Plate, item.Type, item.Status, item.Driver, item.Depot })
+      .ToListAsync(),
+    "trips" => await db.Trips.AsNoTracking()
+      .Where(item => item.IsDeleted == 0 && (string.IsNullOrWhiteSpace(status) || item.Status == status) && (string.IsNullOrWhiteSpace(vehicleId) || item.VehicleId == vehicleId) && (string.IsNullOrWhiteSpace(driver) || item.DriverName == driver) && (string.IsNullOrWhiteSpace(dateFrom) || string.Compare(item.DepartureDateTime, dateFrom) >= 0) && (string.IsNullOrWhiteSpace(dateTo) || string.Compare(item.DepartureDateTime, dateTo) <= 0))
+      .Select(item => new { item.TripNumber, item.VehicleId, item.DriverName, item.Status, item.PickupLocation, item.DropoffLocation })
+      .ToListAsync(),
+    "maintenance" => await db.MaintenanceTickets.AsNoTracking()
+      .Where(item => item.IsDeleted == 0 && (string.IsNullOrWhiteSpace(status) || item.Status == status) && (string.IsNullOrWhiteSpace(vehicleId) || item.VehicleId == vehicleId) && (string.IsNullOrWhiteSpace(dateFrom) || string.Compare(item.ReportedDate, dateFrom) >= 0) && (string.IsNullOrWhiteSpace(dateTo) || string.Compare(item.ReportedDate, dateTo) <= 0))
+      .Select(item => new { item.Id, item.VehicleId, item.Issue, item.Mechanic, item.Status, item.ReportedDate })
+      .ToListAsync(),
+    "drivers" => await db.Users.AsNoTracking().Include(item => item.Role)
+      .Where(item => item.IsDeleted == 0 && item.Role != null && item.Role.Name == "Driver" && (string.IsNullOrWhiteSpace(status) || item.Status == status) && (parsedDateFrom == null || item.CreatedAt >= parsedDateFrom) && (parsedDateTo == null || item.CreatedAt <= parsedDateTo))
+      .Select(item => new { item.EmployeeId, item.Name, item.Email, item.Phone, item.Status, item.LicenseExpiry })
+      .ToListAsync(),
+    "expenses" => await db.Expenses.AsNoTracking()
+      .Where(item => item.IsDeleted == 0 && (string.IsNullOrWhiteSpace(status) || item.Status == status) && (string.IsNullOrWhiteSpace(vehicleId) || item.VehicleId == vehicleId) && (string.IsNullOrWhiteSpace(driver) || item.DriverName == driver) && (string.IsNullOrWhiteSpace(dateFrom) || string.Compare(item.ExpenseDate, dateFrom) >= 0) && (string.IsNullOrWhiteSpace(dateTo) || string.Compare(item.ExpenseDate, dateTo) <= 0))
+      .Select(item => new { item.ExpenseDate, item.ExpenseType, item.VehicleId, item.TripNumber, item.DriverName, item.Amount, item.Status })
+      .ToListAsync(),
+    _ => Array.Empty<object>()
+  };
+  return Results.Ok(rows);
 });
 
 app.MapGet("/api/trips", async (
@@ -1610,6 +2171,7 @@ app.MapPost("/api/trips", async (TripRequest request, HttpRequest httpRequest, F
   var trip = ApplyTripRequest(new Trip { CreatedAt = now, IsDeleted = 0 }, request);
   trip.UpdatedAt = now;
   db.Trips.Add(trip);
+  await LogAuditAsync(db, httpRequest, "trips", "Create", request.TripNumber!.Trim(), $"Created trip {request.TripNumber!.Trim()}.");
   await db.SaveChangesAsync();
   return Results.Ok(ToTripDto(trip));
 });
@@ -1626,8 +2188,11 @@ app.MapPut("/api/trips/{id:int}", async (int id, TripRequest request, HttpReques
   var duplicate = await db.Trips.AnyAsync(item => item.Id != id && item.IsDeleted == 0 && item.TripNumber.ToLower() == request.TripNumber!.Trim().ToLower());
   if (duplicate) return Results.BadRequest(new ApiError("Trip number already exists."));
 
+  var oldStatus = trip.Status;
   ApplyTripRequest(trip, request);
   trip.UpdatedAt = DateTime.UtcNow;
+  AddStatusHistoryIfChanged(db, httpRequest, "Trip", trip.Id.ToString(), oldStatus, trip.Status);
+  await LogAuditAsync(db, httpRequest, "trips", "Edit", trip.Id.ToString(), $"Updated trip {trip.TripNumber}.");
   await db.SaveChangesAsync();
   return Results.Ok(ToTripDto(trip));
 });
@@ -1641,6 +2206,146 @@ app.MapDelete("/api/trips/{id:int}", async (int id, HttpRequest httpRequest, Fle
   if (trip is null) return Results.NotFound(new ApiError("Trip not found."));
   trip.IsDeleted = 1;
   trip.UpdatedAt = DateTime.UtcNow;
+  await LogAuditAsync(db, httpRequest, "trips", "Delete", trip.Id.ToString(), $"Deleted trip {trip.TripNumber}.");
+  await db.SaveChangesAsync();
+  return Results.NoContent();
+});
+
+app.MapGet("/api/inventory-parts", async (
+  HttpRequest httpRequest,
+  FleetDbContext db,
+  string? search = null,
+  string? category = null,
+  string? stock = null) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "inventory-parts", PermissionAction.View);
+  if (permissionError is not null) return permissionError;
+
+  var query = db.InventoryParts
+    .Where(part => part.IsDeleted == 0)
+    .AsNoTracking()
+    .AsQueryable();
+
+  if (!string.IsNullOrWhiteSpace(search))
+  {
+    var normalizedSearch = search.Trim().ToLower();
+    query = query.Where(part =>
+      part.Name.ToLower().Contains(normalizedSearch) ||
+      part.PartNo.ToLower().Contains(normalizedSearch) ||
+      part.Category.ToLower().Contains(normalizedSearch) ||
+      (part.Supplier ?? string.Empty).ToLower().Contains(normalizedSearch) ||
+      (part.Location ?? string.Empty).ToLower().Contains(normalizedSearch));
+  }
+
+  if (!string.IsNullOrWhiteSpace(category) && category != "All")
+  {
+    query = query.Where(part => part.Category == category);
+  }
+
+  if (stock == "Low")
+  {
+    query = query.Where(part => part.Stock <= part.ReorderPoint);
+  }
+  else if (stock == "Healthy")
+  {
+    query = query.Where(part => part.Stock > part.ReorderPoint);
+  }
+
+  var items = await query
+    .OrderBy(part => part.Name)
+    .ToListAsync();
+
+  return Results.Ok(items.Select(part => ToInventoryPartDto(part, httpRequest)).ToList());
+});
+
+app.MapPost("/api/inventory-parts", async ([FromForm] InventoryPartForm form, HttpRequest httpRequest, FleetDbContext db, IWebHostEnvironment environment) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "inventory-parts", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
+  var validationError = ValidateInventoryPartRequest(form);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var duplicate = await db.InventoryParts.AnyAsync(part =>
+    part.IsDeleted == 0 && part.PartNo.ToLower() == form.PartNo.Trim().ToLower());
+  if (duplicate) return Results.BadRequest(new ApiError("Part number already exists."));
+
+  var now = DateTime.UtcNow;
+  var partId = NextInventoryPartId(await db.InventoryParts.Select(item => item.Id).ToListAsync());
+  var part = new InventoryPart
+  {
+    Id = partId,
+    Name = form.Name.Trim(),
+    PartNo = form.PartNo.Trim(),
+    Category = form.Category.Trim(),
+    Stock = form.Stock,
+    ReorderPoint = form.ReorderPoint,
+    Supplier = NormalizeOptional(form.Supplier),
+    UnitCost = NormalizeOptional(form.UnitCost),
+    Location = NormalizeOptional(form.Location),
+    IsDeleted = 0,
+    CreatedAt = now,
+    UpdatedAt = now
+  };
+  if (form.ImageFile is not null)
+  {
+    part.Image = await UserAssetStorage.SaveImageAsync(form.ImageFile, "inventory-parts", partId, "part-image", environment);
+  }
+
+  db.InventoryParts.Add(part);
+  await LogAuditAsync(db, httpRequest, "inventory-parts", "Create", part.Id, $"Created inventory part {part.Name}.");
+  await db.SaveChangesAsync();
+  return Results.Ok(ToInventoryPartDto(part, httpRequest));
+}).DisableAntiforgery();
+
+app.MapPut("/api/inventory-parts/{partId}", async (string partId, [FromForm] InventoryPartForm form, HttpRequest httpRequest, FleetDbContext db, IWebHostEnvironment environment) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "inventory-parts", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
+  var validationError = ValidateInventoryPartRequest(form);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var part = await db.InventoryParts.FirstOrDefaultAsync(item => item.Id == partId && item.IsDeleted == 0);
+  if (part is null) return Results.NotFound(new ApiError("Inventory part not found."));
+
+  var duplicate = await db.InventoryParts.AnyAsync(item =>
+    item.Id != partId &&
+    item.IsDeleted == 0 &&
+    item.PartNo.ToLower() == form.PartNo.Trim().ToLower());
+  if (duplicate) return Results.BadRequest(new ApiError("Part number already exists."));
+
+  part.Name = form.Name.Trim();
+  part.PartNo = form.PartNo.Trim();
+  part.Category = form.Category.Trim();
+  part.Stock = form.Stock;
+  part.ReorderPoint = form.ReorderPoint;
+  part.Supplier = NormalizeOptional(form.Supplier);
+  part.UnitCost = NormalizeOptional(form.UnitCost);
+  part.Location = NormalizeOptional(form.Location);
+  if (form.RemoveImage) part.Image = null;
+  if (form.ImageFile is not null)
+  {
+    part.Image = await UserAssetStorage.SaveImageAsync(form.ImageFile, "inventory-parts", part.Id, "part-image", environment);
+  }
+  part.UpdatedAt = DateTime.UtcNow;
+
+  await LogAuditAsync(db, httpRequest, "inventory-parts", "Edit", part.Id, $"Updated inventory part {part.Name}.");
+  await db.SaveChangesAsync();
+  return Results.Ok(ToInventoryPartDto(part, httpRequest));
+}).DisableAntiforgery();
+
+app.MapDelete("/api/inventory-parts/{partId}", async (string partId, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "inventory-parts", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
+  var part = await db.InventoryParts.FirstOrDefaultAsync(item => item.Id == partId && item.IsDeleted == 0);
+  if (part is null) return Results.NotFound(new ApiError("Inventory part not found."));
+
+  part.IsDeleted = 1;
+  part.UpdatedAt = DateTime.UtcNow;
+  await LogAuditAsync(db, httpRequest, "inventory-parts", "Delete", part.Id, $"Deleted inventory part {part.Name}.");
   await db.SaveChangesAsync();
   return Results.NoContent();
 });
@@ -1737,6 +2442,7 @@ app.MapPost("/api/maintenance-tickets", async (MaintenanceTicketRequest request,
   };
 
   db.MaintenanceTickets.Add(ticket);
+  await LogAuditAsync(db, httpRequest, "maintenance-tickets", "Create", ticket.Id, $"Created maintenance ticket {ticket.Id}.");
   await db.SaveChangesAsync();
 
   return Results.Ok(ToMaintenanceTicketDto(ticket));
@@ -1762,6 +2468,7 @@ app.MapPut("/api/maintenance-tickets/{ticketId}", async (string ticketId, Mainte
   ticket.Status = request.Status.Trim();
   ticket.UpdatedAt = DateTime.UtcNow;
 
+  await LogAuditAsync(db, httpRequest, "maintenance-tickets", "Edit", ticket.Id, $"Updated maintenance ticket {ticket.Id}.");
   await db.SaveChangesAsync();
 
   return Results.Ok(ToMaintenanceTicketDto(ticket));
@@ -1781,8 +2488,11 @@ app.MapPatch("/api/maintenance-tickets/{ticketId}/status", async (string ticketI
   var ticket = await db.MaintenanceTickets.FirstOrDefaultAsync(item => item.Id == ticketId && item.IsDeleted == 0);
   if (ticket is null) return Results.NotFound(new ApiError("Ticket not found."));
 
+  var oldStatus = ticket.Status;
   ticket.Status = normalizedStatus;
   ticket.UpdatedAt = DateTime.UtcNow;
+  AddStatusHistoryIfChanged(db, httpRequest, "MaintenanceTicket", ticket.Id, oldStatus, ticket.Status);
+  await LogAuditAsync(db, httpRequest, "maintenance-tickets", "Edit", ticket.Id, $"Changed maintenance ticket status {ticket.Id}.");
   await db.SaveChangesAsync();
 
   return Results.Ok(ToMaintenanceTicketDto(ticket));
@@ -1798,6 +2508,7 @@ app.MapDelete("/api/maintenance-tickets/{ticketId}", async (string ticketId, Htt
 
   ticket.IsDeleted = 1;
   ticket.UpdatedAt = DateTime.UtcNow;
+  await LogAuditAsync(db, httpRequest, "maintenance-tickets", "Delete", ticket.Id, $"Deleted maintenance ticket {ticket.Id}.");
   await db.SaveChangesAsync();
   return Results.NoContent();
 });
@@ -1825,6 +2536,7 @@ static async Task<IResult?> RequirePermissionAsync(
   var defaultPermission = GetDefaultPermission(roleId, moduleKey);
   var allowed = action switch
   {
+    PermissionAction.View => savedPermission?.CanView ?? defaultPermission.CanView,
     PermissionAction.Create => savedPermission?.CanCreate ?? defaultPermission.CanCreate,
     PermissionAction.Edit => savedPermission?.CanEdit ?? defaultPermission.CanEdit,
     PermissionAction.Delete => savedPermission?.CanDelete ?? defaultPermission.CanDelete,
@@ -2005,6 +2717,70 @@ static MaintenanceTicketDto ToMaintenanceTicketDto(MaintenanceTicket ticket) =>
     ticket.CreatedAt,
     ticket.UpdatedAt);
 
+static InventoryPartDto ToInventoryPartDto(InventoryPart part, HttpRequest request) =>
+  new(
+    part.Id,
+    part.Name,
+    part.PartNo,
+    part.Category,
+    part.Stock,
+    part.ReorderPoint,
+    part.Supplier,
+    part.UnitCost,
+    part.Location,
+    ToPublicAssetUrl(request, part.Image),
+    part.CreatedAt,
+    part.UpdatedAt);
+
+static IncidentDto ToIncidentDto(Incident incident) =>
+  new(
+    incident.Id,
+    incident.VehicleId,
+    incident.Driver,
+    incident.Date,
+    incident.Type,
+    incident.Severity,
+    incident.Status,
+    incident.Cost,
+    incident.Notes,
+    incident.CreatedAt,
+    incident.UpdatedAt);
+
+static ExpenseDto ToExpenseDto(Expense expense) =>
+  new(
+    expense.Id,
+    expense.ExpenseDate,
+    expense.ExpenseType,
+    expense.VehicleId,
+    expense.TripNumber,
+    expense.DriverName,
+    expense.Amount,
+    expense.Status,
+    expense.Notes,
+    expense.CreatedAt,
+    expense.UpdatedAt);
+
+static FleetDocumentDto ToFleetDocumentDto(FleetDocument document) =>
+  new(
+    document.Id,
+    document.OwnerType,
+    document.OwnerId,
+    document.OwnerName,
+    document.DocumentType,
+    document.DocumentNumber,
+    document.IssueDate,
+    document.ExpiryDate,
+    document.Status,
+    document.Notes,
+    document.CreatedAt,
+    document.UpdatedAt);
+
+static AuditLogDto ToAuditLogDto(AuditLog log) =>
+  new(log.Id, log.RoleId, log.ModuleKey, log.Action, log.EntityId, log.Description, log.CreatedAt);
+
+static StatusHistoryDto ToStatusHistoryDto(StatusHistory history) =>
+  new(history.Id, history.EntityType, history.EntityId, history.OldStatus, history.NewStatus, history.RoleId, history.CreatedAt);
+
 static string NextEmployeeId(IEnumerable<string> existingEmployeeIds)
 {
   var max = existingEmployeeIds
@@ -2038,6 +2814,40 @@ static string NextMaintenanceTicketId(IEnumerable<string> existingIds)
     .Max();
 
   return $"MT-{max + 1}";
+}
+
+static string NextInventoryPartId(IEnumerable<string> existingIds)
+{
+  var max = existingIds
+    .Select(value =>
+    {
+      if (string.IsNullOrWhiteSpace(value)) return 0;
+      var normalized = value.StartsWith("PRT-", StringComparison.OrdinalIgnoreCase)
+        ? value[4..]
+        : value;
+      return int.TryParse(normalized, out var number) ? number : 0;
+    })
+    .DefaultIfEmpty(4000)
+    .Max();
+
+  return $"PRT-{max + 1}";
+}
+
+static string NextIncidentId(IEnumerable<string> existingIds)
+{
+  var max = existingIds
+    .Select(value =>
+    {
+      if (string.IsNullOrWhiteSpace(value)) return 0;
+      var normalized = value.StartsWith("INC-", StringComparison.OrdinalIgnoreCase)
+        ? value[4..]
+        : value;
+      return int.TryParse(normalized, out var number) ? number : 0;
+    })
+    .DefaultIfEmpty(1000)
+    .Max();
+
+  return $"INC-{max + 1}";
 }
 
 static string NextVehicleId(IEnumerable<string> existingIds)
@@ -2271,6 +3081,7 @@ static async Task<IResult> CreateTripSetupOption<T>(TripSetupRequest request, Ht
     CreatedAt = DateTimeOffset.UtcNow
   };
   db.Set<T>().Add(option);
+  await LogAuditAsync(db, httpRequest, moduleKey, "Create", normalizedCode, $"Created setup option {normalizedName}.");
   await db.SaveChangesAsync();
   return Results.Ok(ToTripSetupDto(option));
 }
@@ -2294,6 +3105,7 @@ static async Task<IResult> UpdateTripSetupOption<T>(int id, TripSetupRequest req
   option.Description = NormalizeOptional(request.Description);
   option.Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim();
   option.UpdatedAt = DateTimeOffset.UtcNow;
+  await LogAuditAsync(db, httpRequest, moduleKey, "Edit", option.Id.ToString(), $"Updated setup option {normalizedName}.");
   await db.SaveChangesAsync();
   return Results.Ok(ToTripSetupDto(option));
 }
@@ -2306,6 +3118,7 @@ static async Task<IResult> DeleteTripSetupOption<T>(int id, HttpRequest httpRequ
 
   var option = await db.Set<T>().FindAsync(id);
   if (option is null) return Results.NotFound(new ApiError("Setup option not found."));
+  await LogAuditAsync(db, httpRequest, moduleKey, "Delete", option.Id.ToString(), $"Deleted setup option {option.Name}.");
   db.Set<T>().Remove(option);
   await db.SaveChangesAsync();
   return Results.NoContent();
@@ -2320,6 +3133,10 @@ static IReadOnlyList<PermissionModuleDefinition> GetPermissionModules() =>
   new("inventory-parts", "Inventory & Parts", "Maintenance"),
   new("incidents", "Incidents", "Maintenance"),
   new("reports", "Reports", "Reports"),
+  new("expenses", "Expenses", "Reports"),
+  new("vehicle-documents", "Vehicle Documents", "Compliance"),
+  new("driver-documents", "Driver Documents", "Compliance"),
+  new("audit-logs", "Audit Logs", "Administration"),
   new("users", "Users", "Administration"),
   new("roles", "Roles", "Administration"),
   new("permissions", "Permissions", "Administration"),
@@ -2337,6 +3154,7 @@ static IReadOnlyList<PermissionModuleDefinition> GetPermissionModules() =>
   new("expense-type-setup", "Expense Type Setup", "Setup"),
   new("maintenance-type-setup", "Maintenance Type Setup", "Setup"),
   new("document-type-setup", "Document Type Setup", "Setup"),
+  new("supplier-setup", "Supplier Setup", "Setup"),
   new("settings", "Settings", "Administration")
 ];
 
@@ -2417,9 +3235,9 @@ static RolePermissionDto GetDefaultPermission(string roleId, string moduleKey)
 
   return roleId.ToLowerInvariant() switch
   {
-    "dispatcher" when moduleKey is "dashboard" or "vehicles" or "trips" or "reports" or "location-setup" => viewOnly with { CanCreate = moduleKey == "trips", CanEdit = moduleKey == "trips" },
-    "driver" when moduleKey is "dashboard" or "trips" or "vehicles" => viewOnly,
-    "mechanic" when moduleKey is "dashboard" or "vehicles" or "maintenance-tickets" or "inventory-parts" or "incidents" => viewOnly with { CanCreate = moduleKey is "maintenance-tickets" or "incidents", CanEdit = moduleKey is "maintenance-tickets" or "inventory-parts" or "incidents" },
+    "dispatcher" when moduleKey is "dashboard" or "vehicles" or "trips" or "reports" or "expenses" or "vehicle-documents" or "driver-documents" or "location-setup" => viewOnly with { CanCreate = moduleKey is "trips" or "expenses", CanEdit = moduleKey is "trips" or "expenses" },
+    "driver" when moduleKey is "dashboard" or "trips" or "vehicles" or "driver-documents" => viewOnly,
+    "mechanic" when moduleKey is "dashboard" or "vehicles" or "maintenance-tickets" or "inventory-parts" or "incidents" or "vehicle-documents" => viewOnly with { CanCreate = moduleKey is "maintenance-tickets" or "incidents", CanEdit = moduleKey is "maintenance-tickets" or "inventory-parts" or "incidents" },
     _ => none
   };
 }
@@ -2455,6 +3273,115 @@ static string? ValidateMaintenanceTicketRequest(MaintenanceTicketRequest request
   return string.IsNullOrWhiteSpace(normalizedStatus) ? "Ticket status is required." : null;
 }
 
+static string? ValidateInventoryPartRequest(InventoryPartForm request)
+{
+  if (string.IsNullOrWhiteSpace(request.Name)) return "Part name is required.";
+  if (string.IsNullOrWhiteSpace(request.PartNo)) return "Part number is required.";
+  if (string.IsNullOrWhiteSpace(request.Category)) return "Category is required.";
+  if (request.Stock < 0) return "Stock cannot be negative.";
+  if (request.ReorderPoint < 0) return "Reorder point cannot be negative.";
+  if (!string.IsNullOrWhiteSpace(request.Supplier) && request.Supplier.Trim().Length > 160) return "Supplier must be 160 characters or fewer.";
+  if (!string.IsNullOrWhiteSpace(request.Location) && request.Location.Trim().Length > 160) return "Location must be 160 characters or fewer.";
+  return null;
+}
+
+static string? ValidateIncidentRequest(IncidentRequest request)
+{
+  if (string.IsNullOrWhiteSpace(request.VehicleId)) return "Vehicle is required.";
+  if (string.IsNullOrWhiteSpace(request.Driver)) return "Driver is required.";
+  if (string.IsNullOrWhiteSpace(request.Date)) return "Incident date is required.";
+  if (string.IsNullOrWhiteSpace(request.Type)) return "Incident type is required.";
+  if (string.IsNullOrWhiteSpace(request.Severity)) return "Severity is required.";
+  if (string.IsNullOrWhiteSpace(request.Status)) return "Status is required.";
+  if (!string.IsNullOrWhiteSpace(request.Notes) && request.Notes.Trim().Length > 1000) return "Notes must be 1000 characters or fewer.";
+  return null;
+}
+
+static string? ValidateExpenseRequest(ExpenseRequest request)
+{
+  if (string.IsNullOrWhiteSpace(request.ExpenseDate)) return "Expense date is required.";
+  if (string.IsNullOrWhiteSpace(request.ExpenseType)) return "Expense type is required.";
+  if (request.Amount < 0) return "Expense amount cannot be negative.";
+  if (string.IsNullOrWhiteSpace(request.Status)) return "Status is required.";
+  if (!string.IsNullOrWhiteSpace(request.Notes) && request.Notes.Trim().Length > 1000) return "Notes must be 1000 characters or fewer.";
+  return null;
+}
+
+static string? ValidateFleetDocumentRequest(FleetDocumentRequest request)
+{
+  if (request.OwnerType is not ("Vehicle" or "Driver")) return "Document owner type must be Vehicle or Driver.";
+  if (string.IsNullOrWhiteSpace(request.OwnerId)) return "Owner ID is required.";
+  if (string.IsNullOrWhiteSpace(request.OwnerName)) return "Owner name is required.";
+  if (string.IsNullOrWhiteSpace(request.DocumentType)) return "Document type is required.";
+  if (string.IsNullOrWhiteSpace(request.Status)) return "Status is required.";
+  if (!string.IsNullOrWhiteSpace(request.Notes) && request.Notes.Trim().Length > 1000) return "Notes must be 1000 characters or fewer.";
+  return null;
+}
+
+static async Task<T> SafeDashboardValueAsync<T>(Func<Task<T>> load, T fallback)
+{
+  try
+  {
+    return await load();
+  }
+  catch
+  {
+    return fallback;
+  }
+}
+
+static Task LogAuditAsync(FleetDbContext db, HttpRequest request, string moduleKey, string action, string entityId, string description)
+{
+  db.AuditLogs.Add(new AuditLog
+  {
+    RoleId = GetRequestRoleId(request),
+    ModuleKey = moduleKey,
+    Action = action,
+    EntityId = entityId,
+    Description = description,
+    CreatedAt = DateTime.UtcNow
+  });
+  return Task.CompletedTask;
+}
+
+static void AddStatusHistoryIfChanged(FleetDbContext db, HttpRequest request, string entityType, string entityId, string? oldStatus, string newStatus)
+{
+  if (string.Equals(oldStatus, newStatus, StringComparison.OrdinalIgnoreCase)) return;
+  db.StatusHistories.Add(new StatusHistory
+  {
+    EntityType = entityType,
+    EntityId = entityId,
+    OldStatus = oldStatus,
+    NewStatus = newStatus,
+    RoleId = GetRequestRoleId(request),
+    CreatedAt = DateTime.UtcNow
+  });
+}
+
+static string GetRequestRoleId(HttpRequest request) =>
+  request.Headers.TryGetValue("X-Fleet-Role-Id", out var roleId) && !string.IsNullOrWhiteSpace(roleId.ToString())
+    ? roleId.ToString()
+    : "system";
+
+static IEnumerable<DashboardUpcomingExpiryDto> GetUpcomingVehicleExpiries(Vehicle vehicle)
+{
+  foreach (var expiry in GetVehicleExpiryCandidates(vehicle))
+  {
+    if (!DateTime.TryParse(expiry.Date, out var parsedDate)) continue;
+    var daysRemaining = (parsedDate.Date - DateTime.UtcNow.Date).Days;
+    if (daysRemaining < 0 || daysRemaining > 60) continue;
+    yield return new DashboardUpcomingExpiryDto("Vehicle", $"{vehicle.Id} {expiry.Label}", parsedDate.ToString("yyyy-MM-dd"), daysRemaining);
+  }
+}
+
+static IEnumerable<(string Label, string? Date)> GetVehicleExpiryCandidates(Vehicle vehicle)
+{
+  yield return ("registration", vehicle.RegistrationExpiry);
+  yield return ("road tax", vehicle.RoadTaxExpiry);
+  yield return ("insurance", vehicle.InsuranceExpiry);
+  yield return ("inspection", vehicle.InspectionDue);
+}
+
 static string ToPublicAssetUrl(HttpRequest request, string? path)
 {
   if (string.IsNullOrWhiteSpace(path)) return string.Empty;
@@ -2475,6 +3402,7 @@ public record PermissionModuleDefinition(string Key, string Name, string Categor
 
 enum PermissionAction
 {
+  View,
   Create,
   Edit,
   Delete

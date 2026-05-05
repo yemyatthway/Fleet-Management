@@ -65,13 +65,13 @@
             <v-icon icon="mdi-alert-outline" />
             <select v-model="severityFilter">
               <option value="All">All Severity</option>
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
+              <option v-for="severity in severityOptions" :key="severity" :value="severity">
+                {{ severity }}
+              </option>
             </select>
           </div>
 
-          <button class="primary-button" type="button" @click="openIncident">
+          <button v-if="canCreateIncidents" class="primary-button" type="button" @click="openIncident">
             <v-icon icon="mdi-alert-circle-outline" size="18" />
             Report Incident
           </button>
@@ -89,6 +89,7 @@
           class="table-base incident-table"
           :headers="incidentHeaders"
           :items="filteredIncidents"
+          :loading="loadingIncidents"
           :items-per-page="10"
           :items-per-page-options="[10, 20, 30]"
           :mobile-breakpoint="0"
@@ -133,11 +134,11 @@
                 <v-icon icon="mdi-eye-outline" size="18" />
                 <span class="tooltip-text">View details</span>
               </button>
-              <button class="icon-button tooltip" type="button" @click="openIncidentEdit(item)">
+              <button v-if="canEditIncidents" class="icon-button tooltip" type="button" @click="openIncidentEdit(item)">
                 <v-icon icon="mdi-pencil-outline" size="18" />
                 <span class="tooltip-text">Edit incident</span>
               </button>
-              <button class="icon-button danger tooltip" type="button" @click="deleteIncident(item.id)">
+              <button v-if="canDeleteIncidents" class="icon-button danger tooltip" type="button" @click="deleteIncident(item.id)">
                 <v-icon icon="mdi-trash-can-outline" size="18" />
                 <span class="tooltip-text">Delete incident</span>
               </button>
@@ -165,7 +166,7 @@
         <div class="form-grid">
           <div class="form-field">
             <label>Vehicle</label>
-            <select v-model="incidentForm.vehicleId">
+            <select v-model="incidentForm.vehicleId" @change="syncSelectedVehicle">
               <option disabled value="">Select vehicle</option>
               <option v-for="vehicle in vehicleOptions" :key="vehicle.id" :value="vehicle.id">
                 {{ vehicle.id }} - {{ vehicle.model }}
@@ -182,14 +183,19 @@
           </div>
           <div class="form-field">
             <label>Type</label>
-            <input v-model="incidentForm.type" type="text" placeholder="e.g., Collision" />
+            <select v-model="incidentForm.type">
+              <option value="" disabled>Select incident type</option>
+              <option v-for="type in incidentTypeOptions" :key="type" :value="type">
+                {{ type }}
+              </option>
+            </select>
           </div>
           <div class="form-field">
             <label>Severity</label>
             <select v-model="incidentForm.severity">
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
+              <option v-for="severity in severityOptions" :key="severity" :value="severity">
+                {{ severity }}
+              </option>
             </select>
           </div>
           <div class="form-field">
@@ -266,44 +272,21 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
-import { statusesApi } from '../../services/tripSetupApi'
+import { incidentTypesApi, severitiesApi, statusesApi } from '../../services/tripSetupApi'
+import { createIncident, deleteIncident as deleteIncidentRecord, getIncidents, updateIncident } from '../../services/incidentsApi'
+import { getVehicles } from '../../services/vehiclesApi'
+import { canCreateModule, canDeleteModule, canEditModule } from '../../utils/authSession'
 
-const vehicleOptions = [
-  { id: 'VH-2048', model: 'Volvo FL 280' },
-  { id: 'VH-3054', model: 'Hino 500' },
-  { id: 'VH-8120', model: 'Isuzu NPR' },
-  { id: 'VH-2661', model: 'Mitsubishi Fuso' }
-]
-
-const incidents = ref([
-  {
-    id: 'INC-1024',
-    vehicleId: 'VH-2048',
-    driver: 'Sarah Johnson',
-    date: '2026-01-24',
-    type: 'Minor collision',
-    severity: 'Low',
-    status: 'Closed',
-    cost: '$580',
-    notes: 'Rear bumper repair'
-  },
-  {
-    id: 'INC-1091',
-    vehicleId: 'VH-3054',
-    driver: 'Michael Chen',
-    date: '2026-02-18',
-    type: 'Windshield crack',
-    severity: 'Medium',
-    status: 'Open',
-    cost: '$1,220',
-    notes: 'Awaiting glass replacement'
-  }
-])
+const vehicleOptions = ref([])
+const incidents = ref([])
 
 const searchQuery = ref('')
 const statusFilter = ref('All')
 const statusOptions = ref([])
+const severityOptions = ref(['Low', 'Medium', 'High'])
+const incidentTypeOptions = ref([])
 const severityFilter = ref('All')
+const loadingIncidents = ref(false)
 const incidentOpen = ref(false)
 const incidentMode = ref('add')
 const incidentError = ref('')
@@ -316,6 +299,9 @@ const confirmMessage = ref('')
 const confirmButton = ref('Confirm')
 const confirmTone = ref('danger')
 const pendingAction = ref(() => {})
+const canCreateIncidents = computed(() => canCreateModule('incidents'))
+const canEditIncidents = computed(() => canEditModule('incidents'))
+const canDeleteIncidents = computed(() => canDeleteModule('incidents'))
 
 const incidentHeaders = [
   { title: 'Date', key: 'date', sortable: false },
@@ -397,7 +383,7 @@ const buildEmptyIncident = () => ({
   driver: '',
   date: '',
   type: '',
-  severity: 'Low',
+  severity: severityOptions.value[0] || '',
   status: statusOptions.value[0] || '',
   cost: '',
   notes: ''
@@ -422,26 +408,30 @@ const openIncidentDetails = (incident) => {
   incidentDetailsOpen.value = true
 }
 
-const saveIncident = () => {
+const syncSelectedVehicle = () => {
+  const selectedVehicle = vehicleOptions.value.find((vehicle) => vehicle.id === incidentForm.value.vehicleId)
+  if (!selectedVehicle) return
+  incidentForm.value.driver = selectedVehicle.driver || incidentForm.value.driver
+}
+
+const saveIncident = async () => {
   if (!incidentForm.value.vehicleId || !incidentForm.value.type || !incidentForm.value.date || !incidentForm.value.status) {
     incidentError.value = 'Vehicle, date, type, and status are required.'
     return
   }
-  if (incidentMode.value === 'add') {
-    const newId = `INC-${Math.floor(1000 + Math.random() * 9000)}`
-    incidents.value = [
-      {
-        ...incidentForm.value,
-        id: newId
-      },
-      ...incidents.value
-    ]
-  } else {
-    incidents.value = incidents.value.map((item) =>
-      item.id === incidentForm.value.id ? { ...item, ...incidentForm.value } : item
-    )
+  try {
+    if (incidentMode.value === 'add') {
+      const saved = await createIncident(incidentForm.value)
+      incidents.value = [saved, ...incidents.value]
+    } else {
+      const saved = await updateIncident(incidentForm.value.id, incidentForm.value)
+      incidents.value = incidents.value.map((item) => (item.id === saved.id ? saved : item))
+      if (selectedIncident.value?.id === saved.id) selectedIncident.value = saved
+    }
+    incidentOpen.value = false
+  } catch (error) {
+    incidentError.value = error.message || 'Unable to save incident.'
   }
-  incidentOpen.value = false
 }
 
 const deleteIncident = (id) => {
@@ -452,8 +442,13 @@ const deleteIncident = (id) => {
     message: `This will permanently remove ${incident.id}.`,
     confirmText: 'Delete',
     tone: 'danger',
-    action: () => {
-      incidents.value = incidents.value.filter((item) => item.id !== id)
+    action: async () => {
+      try {
+        await deleteIncidentRecord(id)
+        incidents.value = incidents.value.filter((item) => item.id !== id)
+      } catch (error) {
+        incidentError.value = error.message || 'Unable to delete incident.'
+      }
     }
   })
 }
@@ -467,20 +462,44 @@ const openConfirm = ({ title, message, confirmText, tone, action }) => {
   confirmOpen.value = true
 }
 
-const runConfirm = () => {
-  pendingAction.value?.()
+const runConfirm = async () => {
+  await pendingAction.value?.()
   confirmOpen.value = false
 }
 
-const loadStatusOptions = async () => {
+const loadIncidents = async () => {
+  loadingIncidents.value = true
   try {
-    statusOptions.value = await statusesApi.options()
+    const result = await getIncidents({ page: 1, pageSize: 500, sortBy: 'date', sortOrder: 'desc' })
+    incidents.value = result.items || []
   } catch (error) {
-    console.error('[incidents] failed to load status options', error)
+    incidentError.value = error.message || 'Unable to load incidents.'
+  } finally {
+    loadingIncidents.value = false
   }
 }
 
-onMounted(loadStatusOptions)
+const loadReferenceOptions = async () => {
+  try {
+    const [statuses, severities, incidentTypes, vehicles] = await Promise.allSettled([
+      statusesApi.options(),
+      severitiesApi.options(),
+      incidentTypesApi.options(),
+      getVehicles()
+    ])
+    if (statuses.status === 'fulfilled') statusOptions.value = statuses.value
+    if (severities.status === 'fulfilled' && severities.value.length) severityOptions.value = severities.value
+    if (incidentTypes.status === 'fulfilled') incidentTypeOptions.value = incidentTypes.value
+    if (vehicles.status === 'fulfilled') vehicleOptions.value = vehicles.value
+  } catch (error) {
+    console.error('[incidents] failed to load reference options', error)
+  }
+}
+
+onMounted(async () => {
+  await loadReferenceOptions()
+  await loadIncidents()
+})
 </script>
 
 <style scoped src="../roles/roles_styles/RoleManagementContent.css"></style>

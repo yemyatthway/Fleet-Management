@@ -1,5 +1,5 @@
 <template>
-  <div class="card-surface">
+  <div class="recent-trips-card">
     <div class="table-header">
       <div>
         <h2 class="table-title">Recent Trips</h2>
@@ -7,7 +7,7 @@
       </div>
     </div>
     <div class="table-wrap">
-      <table class="table-base">
+      <table class="dashboard-table">
         <thead>
           <tr>
             <th>Trip ID</th>
@@ -20,7 +20,7 @@
         </thead>
         <tbody>
           <tr v-for="trip in pagedTrips" :key="trip.id">
-            <td data-label="Trip ID"><strong>{{ trip.id }}</strong></td>
+            <td data-label="Trip ID"><strong>{{ trip.tripNumber || trip.id }}</strong></td>
             <td class="text-muted" data-label="Vehicle">{{ trip.vehicle }}</td>
             <td data-label="Driver">{{ trip.driver }}</td>
             <td data-label="Route">
@@ -35,13 +35,16 @@
                 {{ formatStatus(trip.status) }}
               </span>
             </td>
-            <td class="text-muted" data-label="Details">{{ trip.duration }} • {{ trip.distance }}</td>
+            <td class="text-muted" data-label="Details">{{ trip.details || `${trip.duration} • ${trip.distance}` }}</td>
+          </tr>
+          <tr v-if="!trips.length" class="empty-row">
+            <td colspan="6" class="empty-cell">No recent trips found</td>
           </tr>
         </tbody>
       </table>
     </div>
     <div class="table-footer">
-      <button class="link-button" type="button">View All Trips →</button>
+      <button class="link-button" type="button" @click="goToTrips">View All Trips →</button>
       <div v-if="totalPages > 1" class="pager">
         <span class="pager-info text-muted">Page {{ safePage }} of {{ totalPages }}</span>
         <div class="pager-actions">
@@ -69,91 +72,63 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-const trips = [
-  {
-    id: 'TRP-2456',
-    vehicle: 'FL-2845',
-    driver: 'John Martinez',
-    route: 'New York → Boston',
-    status: 'completed',
-    duration: '4h 25m',
-    distance: '215 mi'
-  },
-  {
-    id: 'TRP-2457',
-    vehicle: 'FL-3091',
-    driver: 'Sarah Johnson',
-    route: 'Chicago → Detroit',
-    status: 'ongoing',
-    duration: '2h 15m',
-    distance: '125 mi'
-  },
-  {
-    id: 'TRP-2458',
-    vehicle: 'FL-1724',
-    driver: 'Mike Chen',
-    route: 'Los Angeles → San Diego',
-    status: 'completed',
-    duration: '2h 30m',
-    distance: '120 mi'
-  },
-  {
-    id: 'TRP-2459',
-    vehicle: 'FL-4532',
-    driver: 'Emily Davis',
-    route: 'Houston → Austin',
-    status: 'ongoing',
-    duration: '1h 45m',
-    distance: '95 mi'
-  },
-  {
-    id: 'TRP-2460',
-    vehicle: 'FL-2103',
-    driver: 'Robert Wilson',
-    route: 'Miami → Orlando',
-    status: 'delayed',
-    duration: '3h 50m',
-    distance: '235 mi'
+const props = defineProps({
+  trips: {
+    type: Array,
+    default: () => []
   }
-]
+})
 
 const pageSize = 3
 const currentPage = ref(1)
-const totalPages = computed(() => Math.max(1, Math.ceil(trips.length / pageSize)))
+const router = useRouter()
+const trips = computed(() => props.trips)
+const totalPages = computed(() => Math.max(1, Math.ceil(trips.value.length / pageSize)))
 const safePage = computed(() => Math.min(currentPage.value, totalPages.value))
 const pagedTrips = computed(() => {
   const start = (safePage.value - 1) * pageSize
-  return trips.slice(start, start + pageSize)
+  return trips.value.slice(start, start + pageSize)
 })
 
 const goToPage = (page) => {
   currentPage.value = Math.min(Math.max(1, page), totalPages.value)
 }
 
+const goToTrips = () => {
+  router.push('/trips')
+}
+
 const statusClass = (status) => {
-  if (status === 'completed') return 'success'
-  if (status === 'ongoing') return 'info'
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'completed') return 'success'
+  if (normalized === 'ongoing' || normalized === 'in transit' || normalized === 'active') return 'info'
   return 'warning'
 }
 
 const statusIcon = (status) => {
-  if (status === 'completed') return 'mdi-check-circle-outline'
-  if (status === 'ongoing') return 'mdi-timer-outline'
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'completed') return 'mdi-check-circle-outline'
+  if (normalized === 'ongoing' || normalized === 'in transit' || normalized === 'active') return 'mdi-timer-outline'
   return 'mdi-alert-circle-outline'
 }
 
-const formatStatus = (status) => status.charAt(0).toUpperCase() + status.slice(1)
+const formatStatus = (status) => String(status || '').charAt(0).toUpperCase() + String(status || '').slice(1)
 </script>
 
 <style scoped>
-.table-header {
+.recent-trips-card {
+  overflow: hidden;
   padding: 20px;
-  border-bottom: 1px solid var(--fleet-border);
+  border-radius: 16px;
+  border: 1px solid var(--fleet-border);
+  background: #fff;
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.04);
 }
 
-.card-surface {
-  overflow: hidden;
+.table-header {
+  margin-bottom: 16px;
 }
 
 .table-title {
@@ -176,15 +151,58 @@ const formatStatus = (status) => status.charAt(0).toUpperCase() + status.slice(1
   -webkit-overflow-scrolling: touch;
 }
 
-.table-base {
-  width: max-content;
+.dashboard-table {
+  width: 100%;
   min-width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-.table-base th,
-.table-base td {
+.dashboard-table th,
+.dashboard-table td {
   white-space: nowrap;
+  text-align: left;
+}
+
+.dashboard-table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 14px 16px;
+}
+
+.dashboard-table tbody td {
+  padding: 14px 16px;
+  background: #fff;
+}
+
+.dashboard-table tbody tr {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.dashboard-table tbody tr td {
+  border-bottom: 10px solid transparent;
+}
+
+.dashboard-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dashboard-table tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.dashboard-table thead th:first-child,
+.dashboard-table tbody tr td:first-child {
+  border-radius: 12px 0 0 12px;
+}
+
+.dashboard-table thead th:last-child,
+.dashboard-table tbody tr td:last-child {
+  border-radius: 0 12px 12px 0;
 }
 
 .route {
@@ -198,9 +216,20 @@ const formatStatus = (status) => status.charAt(0).toUpperCase() + status.slice(1
   gap: 6px;
 }
 
+.empty-cell {
+  text-align: center;
+  padding: 40px 16px !important;
+  color: var(--fleet-muted);
+  background: #fff !important;
+  border-radius: 12px !important;
+}
+
+.empty-row {
+  box-shadow: none !important;
+}
+
 .table-footer {
-  padding: 12px 20px;
-  border-top: 1px solid var(--fleet-border);
+  padding-top: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -253,13 +282,13 @@ const formatStatus = (status) => status.charAt(0).toUpperCase() + status.slice(1
     overflow-x: auto;
   }
 
-  .table-base {
+  .dashboard-table {
     width: 100%;
     min-width: 760px;
   }
 
-  .table-base th,
-  .table-base td {
+  .dashboard-table th,
+  .dashboard-table td {
     padding: 10px 12px;
     font-size: 12px;
     white-space: nowrap;
@@ -272,11 +301,11 @@ const formatStatus = (status) => status.charAt(0).toUpperCase() + status.slice(1
 
 @media (max-width: 720px) {
   .table-header {
-    padding: 16px;
+    margin-bottom: 12px;
   }
 
   .table-footer {
-    padding: 12px 16px;
+    padding-top: 12px;
   }
 
   .table-wrap {

@@ -24,7 +24,14 @@ public class FleetDbContext(DbContextOptions<FleetDbContext> options) : DbContex
   public DbSet<ExpenseTypeCodeOption> ExpenseTypeCodeOptions => Set<ExpenseTypeCodeOption>();
   public DbSet<MaintenanceTypeCodeOption> MaintenanceTypeCodeOptions => Set<MaintenanceTypeCodeOption>();
   public DbSet<DocumentTypeCodeOption> DocumentTypeCodeOptions => Set<DocumentTypeCodeOption>();
+  public DbSet<SupplierCodeOption> SupplierCodeOptions => Set<SupplierCodeOption>();
   public DbSet<MaintenanceTicket> MaintenanceTickets => Set<MaintenanceTicket>();
+  public DbSet<InventoryPart> InventoryParts => Set<InventoryPart>();
+  public DbSet<Incident> Incidents => Set<Incident>();
+  public DbSet<Expense> Expenses => Set<Expense>();
+  public DbSet<FleetDocument> FleetDocuments => Set<FleetDocument>();
+  public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+  public DbSet<StatusHistory> StatusHistories => Set<StatusHistory>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -206,6 +213,7 @@ public class FleetDbContext(DbContextOptions<FleetDbContext> options) : DbContex
     ConfigureTripSetupEntity<ExpenseTypeCodeOption>(modelBuilder, "ExpenseTypeCodeOptions");
     ConfigureTripSetupEntity<MaintenanceTypeCodeOption>(modelBuilder, "MaintenanceTypeCodeOptions");
     ConfigureTripSetupEntity<DocumentTypeCodeOption>(modelBuilder, "DocumentTypeCodeOptions");
+    ConfigureTripSetupEntity<SupplierCodeOption>(modelBuilder, "SupplierCodeOptions");
 
     modelBuilder.Entity<Trip>(entity =>
     {
@@ -251,6 +259,89 @@ public class FleetDbContext(DbContextOptions<FleetDbContext> options) : DbContex
       entity.Property(ticket => ticket.Mechanic).HasMaxLength(120).IsRequired();
       entity.Property(ticket => ticket.Status).HasMaxLength(30).IsRequired();
       entity.HasIndex(ticket => ticket.Id).IsUnique();
+    });
+
+    modelBuilder.Entity<InventoryPart>(entity =>
+    {
+      entity.ToTable("InventoryParts");
+      entity.HasKey(part => part.Id);
+      entity.Property(part => part.Id).HasMaxLength(40);
+      entity.Property(part => part.Name).HasMaxLength(160).IsRequired();
+      entity.Property(part => part.PartNo).HasMaxLength(80).IsRequired();
+      entity.Property(part => part.Category).HasMaxLength(120).IsRequired();
+      entity.Property(part => part.Supplier).HasMaxLength(160);
+      entity.Property(part => part.UnitCost).HasMaxLength(80);
+      entity.Property(part => part.Location).HasMaxLength(160);
+      entity.Property(part => part.Image).HasMaxLength(500);
+      entity.HasIndex(part => part.Id).IsUnique();
+      entity.HasIndex(part => part.PartNo);
+    });
+
+    modelBuilder.Entity<Incident>(entity =>
+    {
+      entity.ToTable("Incidents");
+      entity.HasKey(incident => incident.Id);
+      entity.Property(incident => incident.Id).HasMaxLength(40);
+      entity.Property(incident => incident.VehicleId).HasMaxLength(80).IsRequired();
+      entity.Property(incident => incident.Driver).HasMaxLength(120).IsRequired();
+      entity.Property(incident => incident.Date).HasMaxLength(40).IsRequired();
+      entity.Property(incident => incident.Type).HasMaxLength(120).IsRequired();
+      entity.Property(incident => incident.Severity).HasMaxLength(40).IsRequired();
+      entity.Property(incident => incident.Status).HasMaxLength(40).IsRequired();
+      entity.Property(incident => incident.Cost).HasMaxLength(80);
+      entity.Property(incident => incident.Notes).HasMaxLength(1000);
+      entity.HasIndex(incident => incident.Id).IsUnique();
+    });
+
+    modelBuilder.Entity<Expense>(entity =>
+    {
+      entity.ToTable("Expenses");
+      entity.HasKey(expense => expense.Id);
+      entity.Property(expense => expense.ExpenseDate).HasMaxLength(40).IsRequired();
+      entity.Property(expense => expense.ExpenseType).HasMaxLength(120).IsRequired();
+      entity.Property(expense => expense.VehicleId).HasMaxLength(80);
+      entity.Property(expense => expense.TripNumber).HasMaxLength(80);
+      entity.Property(expense => expense.DriverName).HasMaxLength(120);
+      entity.Property(expense => expense.Amount).HasColumnType("decimal(18,2)");
+      entity.Property(expense => expense.Status).HasMaxLength(40).IsRequired();
+      entity.Property(expense => expense.Notes).HasMaxLength(1000);
+    });
+
+    modelBuilder.Entity<FleetDocument>(entity =>
+    {
+      entity.ToTable("FleetDocuments");
+      entity.HasKey(document => document.Id);
+      entity.Property(document => document.OwnerType).HasMaxLength(40).IsRequired();
+      entity.Property(document => document.OwnerId).HasMaxLength(80).IsRequired();
+      entity.Property(document => document.OwnerName).HasMaxLength(160).IsRequired();
+      entity.Property(document => document.DocumentType).HasMaxLength(120).IsRequired();
+      entity.Property(document => document.DocumentNumber).HasMaxLength(120);
+      entity.Property(document => document.IssueDate).HasMaxLength(40);
+      entity.Property(document => document.ExpiryDate).HasMaxLength(40);
+      entity.Property(document => document.Status).HasMaxLength(40).IsRequired();
+      entity.Property(document => document.Notes).HasMaxLength(1000);
+    });
+
+    modelBuilder.Entity<AuditLog>(entity =>
+    {
+      entity.ToTable("AuditLogs");
+      entity.HasKey(log => log.Id);
+      entity.Property(log => log.RoleId).HasMaxLength(80).IsRequired();
+      entity.Property(log => log.ModuleKey).HasMaxLength(80).IsRequired();
+      entity.Property(log => log.Action).HasMaxLength(40).IsRequired();
+      entity.Property(log => log.EntityId).HasMaxLength(80).IsRequired();
+      entity.Property(log => log.Description).HasMaxLength(1000).IsRequired();
+    });
+
+    modelBuilder.Entity<StatusHistory>(entity =>
+    {
+      entity.ToTable("StatusHistories");
+      entity.HasKey(history => history.Id);
+      entity.Property(history => history.EntityType).HasMaxLength(80).IsRequired();
+      entity.Property(history => history.EntityId).HasMaxLength(80).IsRequired();
+      entity.Property(history => history.OldStatus).HasMaxLength(80);
+      entity.Property(history => history.NewStatus).HasMaxLength(80).IsRequired();
+      entity.Property(history => history.RoleId).HasMaxLength(80).IsRequired();
     });
   }
 

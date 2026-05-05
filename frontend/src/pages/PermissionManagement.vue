@@ -6,7 +6,7 @@
           <h1 class="section-title">Permission Management</h1>
           <p class="section-subtitle">Control page access and actions for each fixed system role.</p>
         </div>
-        <button class="primary-button" type="button" :disabled="saving || loading" @click="savePermissions">
+        <button v-if="canEditPermissions" class="primary-button" type="button" :disabled="saving || loading" @click="savePermissions">
           <v-icon icon="mdi-content-save-outline" size="18" />
           Save Permissions
         </button>
@@ -95,6 +95,7 @@
                     <label v-for="action in actions" :key="action.key" class="permission-toggle">
                       <input
                         type="checkbox"
+                        :disabled="!canEditPermissions"
                         :checked="getPermission(module.key, role.id, action.key)"
                         @change="setPermission(module.key, role.id, action.key, $event.target.checked)"
                       />
@@ -117,6 +118,7 @@ import DashboardLayout from '../layouts/DashboardLayout.vue'
 import PageMessage from '../components/common/PageMessage.vue'
 import { usePageMessage } from '../composables/usePageMessage'
 import { getPermissions, updatePermissions } from '../services/permissionsApi'
+import { canEditModule } from '../utils/authSession'
 
 const actions = [
   { key: 'canView', label: 'View' },
@@ -132,6 +134,7 @@ const saving = ref(false)
 const searchQuery = ref('')
 const categoryFilter = ref('All')
 const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage()
+const canEditPermissions = computed(() => canEditModule('permissions'))
 
 const categories = computed(() => [...new Set(modules.value.map((module) => module.category))])
 

@@ -42,7 +42,7 @@
           </button>
         </div>
 
-        <button class="primary-button" type="button" @click="openAdd">
+        <button v-if="canCreateDepartments" class="primary-button" type="button" @click="openAdd">
           <v-icon icon="mdi-plus" size="18" />
           Add Department
         </button>
@@ -68,6 +68,8 @@
       :items-per-page="tableOptions.itemsPerPage"
       :sort-by="tableOptions.sortBy"
       :sort-order="tableOptions.sortOrder"
+      :can-edit="canEditDepartments"
+      :can-delete="canDeleteDepartments"
       @update:options="handleTableOptions"
       @edit="openEdit"
       @remove="handleDelete"
@@ -102,6 +104,7 @@ import { useListPage } from '../../composables/useListPage'
 import { usePageMessage } from '../../composables/usePageMessage'
 import { useReferenceMetrics } from '../../composables/useReferenceMetrics'
 import { attachDisplayIds } from '../../utils/tableDisplayIds'
+import { canCreateModule, canDeleteModule, canEditModule } from '../../utils/authSession'
 import {
   createDepartmentCodeOption,
   deleteDepartmentCodeOption,
@@ -114,6 +117,9 @@ import DepartmentSetupTable from './DepartmentSetupTable.vue'
 const dialogOpen = ref(false)
 const dialogMode = ref('add')
 const selectedDepartment = ref(null)
+const canCreateDepartments = computed(() => canCreateModule('department-setup'))
+const canEditDepartments = computed(() => canEditModule('department-setup'))
+const canDeleteDepartments = computed(() => canDeleteModule('department-setup'))
 const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage()
 const {
   confirmOpen,

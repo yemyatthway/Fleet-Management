@@ -42,7 +42,7 @@
           </button>
         </div>
 
-        <button class="primary-button" type="button" @click="openAdd">
+        <button v-if="canCreateVehicleTypes" class="primary-button" type="button" @click="openAdd">
           <v-icon icon="mdi-plus" size="18" />
           Add Vehicle Type
         </button>
@@ -68,6 +68,8 @@
       :items-per-page="tableOptions.itemsPerPage"
       :sort-by="tableOptions.sortBy"
       :sort-order="tableOptions.sortOrder"
+      :can-edit="canEditVehicleTypes"
+      :can-delete="canDeleteVehicleTypes"
       @update:options="handleTableOptions"
       @edit="openEdit"
       @remove="handleDelete"
@@ -102,6 +104,7 @@ import { useListPage } from '../../composables/useListPage'
 import { usePageMessage } from '../../composables/usePageMessage'
 import { useReferenceMetrics } from '../../composables/useReferenceMetrics'
 import { attachDisplayIds } from '../../utils/tableDisplayIds'
+import { canCreateModule, canDeleteModule, canEditModule } from '../../utils/authSession'
 import {
   createVehicleTypeCodeOption,
   deleteVehicleTypeCodeOption,
@@ -114,6 +117,9 @@ import VehicleTypeSetupTable from './VehicleTypeSetupTable.vue'
 const dialogOpen = ref(false)
 const dialogMode = ref('add')
 const selectedVehicleType = ref(null)
+const canCreateVehicleTypes = computed(() => canCreateModule('vehicle-type-setup'))
+const canEditVehicleTypes = computed(() => canEditModule('vehicle-type-setup'))
+const canDeleteVehicleTypes = computed(() => canDeleteModule('vehicle-type-setup'))
 const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage()
 const {
   confirmOpen,

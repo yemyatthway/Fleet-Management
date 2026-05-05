@@ -21,13 +21,33 @@ export const getCurrentUser = () => getAuthSession()?.user || null
 export const getPermission = (moduleKey) =>
   getAuthSession()?.permissions?.find((permission) => permission.moduleKey === moduleKey) || null
 
-export const canViewModule = (moduleKey) => {
-  if (!moduleKey) return true
-  return Boolean(getPermission(moduleKey)?.canView)
+const isAdminSession = () => {
+  const session = getAuthSession()
+  const role = String(session?.user?.role || session?.user?.roleId || '').toLowerCase()
+  return role === 'admin'
 }
 
-export const canCreateModule = (moduleKey) => Boolean(getPermission(moduleKey)?.canCreate)
+export const canViewModule = (moduleKey) => {
+  if (!moduleKey) return true
+  const permission = getPermission(moduleKey)
+  if (!permission && isAdminSession()) return true
+  return Boolean(permission?.canView)
+}
 
-export const canEditModule = (moduleKey) => Boolean(getPermission(moduleKey)?.canEdit)
+export const canCreateModule = (moduleKey) => {
+  const permission = getPermission(moduleKey)
+  if (!permission && isAdminSession()) return true
+  return Boolean(permission?.canCreate)
+}
 
-export const canDeleteModule = (moduleKey) => Boolean(getPermission(moduleKey)?.canDelete)
+export const canEditModule = (moduleKey) => {
+  const permission = getPermission(moduleKey)
+  if (!permission && isAdminSession()) return true
+  return Boolean(permission?.canEdit)
+}
+
+export const canDeleteModule = (moduleKey) => {
+  const permission = getPermission(moduleKey)
+  if (!permission && isAdminSession()) return true
+  return Boolean(permission?.canDelete)
+}

@@ -42,7 +42,7 @@
           </button>
         </div>
 
-        <button class="primary-button" type="button" @click="openAdd">
+        <button v-if="canCreateFuelTypes" class="primary-button" type="button" @click="openAdd">
           <v-icon icon="mdi-plus" size="18" />
           Add Fuel Type
         </button>
@@ -68,6 +68,8 @@
       :items-per-page="tableOptions.itemsPerPage"
       :sort-by="tableOptions.sortBy"
       :sort-order="tableOptions.sortOrder"
+      :can-edit="canEditFuelTypes"
+      :can-delete="canDeleteFuelTypes"
       @update:options="handleTableOptions"
       @edit="openEdit"
       @remove="handleDelete"
@@ -102,6 +104,7 @@ import { useListPage } from '../../composables/useListPage'
 import { usePageMessage } from '../../composables/usePageMessage'
 import { useReferenceMetrics } from '../../composables/useReferenceMetrics'
 import { attachDisplayIds } from '../../utils/tableDisplayIds'
+import { canCreateModule, canDeleteModule, canEditModule } from '../../utils/authSession'
 import {
   createFuelTypeCodeOption,
   deleteFuelTypeCodeOption,
@@ -114,6 +117,9 @@ import FuelTypeSetupTable from './FuelTypeSetupTable.vue'
 const dialogOpen = ref(false)
 const dialogMode = ref('add')
 const selectedFuelType = ref(null)
+const canCreateFuelTypes = computed(() => canCreateModule('fuel-type-setup'))
+const canEditFuelTypes = computed(() => canEditModule('fuel-type-setup'))
+const canDeleteFuelTypes = computed(() => canDeleteModule('fuel-type-setup'))
 const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage()
 const {
   confirmOpen,

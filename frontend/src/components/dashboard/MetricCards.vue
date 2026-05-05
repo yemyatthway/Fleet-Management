@@ -1,13 +1,13 @@
 <template>
   <div class="metric-grid">
-    <div v-for="metric in metrics" :key="metric.title" class="metric-card">
+    <div v-for="metric in normalizedMetrics" :key="metric.title" class="metric-card">
       <div>
         <p class="metric-title">{{ metric.title }}</p>
         <p class="metric-value">{{ metric.value }}</p>
         <div class="metric-change">
           <v-icon :icon="metric.changeType === 'increase' ? 'mdi-trending-up' : 'mdi-trending-down'" size="18" :color="metric.changeType === 'increase' ? 'success' : 'error'" />
           <span :class="['change-number', metric.changeType]">{{ metric.change }}</span>
-          <span class="change-label">this week</span>
+          <span class="change-label">{{ metric.changeLabel }}</span>
         </div>
       </div>
       <div class="metric-icon" :style="{ background: metric.bgColor, color: metric.iconColor }">
@@ -18,44 +18,33 @@
 </template>
 
 <script setup>
-const metrics = [
-  {
-    title: 'Total Vehicles',
-    value: '248',
-    change: '+12',
-    changeType: 'increase',
-    icon: 'mdi-truck',
-    bgColor: '#dbeafe',
-    iconColor: '#2563eb'
-  },
-  {
-    title: 'Active Trips',
-    value: '67',
-    change: '+5',
-    changeType: 'increase',
-    icon: 'mdi-map-marker',
-    bgColor: '#dcfce7',
-    iconColor: '#16a34a'
-  },
-  {
-    title: 'Drivers On Duty',
-    value: '142',
-    change: '-8',
-    changeType: 'decrease',
-    icon: 'mdi-account-multiple',
-    bgColor: '#ede9fe',
-    iconColor: '#7c3aed'
-  },
-  {
-    title: 'Under Maintenance',
-    value: '23',
-    change: '+3',
-    changeType: 'increase',
-    icon: 'mdi-wrench',
-    bgColor: '#ffedd5',
-    iconColor: '#ea580c'
+import { computed } from 'vue'
+const props = defineProps({
+  metrics: {
+    type: Array,
+    default: () => []
   }
-]
+})
+
+const toneMap = {
+  info: { bgColor: '#dbeafe', iconColor: '#2563eb' },
+  success: { bgColor: '#dcfce7', iconColor: '#16a34a' },
+  warning: { bgColor: '#ffedd5', iconColor: '#ea580c' },
+  danger: { bgColor: '#fee2e2', iconColor: '#dc2626' },
+  purple: { bgColor: '#ede9fe', iconColor: '#7c3aed' }
+}
+
+const normalizedMetrics = computed(() =>
+  props.metrics.map((metric) => ({
+    title: metric.title,
+    value: String(metric.value ?? 0),
+    change: 'Live',
+    changeType: 'increase',
+    changeLabel: 'from backend',
+    icon: metric.icon,
+    ...(toneMap[metric.tone] || toneMap.info)
+  }))
+)
 </script>
 
 <style scoped>

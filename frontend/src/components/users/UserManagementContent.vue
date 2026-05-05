@@ -56,6 +56,7 @@
           </div>
 
           <button
+            v-if="canCreateUsers"
             class="primary-button"
             type="button"
             @click="dialogOpen = true"
@@ -86,6 +87,8 @@
       :items-per-page="tableOptions.itemsPerPage"
       :sort-by="tableOptions.sortBy"
       :sort-order="tableOptions.sortOrder"
+      :can-edit="canEditUsers"
+      :can-delete="canDeleteUsers"
       @update:options="handleTableOptions"
       @edit="handleEdit"
       @toggle="handleToggle"
@@ -143,6 +146,7 @@ import { useConfirmDialog } from "../../composables/useConfirmDialog";
 import { useListPage } from "../../composables/useListPage";
 import { usePageMessage } from "../../composables/usePageMessage";
 import { attachDisplayIds } from "../../utils/tableDisplayIds";
+import { canCreateModule, canDeleteModule, canEditModule } from "../../utils/authSession";
 import { getDepartmentOptions } from "../../services/departmentsApi";
 import { getRoleOptions } from "../../services/rolesApi";
 import { statusesApi } from "../../services/tripSetupApi";
@@ -196,6 +200,9 @@ const selectedUser = ref(null);
 const avatarOpen = ref(false);
 const avatarUrl = ref("");
 const avatarName = ref("");
+const canCreateUsers = computed(() => canCreateModule("users"));
+const canEditUsers = computed(() => canEditModule("users"));
+const canDeleteUsers = computed(() => canDeleteModule("users"));
 const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage();
 const {
   confirmOpen,

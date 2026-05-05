@@ -49,35 +49,44 @@
         </div>
         <span class="status-value">{{ item.value }}</span>
       </div>
+      <div v-if="!data.length" class="empty-state">No vehicle data yet</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
-const data = [
-  { name: 'Active', value: 165, color: '#10b981' },
-  { name: 'Idle', value: 60, color: '#f59e0b' },
-  { name: 'Maintenance', value: 23, color: '#ef4444' }
-]
+const props = defineProps({
+  statuses: {
+    type: Array,
+    default: () => []
+  }
+})
 
-const total = data.reduce((sum, item) => sum + item.value, 0)
+const palette = ['#10b981', '#f59e0b', '#ef4444', '#2563eb', '#7c3aed']
+const data = computed(() =>
+  props.statuses.map((item, index) => ({
+    name: item.name,
+    value: item.value,
+    color: palette[index % palette.length]
+  }))
+)
+
+const total = computed(() => data.value.reduce((sum, item) => sum + item.value, 0))
 const size = 220
 const center = size / 2
 const radius = 70
 const circumference = 2 * Math.PI * radius
 
-let runningOffset = 0
-const segments = data.map((item) => {
-  const dash = (item.value / total) * circumference
-  const segment = {
-    ...item,
-    dash,
-    offset: -runningOffset
-  }
-  runningOffset += dash
-  return segment
+const segments = computed(() => {
+  let runningOffset = 0
+  return data.value.map((item) => {
+    const dash = total.value ? (item.value / total.value) * circumference : 0
+    const segment = { ...item, dash, offset: -runningOffset }
+    runningOffset += dash
+    return segment
+  })
 })
 
 const donutWrap = ref(null)
@@ -96,7 +105,7 @@ const showTooltip = (event, segment) => {
   tooltip.visible = true
   tooltip.label = segment.name
   tooltip.value = segment.value
-  tooltip.percent = Math.round((segment.value / total) * 100)
+  tooltip.percent = total.value ? Math.round((segment.value / total.value) * 100) : 0
   tooltip.x = event.clientX - rect.left + 12
   tooltip.y = event.clientY - rect.top - 12
 }
@@ -200,6 +209,14 @@ const hideTooltip = () => {
 
 .status-value {
   font-weight: 700;
+}
+
+.empty-state {
+  padding: 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: var(--fleet-muted);
+  text-align: center;
 }
 
 .tooltip {

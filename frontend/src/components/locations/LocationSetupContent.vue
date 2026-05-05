@@ -42,7 +42,7 @@
           </button>
         </div>
 
-        <button class="primary-button" type="button" @click="openAdd">
+        <button v-if="canCreateLocations" class="primary-button" type="button" @click="openAdd">
           <v-icon icon="mdi-plus" size="18" />
           Add Location
         </button>
@@ -68,6 +68,8 @@
       :items-per-page="tableOptions.itemsPerPage"
       :sort-by="tableOptions.sortBy"
       :sort-order="tableOptions.sortOrder"
+      :can-edit="canEditLocations"
+      :can-delete="canDeleteLocations"
       @update:options="handleTableOptions"
       @edit="openEdit"
       @remove="handleDelete"
@@ -103,6 +105,7 @@ import { useListPage } from '../../composables/useListPage'
 import { usePageMessage } from '../../composables/usePageMessage'
 import { useReferenceMetrics } from '../../composables/useReferenceMetrics'
 import { attachDisplayIds } from '../../utils/tableDisplayIds'
+import { canCreateModule, canDeleteModule, canEditModule } from '../../utils/authSession'
 import {
   createLocationCodeOption,
   deleteLocationCodeOption,
@@ -116,6 +119,9 @@ import LocationSetupTable from './LocationSetupTable.vue'
 const dialogOpen = ref(false)
 const dialogMode = ref('add')
 const selectedLocation = ref(null)
+const canCreateLocations = computed(() => canCreateModule('location-setup'))
+const canEditLocations = computed(() => canEditModule('location-setup'))
+const canDeleteLocations = computed(() => canDeleteModule('location-setup'))
 const locationTypeOptions = ref(['Warehouse', 'Depot', 'Hub', 'Yard', 'Office'])
 const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage()
 const {

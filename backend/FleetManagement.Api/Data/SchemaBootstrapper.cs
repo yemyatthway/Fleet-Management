@@ -395,6 +395,147 @@ public static class SchemaBootstrapper
       );
     }
 
+    var hasIncidentsTable = await TableExistsAsync(db, "Incidents");
+    if (!hasIncidentsTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE Incidents (
+          Id nvarchar(40) NOT NULL PRIMARY KEY,
+          VehicleId nvarchar(80) NOT NULL,
+          Driver nvarchar(120) NOT NULL,
+          Date nvarchar(40) NOT NULL,
+          Type nvarchar(120) NOT NULL,
+          Severity nvarchar(40) NOT NULL,
+          Status nvarchar(40) NOT NULL,
+          Cost nvarchar(80) NULL,
+          Notes nvarchar(1000) NULL,
+          IsDeleted int NOT NULL CONSTRAINT DF_Incidents_IsDeleted DEFAULT 0,
+          CreatedAt datetime2 NOT NULL,
+          UpdatedAt datetime2 NOT NULL
+        );
+        CREATE UNIQUE INDEX IX_Incidents_Id ON Incidents(Id);
+        """
+      );
+    }
+
+    var hasExpensesTable = await TableExistsAsync(db, "Expenses");
+    if (!hasExpensesTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE Expenses (
+          Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+          ExpenseDate nvarchar(40) NOT NULL,
+          ExpenseType nvarchar(120) NOT NULL,
+          VehicleId nvarchar(80) NULL,
+          TripNumber nvarchar(80) NULL,
+          DriverName nvarchar(120) NULL,
+          Amount decimal(18,2) NOT NULL,
+          Status nvarchar(40) NOT NULL,
+          Notes nvarchar(1000) NULL,
+          IsDeleted int NOT NULL CONSTRAINT DF_Expenses_IsDeleted DEFAULT 0,
+          CreatedAt datetime2 NOT NULL,
+          UpdatedAt datetime2 NOT NULL
+        );
+        """
+      );
+    }
+
+    var hasFleetDocumentsTable = await TableExistsAsync(db, "FleetDocuments");
+    if (!hasFleetDocumentsTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE FleetDocuments (
+          Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+          OwnerType nvarchar(40) NOT NULL,
+          OwnerId nvarchar(80) NOT NULL,
+          OwnerName nvarchar(160) NOT NULL,
+          DocumentType nvarchar(120) NOT NULL,
+          DocumentNumber nvarchar(120) NULL,
+          IssueDate nvarchar(40) NULL,
+          ExpiryDate nvarchar(40) NULL,
+          Status nvarchar(40) NOT NULL,
+          Notes nvarchar(1000) NULL,
+          IsDeleted int NOT NULL CONSTRAINT DF_FleetDocuments_IsDeleted DEFAULT 0,
+          CreatedAt datetime2 NOT NULL,
+          UpdatedAt datetime2 NOT NULL
+        );
+        """
+      );
+    }
+
+    var hasAuditLogsTable = await TableExistsAsync(db, "AuditLogs");
+    if (!hasAuditLogsTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE AuditLogs (
+          Id bigint IDENTITY(1,1) NOT NULL PRIMARY KEY,
+          RoleId nvarchar(80) NOT NULL,
+          ModuleKey nvarchar(80) NOT NULL,
+          Action nvarchar(40) NOT NULL,
+          EntityId nvarchar(80) NOT NULL,
+          Description nvarchar(1000) NOT NULL,
+          CreatedAt datetime2 NOT NULL
+        );
+        """
+      );
+    }
+
+    var hasStatusHistoriesTable = await TableExistsAsync(db, "StatusHistories");
+    if (!hasStatusHistoriesTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE StatusHistories (
+          Id bigint IDENTITY(1,1) NOT NULL PRIMARY KEY,
+          EntityType nvarchar(80) NOT NULL,
+          EntityId nvarchar(80) NOT NULL,
+          OldStatus nvarchar(80) NULL,
+          NewStatus nvarchar(80) NOT NULL,
+          RoleId nvarchar(80) NOT NULL,
+          CreatedAt datetime2 NOT NULL
+        );
+        """
+      );
+    }
+
+    var hasInventoryPartsTable = await TableExistsAsync(db, "InventoryParts");
+    if (!hasInventoryPartsTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE InventoryParts (
+          Id nvarchar(40) NOT NULL PRIMARY KEY,
+          Name nvarchar(160) NOT NULL,
+          PartNo nvarchar(80) NOT NULL,
+          Category nvarchar(120) NOT NULL,
+          Stock int NOT NULL,
+          ReorderPoint int NOT NULL,
+          Supplier nvarchar(160) NULL,
+          UnitCost nvarchar(80) NULL,
+          Location nvarchar(160) NULL,
+          Image nvarchar(500) NULL,
+          IsDeleted int NOT NULL CONSTRAINT DF_InventoryParts_IsDeleted DEFAULT 0,
+          CreatedAt datetime2 NOT NULL,
+          UpdatedAt datetime2 NOT NULL
+        );
+        CREATE UNIQUE INDEX IX_InventoryParts_Id ON InventoryParts(Id);
+        CREATE INDEX IX_InventoryParts_PartNo ON InventoryParts(PartNo);
+        """
+      );
+    }
+    else
+    {
+      var hasImageColumn = await ColumnExistsAsync(db, "InventoryParts", "Image");
+      if (!hasImageColumn)
+      {
+        await db.Database.ExecuteSqlRawAsync("ALTER TABLE InventoryParts ADD Image nvarchar(500) NULL;");
+      }
+    }
+
     await EnsureTripSetupTableAsync(db, "TripTypeCodeOptions");
     await EnsureTripSetupTableAsync(db, "CargoTypeCodeOptions");
     await EnsureTripSetupTableAsync(db, "StatusCodeOptions");
@@ -404,6 +545,7 @@ public static class SchemaBootstrapper
     await EnsureTripSetupTableAsync(db, "ExpenseTypeCodeOptions");
     await EnsureTripSetupTableAsync(db, "MaintenanceTypeCodeOptions");
     await EnsureTripSetupTableAsync(db, "DocumentTypeCodeOptions");
+    await EnsureTripSetupTableAsync(db, "SupplierCodeOptions");
 
     var hasTripsTable = await TableExistsAsync(db, "Trips");
     if (!hasTripsTable)

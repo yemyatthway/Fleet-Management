@@ -20,3 +20,4 @@ public sealed class SeverityCodeOption : TripSetupCodeOption;
 public sealed class ExpenseTypeCodeOption : TripSetupCodeOption;
 public sealed class MaintenanceTypeCodeOption : TripSetupCodeOption;
 public sealed class DocumentTypeCodeOption : TripSetupCodeOption;
+public sealed class SupplierCodeOption : TripSetupCodeOption;

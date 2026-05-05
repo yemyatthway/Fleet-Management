@@ -117,11 +117,12 @@
 
         <template #item.actions="{ item }">
           <div class="inline-actions">
-            <button class="icon-button tooltip" @click="$emit('edit', item.id)">
+            <button v-if="canEdit" class="icon-button tooltip" @click="$emit('edit', item.id)">
               <v-icon icon="mdi-pencil-outline" size="18" />
               <span class="tooltip-text">Edit user</span>
             </button>
             <button
+              v-if="canEdit"
               class="icon-button tooltip"
               :class="item.status === 'Active' ? 'warn' : 'good'"
               @click="$emit('toggle', item.id)"
@@ -131,7 +132,7 @@
                 {{ item.status === 'Active' ? 'Disable user' : 'Enable user' }}
               </span>
             </button>
-            <button class="icon-button danger tooltip" @click="$emit('remove', item.id)">
+            <button v-if="canDelete" class="icon-button danger tooltip" @click="$emit('remove', item.id)">
               <v-icon icon="mdi-trash-can-outline" size="18" />
               <span class="tooltip-text">Delete user</span>
             </button>
@@ -177,6 +178,14 @@ const props = defineProps({
   sortOrder: {
     type: String,
     default: 'asc'
+  },
+  canEdit: {
+    type: Boolean,
+    default: false
+  },
+  canDelete: {
+    type: Boolean,
+    default: false
   }
 })
 

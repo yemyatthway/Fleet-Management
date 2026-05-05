@@ -1,4 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_ROLES_API_BASE_URL || 'http://localhost:5215'
+import { getAuthHeaders } from './apiAuth'
 
 const resolveAssetUrl = (value) => {
   if (!value) return ''
@@ -29,6 +30,7 @@ const request = async (path, options = {}) => {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
       ...options.headers
     },
     ...options

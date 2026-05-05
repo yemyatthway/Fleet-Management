@@ -127,13 +127,17 @@ const menuItems = [
   { icon: 'mdi-view-dashboard', label: 'Dashboard', path: '/dashboard', module: 'dashboard' },
   { icon: 'mdi-truck', label: 'Vehicles', path: '/vehicles', module: 'vehicles' },
   { icon: 'mdi-map-marker', label: 'Trips', path: '/trips', module: 'trips' },
-  { icon: 'mdi-file-document-outline', label: 'Reports', path: '/reports', module: 'reports' }
+  { icon: 'mdi-file-document-outline', label: 'Reports', path: '/reports', module: 'reports' },
+  { icon: 'mdi-cash-multiple', label: 'Expenses', path: '/expenses', module: 'expenses' },
+  { icon: 'mdi-file-certificate-outline', label: 'Vehicle Documents', path: '/vehicle-documents', module: 'vehicle-documents' },
+  { icon: 'mdi-card-account-details-outline', label: 'Driver Documents', path: '/driver-documents', module: 'driver-documents' }
 ]
 
 const userItems = [
   { icon: 'mdi-account-multiple', label: 'Users', path: '/users', module: 'users' },
   { icon: 'mdi-shield-account', label: 'Roles', path: '/roles', module: 'roles' },
-  { icon: 'mdi-shield-key-outline', label: 'Permissions', path: '/permissions', module: 'permissions' }
+  { icon: 'mdi-shield-key-outline', label: 'Permissions', path: '/permissions', module: 'permissions' },
+  { icon: 'mdi-history', label: 'Audit Logs', path: '/audit-logs', module: 'audit-logs' }
 ]
 
 const setupItems = [
@@ -150,7 +154,8 @@ const setupItems = [
   { icon: 'mdi-alert-outline', label: 'Severity Setup', path: '/user-code-setup/severities', module: 'severity-setup' },
   { icon: 'mdi-cash-multiple', label: 'Expense Type Setup', path: '/user-code-setup/expense-types', module: 'expense-type-setup' },
   { icon: 'mdi-wrench-clock', label: 'Maintenance Type Setup', path: '/user-code-setup/maintenance-types', module: 'maintenance-type-setup' },
-  { icon: 'mdi-file-certificate-outline', label: 'Document Type Setup', path: '/user-code-setup/document-types', module: 'document-type-setup' }
+  { icon: 'mdi-file-certificate-outline', label: 'Document Type Setup', path: '/user-code-setup/document-types', module: 'document-type-setup' },
+  { icon: 'mdi-storefront-outline', label: 'Supplier Setup', path: '/user-code-setup/suppliers', module: 'supplier-setup' }
 ]
 
 const maintenanceItems = [
@@ -176,7 +181,7 @@ const userInitials = computed(() =>
 
 const isMaintenanceRoute = (path) => path.startsWith('/maintenance') || path === '/incidents'
 const isUserManagementRoute = (path) =>
-  path.startsWith('/users') || path.startsWith('/roles') || path.startsWith('/permissions')
+  path.startsWith('/users') || path.startsWith('/roles') || path.startsWith('/permissions') || path.startsWith('/audit-logs')
 
 const maintenanceOpen = ref(isMaintenanceRoute(route.path))
 const userOpen = ref(isUserManagementRoute(route.path))

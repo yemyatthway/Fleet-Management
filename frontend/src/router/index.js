@@ -9,6 +9,7 @@ const routes = [
   { path: '/users', component: () => import('../pages/UserManagement.vue'), meta: { module: 'users' } },
   { path: '/roles', component: () => import('../pages/RoleManagement.vue'), meta: { module: 'roles' } },
   { path: '/permissions', component: () => import('../pages/PermissionManagement.vue'), meta: { module: 'permissions' } },
+  { path: '/audit-logs', component: () => import('../pages/AuditLogs.vue'), meta: { module: 'audit-logs' } },
   { path: '/user-code-setup', redirect: '/user-code-setup/departments' },
   { path: '/user-code-setup/departments', component: () => import('../pages/DepartmentCodeSetup.vue'), meta: { module: 'department-setup' } },
   { path: '/user-code-setup/locations', component: () => import('../pages/LocationCodeSetup.vue'), meta: { module: 'location-setup' } },
@@ -24,13 +25,17 @@ const routes = [
   { path: '/user-code-setup/expense-types', component: () => import('../pages/ExpenseTypeSetup.vue'), meta: { module: 'expense-type-setup' } },
   { path: '/user-code-setup/maintenance-types', component: () => import('../pages/MaintenanceTypeSetup.vue'), meta: { module: 'maintenance-type-setup' } },
   { path: '/user-code-setup/document-types', component: () => import('../pages/DocumentTypeSetup.vue'), meta: { module: 'document-type-setup' } },
+  { path: '/user-code-setup/suppliers', component: () => import('../pages/SupplierSetup.vue'), meta: { module: 'supplier-setup' } },
   { path: '/vehicles', component: () => import('../pages/VehicleManagement.vue'), meta: { module: 'vehicles' } },
   { path: '/incidents', component: () => import('../pages/IncidentManagement.vue'), meta: { module: 'incidents' } },
   { path: '/trips', component: () => import('../pages/Trips.vue'), meta: { module: 'trips' } },
-  { path: '/analytics', component: () => import('../pages/Placeholder.vue'), meta: { module: 'reports' } },
+  { path: '/analytics', redirect: '/reports' },
   { path: '/maintenance', component: () => import('../pages/MaintenanceTickets.vue'), meta: { module: 'maintenance-tickets' } },
   { path: '/maintenance/inventory', component: () => import('../pages/InventorySpareParts.vue'), meta: { module: 'inventory-parts' } },
-  { path: '/reports', component: () => import('../pages/Placeholder.vue'), meta: { module: 'reports' } },
+  { path: '/reports', component: () => import('../pages/Reports.vue'), meta: { module: 'reports' } },
+  { path: '/expenses', component: () => import('../pages/Expenses.vue'), meta: { module: 'expenses' } },
+  { path: '/vehicle-documents', component: () => import('../pages/VehicleDocuments.vue'), meta: { module: 'vehicle-documents' } },
+  { path: '/driver-documents', component: () => import('../pages/DriverDocuments.vue'), meta: { module: 'driver-documents' } },
   { path: '/settings', component: () => import('../pages/Placeholder.vue'), meta: { module: 'settings' } }
 ]
 

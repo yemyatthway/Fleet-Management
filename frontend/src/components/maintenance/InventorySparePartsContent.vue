@@ -7,6 +7,8 @@
       </div>
     </div>
 
+    <div v-if="pageError" class="form-error">{{ pageError }}</div>
+
     <div class="stats-grid">
       <div class="stat-card">
         <p>Total Parts</p>
@@ -70,7 +72,7 @@
             </select>
           </div>
 
-          <button class="primary-button" type="button" @click="openPart">
+          <button v-if="canCreate" class="primary-button" type="button" @click="openPart">
             <v-icon icon="mdi-toolbox-outline" size="18" />
             Add Part
           </button>
@@ -88,6 +90,7 @@
           class="table-base inventory-table"
           :headers="partHeaders"
           :items="filteredParts"
+          :loading="loading"
           :items-per-page="10"
           :items-per-page-options="[10, 20, 30]"
           :mobile-breakpoint="0"
@@ -98,7 +101,8 @@
         >
           <template #item.part="{ item }">
             <div class="part-cell">
-              <span class="part-avatar">
+              <img v-if="item.image" class="part-image" :src="item.image" :alt="item.name" />
+              <span v-else class="part-avatar">
                 <v-icon icon="mdi-cog-outline" size="18" />
               </span>
               <div>
@@ -132,11 +136,11 @@
                 <v-icon icon="mdi-eye-outline" size="18" />
                 <span class="tooltip-text">View details</span>
               </button>
-              <button class="icon-button tooltip" type="button" @click="openPartEdit(item)">
+              <button v-if="canEdit" class="icon-button tooltip" type="button" @click="openPartEdit(item)">
                 <v-icon icon="mdi-pencil-outline" size="18" />
                 <span class="tooltip-text">Edit part</span>
               </button>
-              <button class="icon-button danger tooltip" type="button" @click="deletePart(item.id)">
+              <button v-if="canDelete" class="icon-button danger tooltip" type="button" @click="deletePart(item.id)">
                 <v-icon icon="mdi-trash-can-outline" size="18" />
                 <span class="tooltip-text">Delete part</span>
               </button>
@@ -176,7 +180,10 @@
           </div>
           <div class="form-field">
             <label>Supplier</label>
-            <input v-model="partForm.supplier" type="text" placeholder="Supplier name" />
+            <select v-model="partForm.supplier">
+              <option value="">Select supplier</option>
+              <option v-for="supplier in supplierOptions" :key="supplier" :value="supplier">{{ supplier }}</option>
+            </select>
           </div>
           <div class="form-field">
             <label>Stock On Hand</label>
@@ -194,11 +201,19 @@
             <label>Location / Bin</label>
             <input v-model="partForm.location" type="text" placeholder="e.g., Bay 2 / Rack B" />
           </div>
+          <div class="form-field">
+            <label>Part Image</label>
+            <input type="file" accept="image/*" @change="handleImageChange" />
+          </div>
+          <label v-if="partForm.image" class="check-field">
+            <input v-model="partForm.removeImage" type="checkbox" />
+            Remove existing image
+          </label>
         </div>
 
         <div class="form-actions">
           <button class="ghost-button" type="button" @click="partOpen = false">Cancel</button>
-          <button class="primary-button" type="button" @click="savePart">
+          <button class="primary-button" type="button" :disabled="saving" @click="savePart">
             {{ partMode === 'edit' ? 'Save Changes' : 'Save Part' }}
           </button>
         </div>
@@ -246,33 +261,21 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
+import { createInventoryPart, deleteInventoryPart, getInventoryParts, updateInventoryPart } from '../../services/inventoryPartsApi'
+import { suppliersApi } from '../../services/tripSetupApi'
+import { canCreateModule, canDeleteModule, canEditModule } from '../../utils/authSession'
 
-const parts = ref([
-  {
-    id: 'PRT-4001',
-    name: 'Brake Pads (Front)',
-    partNo: 'BRK-FR-220',
-    category: 'Brakes',
-    stock: 18,
-    reorderPoint: 8,
-    supplier: 'Delta Auto Supply',
-    unitCost: '$42',
-    location: 'Bay 2 / Rack B'
-  },
-  {
-    id: 'PRT-4015',
-    name: 'Oil Filter',
-    partNo: 'OIL-TR-120',
-    category: 'Engine',
-    stock: 6,
-    reorderPoint: 10,
-    supplier: 'Yangon Fleet Parts',
-    unitCost: '$12',
-    location: 'Bay 1 / Bin A'
-  }
-])
+const moduleKey = 'inventory-parts'
+const parts = ref([])
+const loading = ref(false)
+const saving = ref(false)
+const pageError = ref('')
+const supplierOptions = ref([])
+const canCreate = computed(() => canCreateModule(moduleKey))
+const canEdit = computed(() => canEditModule(moduleKey))
+const canDelete = computed(() => canDeleteModule(moduleKey))
 
 const searchQuery = ref('')
 const categoryFilter = ref('All')
@@ -357,8 +360,31 @@ const buildEmptyPart = () => ({
   reorderPoint: 0,
   supplier: '',
   unitCost: '',
-  location: ''
+  location: '',
+  image: '',
+  imageFile: null,
+  removeImage: false
 })
+
+const loadParts = async () => {
+  loading.value = true
+  pageError.value = ''
+  try {
+    parts.value = await getInventoryParts()
+  } catch (error) {
+    pageError.value = error.message || 'Could not load inventory parts.'
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadSuppliers = async () => {
+  try {
+    supplierOptions.value = await suppliersApi.options()
+  } catch (error) {
+    console.error(error)
+  }
+}
 
 const openPart = () => {
   partMode.value = 'add'
@@ -369,7 +395,7 @@ const openPart = () => {
 
 const openPartEdit = (part) => {
   partMode.value = 'edit'
-  partForm.value = { ...buildEmptyPart(), ...part }
+  partForm.value = { ...buildEmptyPart(), ...part, imageFile: null, removeImage: false }
   partError.value = ''
   partOpen.value = true
 }
@@ -379,26 +405,30 @@ const openPartDetails = (part) => {
   partDetailsOpen.value = true
 }
 
-const savePart = () => {
+const savePart = async () => {
   if (!partForm.value.name || !partForm.value.partNo) {
     partError.value = 'Part name and part number are required.'
     return
   }
-  if (partMode.value === 'add') {
-    const newId = `PRT-${Math.floor(1000 + Math.random() * 9000)}`
-    parts.value = [
-      {
-        ...partForm.value,
-        id: newId
-      },
-      ...parts.value
-    ]
-  } else {
-    parts.value = parts.value.map((item) =>
-      item.id === partForm.value.id ? { ...item, ...partForm.value } : item
-    )
+  saving.value = true
+  partError.value = ''
+  try {
+    if (partMode.value === 'add') {
+      await createInventoryPart(partForm.value)
+    } else {
+      await updateInventoryPart(partForm.value.id, partForm.value)
+    }
+    partOpen.value = false
+    await loadParts()
+  } catch (error) {
+    partError.value = error.message || 'Could not save part.'
+  } finally {
+    saving.value = false
   }
-  partOpen.value = false
+}
+
+const handleImageChange = (event) => {
+  partForm.value.imageFile = event.target.files?.[0] || null
 }
 
 const openConfirm = ({ title, message, confirmText, tone, action }) => {
@@ -423,11 +453,20 @@ const deletePart = (id) => {
     message: `This will permanently remove ${part.name}.`,
     confirmText: 'Delete',
     tone: 'danger',
-    action: () => {
-      parts.value = parts.value.filter((item) => item.id !== id)
+    action: async () => {
+      try {
+        await deleteInventoryPart(id)
+        await loadParts()
+      } catch (error) {
+        pageError.value = error.message || 'Could not delete part.'
+      }
     }
   })
 }
+
+onMounted(async () => {
+  await Promise.all([loadParts(), loadSuppliers()])
+})
 </script>
 
 <style scoped src="../roles/roles_styles/RoleManagementContent.css"></style>
@@ -480,6 +519,22 @@ const deletePart = (id) => {
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #fff;
   flex: 0 0 36px;
+}
+
+.part-image {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 36px;
+}
+
+.check-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fleet-muted);
+  font-size: 13px;
 }
 
 .ghost-button {
