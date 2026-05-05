@@ -62,12 +62,13 @@
 
         <template #item.actions="{ item }">
           <div class="inline-actions">
-            <button class="icon-button tooltip" type="button" @click="$emit('edit', item)">
+            <button v-if="canEdit" class="icon-button tooltip" type="button" @click="$emit('edit', item)">
               <v-icon icon="mdi-pencil-outline" size="18" />
               <span class="tooltip-text">Edit ticket</span>
             </button>
             <button
               class="icon-button tooltip"
+              v-if="canEdit"
               :class="item.status === 'Completed' ? 'good' : 'warn'"
               type="button"
               @click="$emit('advance-status', item)"
@@ -75,7 +76,7 @@
               <v-icon icon="mdi-progress-wrench" size="18" />
               <span class="tooltip-text">Advance status</span>
             </button>
-            <button class="icon-button danger tooltip" type="button" @click="$emit('remove', item)">
+            <button v-if="canDelete" class="icon-button danger tooltip" type="button" @click="$emit('remove', item)">
               <v-icon icon="mdi-trash-can-outline" size="18" />
               <span class="tooltip-text">Delete ticket</span>
             </button>
@@ -119,6 +120,14 @@ const props = defineProps({
   sortOrder: {
     type: String,
     default: 'desc'
+  },
+  canEdit: {
+    type: Boolean,
+    default: false
+  },
+  canDelete: {
+    type: Boolean,
+    default: false
   }
 })
 

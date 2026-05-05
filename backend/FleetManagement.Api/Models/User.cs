@@ -7,6 +7,7 @@ public class User
   public string EmployeeId { get; set; } = string.Empty;
   public string NrcNumber { get; set; } = string.Empty;
   public string Email { get; set; } = string.Empty;
+  public string PasswordHash { get; set; } = string.Empty;
   public string RoleId { get; set; } = string.Empty;
   public string Status { get; set; } = "Active";
   public string Phone { get; set; } = string.Empty;

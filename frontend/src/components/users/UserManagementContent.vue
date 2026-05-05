@@ -97,6 +97,7 @@
       :open="dialogOpen"
       :roles="userRoles"
       :departments="departmentOptions"
+      :statuses="statusOptions"
       @close="dialogOpen = false"
       @add="handleAdd"
     />
@@ -106,6 +107,7 @@
       :user="selectedUser"
       :roles="userRoles"
       :departments="departmentOptions"
+      :statuses="statusOptions"
       @close="editOpen = false"
       @save="handleUpdate"
     />
@@ -143,6 +145,7 @@ import { usePageMessage } from "../../composables/usePageMessage";
 import { attachDisplayIds } from "../../utils/tableDisplayIds";
 import { getDepartmentOptions } from "../../services/departmentsApi";
 import { getRoleOptions } from "../../services/rolesApi";
+import { statusesApi } from "../../services/tripSetupApi";
 import {
   createUser,
   deleteUser,
@@ -162,7 +165,7 @@ const toUserRequest = (payload) => ({
   nrcNumber: payload.nrcNumber,
   email: payload.email,
   role: payload.role,
-  status: payload.status || ACTIVE_STATUS,
+  status: payload.status,
   phone: payload.phone,
   department: payload.department,
   title: payload.title,
@@ -184,6 +187,7 @@ const toUserRequest = (payload) => ({
 
 const userRoles = ref([]);
 const departmentOptions = ref([]);
+const statusOptions = ref([]);
 const roleFilter = ref(ALL_ROLES_FILTER);
 const userStats = ref({ total: 0, active: 0, drivers: 0, admins: 0 });
 const dialogOpen = ref(false);
@@ -268,7 +272,14 @@ const loadUserRoles = async () => {
 
 const loadUserCodeOptions = async () => {
   try {
-    departmentOptions.value = await getDepartmentOptions();
+    const [departments, statuses] = await Promise.allSettled([
+      getDepartmentOptions(),
+      statusesApi.options(),
+    ]);
+    if (departments.status === "fulfilled") departmentOptions.value = departments.value;
+    if (statuses.status === "fulfilled") statusOptions.value = statuses.value;
+    const rejected = [departments, statuses].find((result) => result.status === "rejected");
+    if (rejected) throw rejected.reason;
   } catch (error) {
     console.error("[users] failed to load code setup options", error);
     showPageMessage({ tone: "error", title: "Could not load code setup", message: error.message });

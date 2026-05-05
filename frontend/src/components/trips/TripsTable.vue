@@ -7,11 +7,11 @@
         :items="items"
         :page="page"
         :items-per-page="itemsPerPage"
-        :items-per-page-options="[8, 16, 24]"
+        :items-per-page-options="[10, 20, 30]"
         :mobile-breakpoint="0"
         :mobile="false"
         fixed-header
-        height="560"
+        height="520"
         density="comfortable"
         @update:options="$emit('update:options', $event)"
       >
@@ -23,13 +23,6 @@
           <div class="trip-id-cell">
             <strong class="trip-number">{{ item.tripNumber }}</strong>
             <div class="text-muted trip-sub">{{ item.tripType }} • {{ item.priority }}</div>
-          </div>
-        </template>
-
-        <template #item.schedule="{ item }">
-          <div class="stack-cell">
-            <strong class="schedule-primary">{{ formatDateTime(item.departureDateTime) }}</strong>
-            <span class="text-muted">ETA {{ formatDateTime(item.estimatedArrival) }}</span>
           </div>
         </template>
 
@@ -59,15 +52,6 @@
           </div>
         </template>
 
-        <template #item.load="{ item }">
-          <div class="stack-cell">
-            <strong>{{ item.cargoType }}</strong>
-            <span class="text-muted">
-              {{ item.loadWeightKg.toLocaleString() }} kg • {{ item.plannedDistanceKm }} km
-            </span>
-          </div>
-        </template>
-
         <template #item.status="{ item }">
           <span class="badge" :class="statusClass(item.status)">{{ item.status }}</span>
         </template>
@@ -78,11 +62,11 @@
               <v-icon icon="mdi-eye-outline" size="18" />
               <span class="tooltip-text">View details</span>
             </button>
-            <button class="icon-button tooltip" type="button" @click="$emit('edit', item)">
+            <button v-if="canEdit" class="icon-button tooltip" type="button" @click="$emit('edit', item)">
               <v-icon icon="mdi-pencil-outline" size="18" />
               <span class="tooltip-text">Edit trip</span>
             </button>
-            <button class="icon-button danger tooltip" type="button" @click="$emit('remove', item.id)">
+            <button v-if="canDelete" class="icon-button danger tooltip" type="button" @click="$emit('remove', item.id)">
               <v-icon icon="mdi-trash-can-outline" size="18" />
               <span class="tooltip-text">Delete trip</span>
             </button>
@@ -109,7 +93,15 @@ const props = defineProps({
   },
   itemsPerPage: {
     type: Number,
-    default: 8
+    default: 10
+  },
+  canEdit: {
+    type: Boolean,
+    default: false
+  },
+  canDelete: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -118,16 +110,17 @@ defineEmits(['update:options', 'view', 'edit', 'remove'])
 const headers = [
   { title: 'No.', key: 'displayId', sortable: false },
   { title: 'Trip', key: 'tripNumber', sortable: false },
-  { title: 'Schedule', key: 'schedule', sortable: false },
   { title: 'Route', key: 'route', sortable: false },
   { title: 'Vehicle', key: 'vehicle', sortable: false },
   { title: 'Driver', key: 'driver', sortable: false },
-  { title: 'Load', key: 'load', sortable: false },
   { title: 'Status', key: 'status', sortable: false },
   { title: 'Actions', key: 'actions', sortable: false, align: 'end', width: 140 }
 ]
 
-const rowNumber = (index) => (props.page - 1) * props.itemsPerPage + index + 1
+const rowNumber = (index) => {
+  const value = (props.page - 1) * props.itemsPerPage + index + 1
+  return String(value).padStart(3, '0')
+}
 
 const statusClass = (status) => {
   if (status === 'Completed') return 'success'
@@ -135,20 +128,5 @@ const statusClass = (status) => {
   if (status === 'Delayed') return 'warning'
   if (status === 'Cancelled') return 'danger'
   return 'neutral'
-}
-
-const formatDateTime = (value) => {
-  if (!value) return '—'
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  }).format(date)
 }
 </script>

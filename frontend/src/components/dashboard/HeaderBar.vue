@@ -29,17 +29,24 @@
         </div>
       </v-menu>
       <div class="date-label">{{ today }}</div>
+      <button class="logout-button" type="button" @click="logout">
+        <v-icon icon="mdi-logout" size="18" />
+        Logout
+      </button>
     </div>
   </v-app-bar>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import NotificationsPanel from './NotificationsPanel.vue'
+import { clearAuthSession } from '../../utils/authSession'
 
 defineEmits(['toggle'])
 
 const menuOpen = ref(false)
+const router = useRouter()
 
 const today = computed(() =>
   new Date().toLocaleDateString('en-US', {
@@ -49,6 +56,11 @@ const today = computed(() =>
     year: 'numeric'
   })
 )
+
+const logout = () => {
+  clearAuthSession()
+  router.push('/login')
+}
 </script>
 
 <style scoped>
@@ -128,6 +140,24 @@ const today = computed(() =>
   font-size: 14px;
 }
 
+.logout-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--fleet-border);
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 11px;
+}
+
+.logout-button:hover {
+  background: #f8fafc;
+}
+
 @media (max-width: 720px) {
   .header-bar {
     padding: 0 16px;
@@ -138,6 +168,14 @@ const today = computed(() =>
   }
 
   .date-label {
+    display: none;
+  }
+
+  .logout-button {
+    padding: 9px;
+  }
+
+  .logout-button .v-icon + * {
     display: none;
   }
 }

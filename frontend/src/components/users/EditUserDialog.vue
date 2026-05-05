@@ -58,8 +58,10 @@
           <div class="field">
             <label>Status</label>
             <select v-model="form.status">
-              <option value="Active">Active</option>
-              <option value="Disabled">Disabled</option>
+              <option value="" disabled>Select status</option>
+              <option v-for="status in statusOptions" :key="status" :value="status">
+                {{ status }}
+              </option>
             </select>
           </div>
         </div>
@@ -211,6 +213,10 @@ const props = defineProps({
   departments: {
     type: Array,
     default: () => []
+  },
+  statuses: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -224,6 +230,13 @@ const departmentChoices = computed(() => {
   const values = new Set(props.departments)
   if (props.user?.department) values.add(props.user.department)
   return [...values]
+})
+const statusOptions = computed(() => {
+  const options = props.statuses.filter(Boolean)
+  if (form.status && !options.includes(form.status)) {
+    return [form.status, ...options]
+  }
+  return options
 })
 
 const internalOpen = computed({
@@ -281,7 +294,7 @@ const reset = () => {
   form.nrcNumber = normalizeNrcForInput(props.user?.nrcNumber || '')
   form.email = props.user?.email || ''
   form.role = props.user?.role || defaultRole.value
-  form.status = props.user?.status || 'Active'
+  form.status = props.user?.status || props.statuses[0] || ''
   form.phone = props.user?.phone || ''
   form.avatar = props.user?.avatar || ''
   form.nrcFront = props.user?.nrcFront || ''
@@ -407,6 +420,7 @@ const validateStep = (step) => {
     if (!form.phone) return 'Phone number is required.'
     if (!isValidPhone(form.phone)) return 'Enter a valid phone number.'
     if (!form.role) return 'Role is required.'
+    if (!form.status) return 'Status is required.'
     return ''
   }
   if (step === 2) {

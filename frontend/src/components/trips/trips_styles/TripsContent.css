@@ -1,7 +1,7 @@
 .trips-page {
-  display: grid;
-  gap: 20px;
-  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .page-header,
@@ -26,16 +26,16 @@
 }
 
 .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
-  flex-wrap: wrap;
 }
 
 .stat-card {
-  flex: 1 1 220px;
-  background: var(--fleet-surface);
+  padding: 16px;
+  border-radius: 14px;
   border: 1px solid var(--fleet-border);
-  border-radius: 18px;
-  padding: 20px;
+  background: #fff;
 }
 
 .stat-card p,
@@ -46,14 +46,14 @@
 }
 
 .stat-card p {
-  margin: 0 0 10px;
-  font-size: 14px;
-  font-weight: 600;
+  margin: 0;
+  font-size: 13px;
+  color: var(--fleet-muted);
 }
 
 .stat-card h3 {
-  margin: 0;
-  font-size: 28px;
+  margin: 8px 0 0;
+  font-size: 22px;
 }
 
 .text-info {
@@ -69,7 +69,7 @@
 }
 
 .toolbar {
-  padding: 20px;
+  padding: 18px;
 }
 
 .toolbar-row {
@@ -80,16 +80,17 @@
 .toolbar-filter {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   border: 1px solid var(--fleet-border);
-  border-radius: 14px;
+  border-radius: 12px;
+  padding: 10px 12px;
   background: #fff;
-  min-height: 46px;
+  min-width: 0;
 }
 
 .toolbar-search {
   flex: 1 1 360px;
-  padding: 0 14px;
+  min-width: min(320px, 100%);
 }
 
 .toolbar-search input,
@@ -99,32 +100,32 @@
 .field textarea {
   width: 100%;
   border: none;
+  outline: none;
   background: transparent;
-  color: var(--fleet-text);
-  font: inherit;
+  font-size: 14px;
 }
 
-.toolbar-search input:focus,
-.toolbar-filter select:focus,
-.field input:focus,
-.field select:focus,
-.field textarea:focus {
-  outline: none;
+.toolbar-filter select {
+  appearance: none;
+  cursor: pointer;
 }
 
 .toolbar-actions {
   gap: 12px;
+  flex: 1 1 440px;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .toolbar-filter {
-  min-width: 170px;
-  padding: 0 14px;
+  flex: 1 1 220px;
+  cursor: pointer;
 }
 
 .toolbar-count {
-  margin-top: 14px;
-  font-size: 14px;
+  margin-top: 12px;
+  font-size: 13px;
 }
 
 .clear-button,
@@ -149,15 +150,20 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 0 18px;
   border-radius: 12px;
-  font-weight: 700;
+  padding: 10px 16px;
+  background: #fff;
+  color: var(--fleet-text);
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .primary-button {
+  border: none;
+  border-radius: 12px;
   background: var(--fleet-primary);
   color: #fff;
+  white-space: nowrap;
 }
 
 .primary-button:hover {
@@ -165,8 +171,11 @@
 }
 
 .ghost-button {
-  background: #eff6ff;
-  color: var(--fleet-primary);
+  border: 1px solid var(--fleet-border);
+}
+
+.ghost-button:hover {
+  background: #f8fafc;
 }
 
 .table-card,
@@ -191,8 +200,7 @@
 .table-base :deep(table) {
   border-collapse: separate;
   border-spacing: 0;
-  table-layout: fixed;
-  min-width: 1480px;
+  min-width: 1410px;
 }
 
 .table-base :deep(thead th) {
@@ -250,27 +258,27 @@
 
 .table-base :deep(thead th:nth-child(1)),
 .table-base :deep(tbody td:nth-child(1)) {
-  width: 78px;
+  width: 90px;
 }
 
 .table-base :deep(thead th:nth-child(2)),
 .table-base :deep(tbody td:nth-child(2)) {
-  width: 160px;
+  width: 220px;
 }
 
 .table-base :deep(thead th:nth-child(3)),
 .table-base :deep(tbody td:nth-child(3)) {
-  width: 220px;
+  width: 340px;
 }
 
 .table-base :deep(thead th:nth-child(4)),
 .table-base :deep(tbody td:nth-child(4)) {
-  width: 260px;
+  width: 220px;
 }
 
 .table-base :deep(thead th:nth-child(5)),
 .table-base :deep(tbody td:nth-child(5)) {
-  width: 170px;
+  width: 220px;
 }
 
 .table-base :deep(thead th:nth-child(6)),
@@ -280,17 +288,7 @@
 
 .table-base :deep(thead th:nth-child(7)),
 .table-base :deep(tbody td:nth-child(7)) {
-  width: 190px;
-}
-
-.table-base :deep(thead th:nth-child(8)),
-.table-base :deep(tbody td:nth-child(8)) {
-  width: 140px;
-}
-
-.table-base :deep(thead th:nth-child(9)),
-.table-base :deep(tbody td:nth-child(9)) {
-  width: 145px;
+  width: 150px;
 }
 
 .table-base :deep(thead th.align-right),
@@ -330,7 +328,8 @@
 .route-line span,
 .route-arrow,
 .stack-cell span {
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow-wrap: normal;
   word-break: normal;
   hyphens: none;
 }
@@ -339,6 +338,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .trip-id-cell strong,
@@ -351,14 +351,6 @@
 .vehicle-plate,
 .badge {
   white-space: nowrap;
-}
-
-.schedule-primary,
-.vehicle-plate,
-.trip-number {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .stack-cell span,
@@ -693,13 +685,19 @@
 
 @media (max-width: 720px) {
   .page-header,
+  .toolbar-row,
   .form-actions {
     flex-direction: column;
     align-items: stretch;
   }
 
+  .toolbar-search,
   .toolbar-actions {
     width: 100%;
+  }
+
+  .toolbar-actions {
+    flex-direction: column;
   }
 
   .toolbar-filter {

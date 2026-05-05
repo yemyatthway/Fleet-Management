@@ -50,13 +50,13 @@
           <v-icon icon="mdi-filter-variant" />
           <select v-model="statusFilter">
             <option value="All">All Status</option>
-            <option value="Pending">Pending</option>
-            <option value="Repairing">Repairing</option>
-            <option value="Completed">Completed</option>
+            <option v-for="status in statusOptions" :key="status" :value="status">
+              {{ status }}
+            </option>
           </select>
         </div>
 
-        <button class="primary-button" type="button" @click="openCreate">
+        <button v-if="canCreateTickets" class="primary-button" type="button" @click="openCreate">
           <v-icon icon="mdi-wrench" size="18" />
           Create Ticket
         </button>
@@ -90,6 +90,8 @@
       @edit="openEdit"
       @advance-status="advanceStatus"
       @remove="deleteTicket"
+      :can-edit="canEditTickets"
+      :can-delete="canDeleteTickets"
     />
 
     <MaintenanceTicketDialog
@@ -97,6 +99,7 @@
       :mode="dialogMode"
       :ticket="selectedTicket"
       :mechanics="mechanicOptions"
+      :statuses="statusOptions"
       @close="dialogOpen = false"
       @save="handleSave"
     />
@@ -120,6 +123,7 @@ import PageMessage from "../common/PageMessage.vue";
 import { useConfirmDialog } from "../../composables/useConfirmDialog";
 import { useListPage } from "../../composables/useListPage";
 import { usePageMessage } from "../../composables/usePageMessage";
+import { canCreateModule, canDeleteModule, canEditModule } from "../../utils/authSession";
 import {
   createMaintenanceTicket,
   deleteMaintenanceTicket,
@@ -128,6 +132,7 @@ import {
   updateMaintenanceTicketStatus,
 } from "../../services/maintenanceTicketsApi";
 import { getUserOptions } from "../../services/usersApi";
+import { statusesApi } from "../../services/tripSetupApi";
 import MaintenanceTicketDialog from "./MaintenanceTicketDialog.vue";
 import MaintenanceTicketsTable from "./MaintenanceTicketsTable.vue";
 
@@ -138,6 +143,10 @@ const dialogOpen = ref(false);
 const dialogMode = ref("create");
 const selectedTicket = ref(null);
 const mechanicOptions = ref([]);
+const statusOptions = ref([]);
+const canCreateTickets = computed(() => canCreateModule("maintenance-tickets"));
+const canEditTickets = computed(() => canEditModule("maintenance-tickets"));
+const canDeleteTickets = computed(() => canDeleteModule("maintenance-tickets"));
 const ticketStats = ref({
   total: 0,
   pending: 0,
@@ -206,6 +215,18 @@ const loadMechanicOptions = async () => {
   }
 };
 
+const loadStatusOptions = async () => {
+  try {
+    statusOptions.value = await statusesApi.options();
+  } catch (error) {
+    showPageMessage({
+      tone: "error",
+      title: "Could not load statuses",
+      message: error.message,
+    });
+  }
+};
+
 const openCreate = () => {
   dialogMode.value = "create";
   selectedTicket.value = {
@@ -215,7 +236,7 @@ const openCreate = () => {
     details: "",
     reportedDate: "",
     mechanic: "",
-    status: "Pending",
+    status: statusOptions.value[0] || "",
   };
   dialogOpen.value = true;
 };
@@ -262,12 +283,9 @@ const handleSave = async (payload) => {
 };
 
 const advanceStatus = (ticket) => {
-  const nextStatus =
-    ticket.status === "Pending"
-      ? "Repairing"
-      : ticket.status === "Repairing"
-        ? "Completed"
-        : "Pending";
+  const statuses = statusOptions.value.length ? statusOptions.value : [ticket.status];
+  const currentIndex = statuses.indexOf(ticket.status);
+  const nextStatus = statuses[(currentIndex + 1) % statuses.length] || ticket.status;
 
   openConfirm({
     title: "Update Status?",
@@ -325,7 +343,7 @@ const deleteTicket = (ticket) => {
 };
 
 onMounted(async () => {
-  await Promise.all([loadMechanicOptions(), loadTickets()]);
+  await Promise.all([loadMechanicOptions(), loadStatusOptions(), loadTickets()]);
 });
 </script>
 

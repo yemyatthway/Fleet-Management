@@ -46,7 +46,10 @@
               </div>
               <div class="field">
                 <label class="required">Department</label>
-                <input v-model.trim="form.department" type="text" placeholder="Distribution" required />
+                <select v-model="form.department" required>
+                  <option value="" disabled>Select department</option>
+                  <option v-for="department in departmentOptions" :key="department" :value="department">{{ department }}</option>
+                </select>
               </div>
               <div class="field">
                 <label>Cost Center</label>
@@ -64,7 +67,12 @@
             <div class="form-grid">
               <div class="field">
                 <label class="required">Vehicle ID</label>
-                <input v-model.trim="form.vehicleId" type="text" placeholder="FL-2218" required />
+                <select v-model="form.vehicleId" required @change="syncVehicle">
+                  <option value="" disabled>Select vehicle</option>
+                  <option v-for="vehicle in vehicleOptions" :key="vehicle.id" :value="vehicle.id">
+                    {{ vehicle.id }} • {{ vehicle.plate }}
+                  </option>
+                </select>
               </div>
               <div class="field">
                 <label class="required">Vehicle Plate</label>
@@ -72,19 +80,31 @@
               </div>
               <div class="field">
                 <label class="required">Driver Name</label>
-                <input v-model.trim="form.driverName" type="text" placeholder="Aung Kyaw Min" required />
+                <select v-model="form.driverName" required>
+                  <option value="" disabled>Select driver</option>
+                  <option v-for="driver in driverOptions" :key="driver.name" :value="driver.name">{{ driver.name }}</option>
+                </select>
               </div>
               <div class="field">
                 <label>Co-driver Name</label>
-                <input v-model.trim="form.coDriverName" type="text" placeholder="Optional co-driver" />
+                <select v-model="form.coDriverName">
+                  <option value="">No co-driver</option>
+                  <option v-for="driver in driverOptions" :key="driver.name" :value="driver.name">{{ driver.name }}</option>
+                </select>
               </div>
               <div class="field">
                 <label class="required">Dispatcher</label>
-                <input v-model.trim="form.dispatcherName" type="text" placeholder="Nilar Htun" required />
+                <select v-model="form.dispatcherName" required>
+                  <option value="" disabled>Select dispatcher</option>
+                  <option v-for="dispatcher in dispatcherOptions" :key="dispatcher.name" :value="dispatcher.name">{{ dispatcher.name }}</option>
+                </select>
               </div>
               <div class="field">
                 <label class="required">Cargo Type</label>
-                <input v-model.trim="form.cargoType" type="text" placeholder="Cold chain produce" required />
+                <select v-model="form.cargoType" required>
+                  <option value="" disabled>Select cargo type</option>
+                  <option v-for="cargoType in cargoTypeOptions" :key="cargoType" :value="cargoType">{{ cargoType }}</option>
+                </select>
               </div>
               <div class="field">
                 <label class="required">Load Weight (kg)</label>
@@ -102,11 +122,17 @@
             <div class="form-grid">
               <div class="field">
                 <label class="required">Pickup Location</label>
-                <input v-model.trim="form.pickupLocation" type="text" placeholder="Yangon Distribution Hub" required />
+                <select v-model="form.pickupLocation" required>
+                  <option value="" disabled>Select pickup location</option>
+                  <option v-for="location in locationOptions" :key="location" :value="location">{{ location }}</option>
+                </select>
               </div>
               <div class="field">
                 <label class="required">Dropoff Location</label>
-                <input v-model.trim="form.dropoffLocation" type="text" placeholder="Mandalay Regional DC" required />
+                <select v-model="form.dropoffLocation" required>
+                  <option value="" disabled>Select dropoff location</option>
+                  <option v-for="location in locationOptions" :key="location" :value="location">{{ location }}</option>
+                </select>
               </div>
               <div class="field">
                 <label>Pickup Contact</label>
@@ -198,7 +224,7 @@
 </template>
 
 <script setup>
-defineProps({
+const props = defineProps({
   open: {
     type: Boolean,
     default: false
@@ -226,6 +252,30 @@ defineProps({
   priorities: {
     type: Array,
     required: true
+  },
+  cargoTypeOptions: {
+    type: Array,
+    required: true
+  },
+  vehicleOptions: {
+    type: Array,
+    required: true
+  },
+  driverOptions: {
+    type: Array,
+    required: true
+  },
+  dispatcherOptions: {
+    type: Array,
+    required: true
+  },
+  locationOptions: {
+    type: Array,
+    required: true
+  },
+  departmentOptions: {
+    type: Array,
+    required: true
   }
 })
 
@@ -234,5 +284,14 @@ const emit = defineEmits(['update:open', 'close', 'submit'])
 const updateOpen = (value) => {
   if (!value) emit('close')
   emit('update:open', value)
+}
+
+const syncVehicle = () => {
+  const selectedVehicle = props.vehicleOptions.find((vehicle) => vehicle.id === props.form.vehicleId)
+  if (!selectedVehicle) return
+  props.form.vehiclePlate = selectedVehicle.plate || ''
+  props.form.driverName = selectedVehicle.driver || props.form.driverName
+  props.form.startingOdometerKm = Number(String(selectedVehicle.odometer || '').replace(/[^\d.]/g, '')) || props.form.startingOdometerKm
+  props.form.currentOdometerKm = props.form.startingOdometerKm || props.form.currentOdometerKm
 }
 </script>

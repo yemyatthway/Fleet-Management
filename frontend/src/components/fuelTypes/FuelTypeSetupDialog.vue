@@ -2,7 +2,7 @@
   <v-dialog v-model="internalOpen" max-width="560">
     <v-card class="dialog-card">
       <div class="dialog-header">
-        <h2>{{ mode === 'edit' ? 'Edit Fuel Type' : 'Create Fuel Type' }}</h2>
+        <h2>{{ mode === 'edit' ? `Edit ${label}` : `Create ${label}` }}</h2>
         <button class="icon-button" type="button" @click="close">
           <v-icon icon="mdi-close" />
         </button>
@@ -36,7 +36,7 @@
 
         <div class="dialog-actions">
           <button class="ghost" type="button" @click="close">Cancel</button>
-          <button class="primary" type="submit">{{ mode === 'edit' ? 'Save Changes' : 'Create Fuel Type' }}</button>
+          <button class="primary" type="submit">{{ mode === 'edit' ? 'Save Changes' : `Create ${label}` }}</button>
         </div>
       </form>
     </v-card>
@@ -58,6 +58,10 @@ const props = defineProps({
   item: {
     type: Object,
     default: null
+  },
+  label: {
+    type: String,
+    default: 'Fuel Type'
   }
 })
 

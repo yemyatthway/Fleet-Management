@@ -208,10 +208,11 @@ const rowNumber = (index) => {
   const safeTotal = Math.max(Number(props.total) || 0, 0)
   const startIndex = (safePage - 1) * safeItemsPerPage
   const descending = String(props.sortOrder || '').toLowerCase() === 'desc'
-
-  return descending
+  const value = descending
     ? Math.max(safeTotal - startIndex - index, 1)
     : startIndex + index + 1
+
+  return String(value).padStart(3, '0')
 }
 
 const roleClass = (role) => roleClassMap[role] || 'role-driver'

@@ -55,13 +55,13 @@
             <v-icon icon="mdi-filter-variant" />
             <select v-model="statusFilter">
               <option value="All">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Maintenance">Maintenance</option>
-              <option value="Inactive">Inactive</option>
+              <option v-for="status in statusOptions" :key="status" :value="status">
+                {{ status }}
+              </option>
             </select>
           </div>
 
-          <button class="primary-button" type="button" @click="openAdd">
+          <button v-if="canCreateVehicles" class="primary-button" type="button" @click="openAdd">
             <v-icon icon="mdi-truck-plus" size="18" />
             Add Vehicle
           </button>
@@ -73,6 +73,8 @@
       </div>
     </div>
 
+    <div v-if="formError && !formOpen" class="form-error page-error">{{ formError }}</div>
+
     <div class="card-surface table-card">
       <div class="table-wrap">
         <v-data-table
@@ -81,21 +83,24 @@
           :items="filteredVehicles"
           :items-per-page="10"
           :items-per-page-options="[10, 20, 30]"
+          :loading="loading"
           :mobile-breakpoint="0"
           :mobile="false"
           fixed-header
           height="520"
           density="comfortable"
         >
-          <template #item.vehicle="{ item }">
+          <template #item.id="{ item }">
             <div class="vehicle-cell">
               <button
                 class="thumb-button tooltip"
+                :disabled="!item.image"
                 type="button"
                 @click="openImage(item.image, item.type)"
               >
-                <img :src="item.image" :alt="item.type" class="vehicle-image" />
-                <span class="tooltip-text">View vehicle image</span>
+                <img v-if="item.image" :src="item.image" :alt="item.type" class="vehicle-image" />
+                <span v-else class="vehicle-image image-placeholder"><v-icon icon="mdi-truck-outline" size="20" /></span>
+                <span v-if="item.image" class="tooltip-text">View vehicle image</span>
               </button>
               <div>
                 <strong>{{ item.id }}</strong>
@@ -122,11 +127,13 @@
             <div class="driver-cell">
               <button
                 class="thumb-button tooltip"
+                :disabled="!item.driverImage"
                 type="button"
                 @click="openImage(item.driverImage, item.driver)"
               >
-                <img :src="item.driverImage" :alt="item.driver" class="driver-photo" />
-                <span class="tooltip-text">View driver image</span>
+                <img v-if="item.driverImage" :src="item.driverImage" :alt="item.driver" class="driver-photo" />
+                <span v-else class="driver-photo image-placeholder"><v-icon icon="mdi-account-outline" size="18" /></span>
+                <span v-if="item.driverImage" class="tooltip-text">View driver image</span>
               </button>
               <span>{{ item.driver }}</span>
             </div>
@@ -138,7 +145,7 @@
 
           <template #item.actions="{ item }">
             <div class="inline-actions">
-              <button class="icon-button tooltip" type="button" @click="openEdit(item)">
+              <button v-if="canEditVehicles" class="icon-button tooltip" type="button" @click="openEdit(item)">
                 <v-icon icon="mdi-pencil-outline" size="18" />
                 <span class="tooltip-text">Edit vehicle</span>
               </button>
@@ -147,6 +154,7 @@
                 <span class="tooltip-text">View details</span>
               </button>
               <button
+                v-if="canEditVehicles"
                 class="icon-button tooltip"
                 :class="item.status === 'Active' ? 'warn' : 'good'"
                 type="button"
@@ -157,7 +165,7 @@
                   {{ item.status === 'Active' ? 'Set inactive' : 'Set active' }}
                 </span>
               </button>
-              <button class="icon-button danger tooltip" type="button" @click="deleteVehicle(item.id)">
+              <button v-if="canDeleteVehicles" class="icon-button danger tooltip" type="button" @click="deleteVehicle(item.id)">
                 <v-icon icon="mdi-trash-can-outline" size="18" />
                 <span class="tooltip-text">Delete vehicle</span>
               </button>
@@ -266,19 +274,24 @@
 
         <div v-if="formStep === 1" class="form-grid">
           <div class="form-field">
-            <label>Plate Number <span class="required">*</span></label>
+            <label>Plate Number <span class="required-mark">*</span></label>
             <input v-model="formData.plate" type="text" placeholder="e.g., YGN-7742" />
           </div>
           <div class="form-field">
-            <label>Region <span class="required">*</span></label>
+            <label>Region <span class="required-mark">*</span></label>
             <input v-model="formData.region" type="text" placeholder="e.g., Yangon" />
           </div>
           <div class="form-field">
-            <label>Vehicle Type <span class="required">*</span></label>
-            <input v-model="formData.type" type="text" placeholder="e.g., Box Truck" />
+            <label>Vehicle Type <span class="required-mark">*</span></label>
+            <select v-model="formData.type">
+              <option value="" disabled>Select vehicle type</option>
+              <option v-for="type in availableVehicleTypeOptions" :key="type" :value="type">
+                {{ type }}
+              </option>
+            </select>
           </div>
           <div class="form-field">
-            <label>Model <span class="required">*</span></label>
+            <label>Model <span class="required-mark">*</span></label>
             <input v-model="formData.model" type="text" placeholder="e.g., Isuzu FVR" />
           </div>
           <div class="form-field">
@@ -294,11 +307,12 @@
             <input v-model="formData.color" type="text" placeholder="e.g., White" />
           </div>
           <div class="form-field">
-            <label>Status <span class="required">*</span></label>
+            <label>Status <span class="required-mark">*</span></label>
             <select v-model="formData.status">
-              <option value="Active">Active</option>
-              <option value="Maintenance">Maintenance</option>
-              <option value="Inactive">Inactive</option>
+              <option value="" disabled>Select status</option>
+              <option v-for="status in availableStatusOptions" :key="status" :value="status">
+                {{ status }}
+              </option>
             </select>
           </div>
           <div class="form-field">
@@ -309,8 +323,13 @@
             </select>
           </div>
           <div class="form-field">
-            <label>Driver <span class="required">*</span></label>
-            <input v-model="formData.driver" type="text" placeholder="Driver name" />
+            <label>Driver <span class="required-mark">*</span></label>
+            <select v-model="formData.driver" @change="syncSelectedDriverImage">
+              <option value="" disabled>Select driver</option>
+              <option v-for="driver in availableDriverOptions" :key="driver.name" :value="driver.name">
+                {{ driver.name }}
+              </option>
+            </select>
           </div>
           <div class="form-field">
             <label>
@@ -320,7 +339,12 @@
                 <span class="tooltip-text">Home base / yard</span>
               </span>
             </label>
-            <input v-model="formData.depot" type="text" placeholder="Depot / yard" />
+            <select v-model="formData.depot">
+              <option value="">Select depot</option>
+              <option v-for="depot in availableDepotOptions" :key="depot" :value="depot">
+                {{ depot }}
+              </option>
+            </select>
           </div>
           <div class="form-field">
             <label>Capacity</label>
@@ -331,10 +355,10 @@
             <input v-model="formData.fuelCapacity" type="text" placeholder="e.g., 120 L" />
           </div>
           <div class="form-field">
-            <label>Fuel Type <span class="required">*</span></label>
+            <label>Fuel Type <span class="required-mark">*</span></label>
             <select v-model="formData.fuelType">
               <option value="" disabled>Select fuel type</option>
-              <option v-for="type in fuelTypeOptions" :key="type" :value="type">
+              <option v-for="type in availableFuelTypeOptions" :key="type" :value="type">
                 {{ type }}
               </option>
             </select>
@@ -436,12 +460,34 @@
 
         <div v-if="formStep === 3" class="form-grid">
           <div class="form-field">
-            <label>Vehicle Image URL</label>
-            <input v-model="formData.image" type="url" placeholder="https://..." />
+            <label>Vehicle Image</label>
+            <div class="file-row">
+              <input ref="vehicleImageInput" type="file" accept="image/*" @change="handleVehicleImageUpload" />
+              <button
+                v-if="formData.image"
+                class="icon-button"
+                type="button"
+                @click="handleVehicleImageRemove"
+              >
+                <v-icon icon="mdi-close" size="16" />
+              </button>
+            </div>
+            <img v-if="formData.image" class="image-preview" :src="formData.image" alt="Vehicle preview" />
           </div>
           <div class="form-field">
-            <label>Driver Image URL</label>
-            <input v-model="formData.driverImage" type="url" placeholder="https://..." />
+            <label>Driver Image</label>
+            <div class="file-row">
+              <input ref="driverImageInput" type="file" accept="image/*" @change="handleDriverImageUpload" />
+              <button
+                v-if="formData.driverImage"
+                class="icon-button"
+                type="button"
+                @click="handleDriverImageRemove"
+              >
+                <v-icon icon="mdi-close" size="16" />
+              </button>
+            </div>
+            <img v-if="formData.driverImage" class="image-preview" :src="formData.driverImage" alt="Driver preview" />
           </div>
         </div>
 
@@ -497,187 +543,27 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
 import { getFuelTypeOptions } from '../../services/fuelTypesApi'
+import { getLocationOptions } from '../../services/locationsApi'
+import { statusesApi } from '../../services/tripSetupApi'
+import { getUsers } from '../../services/usersApi'
+import { getVehicleTypeOptions } from '../../services/vehicleTypesApi'
+import { canCreateModule, canDeleteModule, canEditModule } from '../../utils/authSession'
+import {
+  createVehicle,
+  deleteVehicle as deleteVehicleRecord,
+  getVehicles,
+  updateVehicle,
+  updateVehicleStatus
+} from '../../services/vehiclesApi'
 
-const vehicles = ref([
-  {
-    id: 'VH-2048',
-    plate: 'BRC-4521',
-    region: 'Bago',
-    type: 'Box Truck',
-    model: 'Volvo FL 280',
-    status: 'Active',
-    driver: 'Sarah Johnson',
-    driverImage: 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=800&q=80',
-    depot: 'Yangon East Yard',
-    capacity: '6 tons',
-    fuelType: 'Diesel',
-    vin: 'MMTFL280X7A2048',
-    engineNo: 'ENG-2048-XY',
-    odometer: '182,450 km',
-    lastService: '2025-11-10',
-    nextService: '2026-04-10',
-    serviceNote: 'Brake pads replaced',
-    registrationExpiry: '2026-09-30',
-    roadTaxExpiry: '2026-06-30',
-    insuranceExpiry: '2026-08-15',
-    inspectionDue: '2026-05-20',
-    acquiredDate: '2017-06-14',
-    image: 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    id: 'MM-3047',
-    plate: 'YGN-1187',
-    region: 'Nay Pyi Taw',
-    type: 'Alphard',
-    model: 'Alphard FL 280',
-    status: 'Active',
-    driver: 'Sarah Johnson',
-    driverImage: 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=800&q=80',
-    depot: 'Yangon East Yard',
-    capacity: '6 tons',
-    fuelType: 'Diesel',
-    vin: 'MMTFL280X7A2048',
-    engineNo: 'ENG-2048-XY',
-    odometer: '182,450 km',
-    lastService: '2025-11-10',
-    nextService: '2026-04-10',
-    serviceNote: 'Brake pads replaced',
-    registrationExpiry: '2026-09-30',
-    roadTaxExpiry: '2026-06-30',
-    insuranceExpiry: '2026-08-15',
-    inspectionDue: '2026-05-20',
-    acquiredDate: '2017-06-14',
-    image: 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    id: 'VH-3054',
-    plate: 'MDY-1109',
-    region: 'Mandalay',
-    type: 'Cargo Van',
-    model: 'Ford Transit',
-    status: 'Maintenance',
-    driver: 'Michael Chen',
-    driverImage: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80',
-    depot: 'Mandalay Hub',
-    capacity: '2 tons',
-    fuelType: 'Diesel',
-    vin: 'MMTRNS3054F1109',
-    engineNo: 'ENG-3054-AK',
-    odometer: '96,880 km',
-    lastService: '2026-01-06',
-    nextService: '2026-03-22',
-    serviceNote: 'Transmission inspection',
-    registrationExpiry: '2026-10-12',
-    roadTaxExpiry: '2026-07-31',
-    insuranceExpiry: '2026-09-02',
-    inspectionDue: '2026-04-18',
-    acquiredDate: '2019-03-22',
-    image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    id: 'VH-1987',
-    plate: 'YGN-7742',
-    region: 'Yangon',
-    type: 'Reefer Truck',
-    model: 'Isuzu FVR',
-    status: 'Active',
-    driver: 'Emily Davis',
-    driverImage: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=800&q=80',
-    depot: 'Thanlyin Cold Chain',
-    capacity: '8 tons',
-    fuelType: 'Diesel',
-    vin: 'MMFVR1987YGN7742',
-    engineNo: 'ENG-1987-FR',
-    odometer: '143,220 km',
-    lastService: '2025-12-02',
-    nextService: '2026-04-25',
-    serviceNote: 'Reefer unit serviced',
-    registrationExpiry: '2026-08-05',
-    roadTaxExpiry: '2026-06-10',
-    insuranceExpiry: '2026-07-19',
-    inspectionDue: '2026-05-02',
-    acquiredDate: '2018-11-08',
-    image: 'https://images.unsplash.com/photo-1517940310602-26535839fe84?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    id: 'VH-4129',
-    plate: 'NPT-2306',
-    region: 'Naypyitaw',
-    type: 'Flatbed',
-    model: 'Hino 500',
-    status: 'Inactive',
-    driver: 'Robert Wilson',
-    driverImage: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=800&q=80',
-    depot: 'Naypyitaw Central',
-    capacity: '10 tons',
-    fuelType: 'Diesel',
-    vin: 'MMHINO4129NPT2306',
-    engineNo: 'ENG-4129-HN',
-    odometer: '210,540 km',
-    lastService: '2025-09-18',
-    nextService: '2026-02-28',
-    serviceNote: 'Awaiting tire replacement',
-    registrationExpiry: '2026-04-20',
-    roadTaxExpiry: '2026-03-31',
-    insuranceExpiry: '2026-05-14',
-    inspectionDue: '2026-03-20',
-    acquiredDate: '2016-02-17',
-    image: 'https://images.unsplash.com/photo-1513735717081-8ad5c3c244eb?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    id: 'VH-2661',
-    plate: 'BGO-5584',
-    region: 'Bago',
-    type: 'Delivery Van',
-    model: 'Mercedes Sprinter',
-    status: 'Active',
-    driver: 'John Martinez',
-    driverImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
-    depot: 'Bago Cross-Dock',
-    capacity: '1.5 tons',
-    fuelType: 'Diesel',
-    vin: 'MMSPR2661BGO5584',
-    engineNo: 'ENG-2661-MS',
-    odometer: '78,930 km',
-    lastService: '2026-02-01',
-    nextService: '2026-06-01',
-    serviceNote: 'Oil + filter changed',
-    registrationExpiry: '2027-01-11',
-    roadTaxExpiry: '2026-11-30',
-    insuranceExpiry: '2026-12-19',
-    inspectionDue: '2026-09-10',
-    acquiredDate: '2020-09-30',
-    image: 'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    id: 'VH-3775',
-    plate: 'MND-9021',
-    region: 'Mandalay',
-    type: 'Tanker',
-    model: 'Kenworth T800',
-    status: 'Maintenance',
-    driver: 'Amanda Taylor',
-    driverImage: 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=800&q=80',
-    depot: 'Monywa Depot',
-    capacity: '12 tons',
-    fuelType: 'Diesel',
-    vin: 'MMTNK3775MND9021',
-    engineNo: 'ENG-3775-TK',
-    odometer: '256,010 km',
-    lastService: '2026-01-15',
-    nextService: '2026-03-30',
-    serviceNote: 'Pump calibration',
-    registrationExpiry: '2026-07-02',
-    roadTaxExpiry: '2026-06-15',
-    insuranceExpiry: '2026-08-07',
-    inspectionDue: '2026-04-12',
-    acquiredDate: '2017-12-05',
-    image: 'https://images.unsplash.com/photo-1517148815978-75f6acaaf32c?auto=format&fit=crop&w=1200&q=80'
-  }
-])
+const vehicles = ref([])
+const loading = ref(false)
+const canCreateVehicles = computed(() => canCreateModule('vehicles'))
+const canEditVehicles = computed(() => canEditModule('vehicles'))
+const canDeleteVehicles = computed(() => canDeleteModule('vehicles'))
 
 const searchQuery = ref('')
 const debouncedVehicleQuery = ref('')
@@ -698,7 +584,13 @@ const formMode = ref('add')
 const formError = ref('')
 const formData = ref({})
 const formStep = ref(1)
+const vehicleImageInput = ref(null)
+const driverImageInput = ref(null)
 const fuelTypeOptions = ref(['Diesel', 'Gasoline', 'Electric', 'Hybrid'])
+const vehicleTypeOptions = ref([])
+const statusOptions = ref([])
+const driverOptions = ref([])
+const depotOptions = ref([])
 const formSteps = [
   { id: 1, title: 'Core Info', subtitle: 'Identity, ownership, assignment' },
   { id: 2, title: 'Compliance', subtitle: 'Registration, insurance, service' },
@@ -710,7 +602,9 @@ const filteredVehicles = computed(() => {
     const matchesSearch =
       vehicle.id.toLowerCase().includes(query) ||
       vehicle.plate.toLowerCase().includes(query) ||
-      vehicle.driver.toLowerCase().includes(query)
+      vehicle.driver.toLowerCase().includes(query) ||
+      vehicle.type.toLowerCase().includes(query) ||
+      vehicle.model.toLowerCase().includes(query)
     const matchesStatus = statusFilter.value === 'All' || vehicle.status === statusFilter.value
     return matchesSearch && matchesStatus
   })
@@ -733,9 +627,9 @@ onBeforeUnmount(() => {
 })
 
 const vehicleHeaders = [
-  { title: 'Vehicle', key: 'vehicle', sortable: false },
+  { title: 'Vehicle / ID', key: 'id', sortable: true },
   { title: 'Plate Number', key: 'plate', sortable: false },
-  { title: 'Type', key: 'type', sortable: false },
+  { title: 'Type', key: 'type', sortable: true },
   { title: 'Status', key: 'status', sortable: false },
   { title: 'Driver Assigned', key: 'driver', sortable: false },
   { title: 'Acquired Date', key: 'acquiredDate', sortable: false },
@@ -761,6 +655,29 @@ const canGoNext = computed(() => (formStep.value === 1 ? stepOneValid.value : tr
 
 const canSubmit = computed(() => stepOneValid.value)
 
+const optionsWithCurrentValue = (options, currentValue) => {
+  if (!currentValue || options.includes(currentValue)) return options
+  return [currentValue, ...options]
+}
+
+const availableVehicleTypeOptions = computed(() =>
+  optionsWithCurrentValue(vehicleTypeOptions.value, formData.value.type)
+)
+const availableDriverOptions = computed(() =>
+  driverOptions.value.some((driver) => driver.name === formData.value.driver) || !formData.value.driver
+    ? driverOptions.value
+    : [{ name: formData.value.driver, avatar: formData.value.driverImage }, ...driverOptions.value]
+)
+const availableDepotOptions = computed(() =>
+  optionsWithCurrentValue(depotOptions.value, formData.value.depot)
+)
+const availableFuelTypeOptions = computed(() =>
+  optionsWithCurrentValue(fuelTypeOptions.value, formData.value.fuelType)
+)
+const availableStatusOptions = computed(() =>
+  optionsWithCurrentValue(statusOptions.value, formData.value.status)
+)
+
 const statusClass = (status) => {
   if (status === 'Active') return 'success'
   if (status === 'Maintenance') return 'warning'
@@ -782,6 +699,7 @@ const openDetails = (vehicle) => {
 }
 
 const openImage = (src, title) => {
+  if (!src) return
   imageSrc.value = src
   imageTitle.value = title
   imageOpen.value = true
@@ -796,7 +714,7 @@ const buildEmptyForm = () => ({
   make: '',
   year: '',
   color: '',
-  status: 'Active',
+  status: statusOptions.value[0] || '',
   ownership: 'Owned',
   driver: '',
   driverImage: '',
@@ -819,22 +737,56 @@ const buildEmptyForm = () => ({
   insurancePolicy: '',
   inspectionDue: '',
   acquiredDate: '',
-  image: ''
+  image: '',
+  vehicleImageFile: null,
+  driverImageFile: null,
+  removeVehicleImage: false,
+  removeDriverImage: false
 })
 
-const loadFuelTypeOptions = async () => {
+const loadVehicles = async () => {
+  loading.value = true
   try {
-    const options = await getFuelTypeOptions()
-    if (options.length) fuelTypeOptions.value = options
+    vehicles.value = await getVehicles()
+    formError.value = ''
   } catch (error) {
-    console.error('[vehicles] failed to load fuel types', error)
+    console.error('[vehicles] failed to load vehicles', error)
+    formError.value = error.message || 'Unable to load vehicles.'
+  } finally {
+    loading.value = false
   }
 }
+
+const loadReferenceOptions = async () => {
+  const [fuelTypes, vehicleTypes, statuses, drivers, depots] = await Promise.allSettled([
+    getFuelTypeOptions(),
+    getVehicleTypeOptions(),
+    statusesApi.options(),
+    getUsers({ role: 'Driver', status: 'Active', pageSize: 500, sortBy: 'name' }),
+    getLocationOptions()
+  ])
+
+  if (fuelTypes.status === 'fulfilled' && fuelTypes.value.length) fuelTypeOptions.value = fuelTypes.value
+  if (vehicleTypes.status === 'fulfilled') vehicleTypeOptions.value = vehicleTypes.value
+  if (statuses.status === 'fulfilled') statusOptions.value = statuses.value
+  if (drivers.status === 'fulfilled') driverOptions.value = drivers.value.items || []
+  if (depots.status === 'fulfilled') depotOptions.value = depots.value
+
+  const rejected = [fuelTypes, vehicleTypes, statuses, drivers, depots].find((result) => result.status === 'rejected')
+  if (rejected) {
+    console.error('[vehicles] failed to load reference options', rejected.reason)
+  }
+}
+
+onMounted(() => {
+  loadVehicles()
+  loadReferenceOptions()
+})
 
 const openAdd = () => {
   formMode.value = 'add'
   formData.value = buildEmptyForm()
-  loadFuelTypeOptions()
+  loadReferenceOptions()
   formError.value = ''
   formStep.value = 1
   formOpen.value = true
@@ -843,7 +795,7 @@ const openAdd = () => {
 const openEdit = (vehicle) => {
   formMode.value = 'edit'
   formData.value = { ...buildEmptyForm(), ...vehicle }
-  loadFuelTypeOptions()
+  loadReferenceOptions()
   formError.value = ''
   formStep.value = 1
   formOpen.value = true
@@ -867,7 +819,95 @@ const prevFormStep = () => {
   }
 }
 
-const saveForm = () => {
+const toVehiclePayload = (vehicle) => ({
+  plate: vehicle.plate,
+  region: vehicle.region,
+  type: vehicle.type,
+  model: vehicle.model,
+  make: vehicle.make,
+  year: vehicle.year ? String(vehicle.year) : '',
+  color: vehicle.color,
+  status: vehicle.status,
+  ownership: vehicle.ownership,
+  driver: vehicle.driver,
+  driverImage: vehicle.driverImage,
+  depot: vehicle.depot,
+  capacity: vehicle.capacity,
+  fuelCapacity: vehicle.fuelCapacity,
+  fuelType: vehicle.fuelType,
+  vin: vehicle.vin,
+  engineNo: vehicle.engineNo,
+  odometer: vehicle.odometer,
+  lastService: vehicle.lastService,
+  nextService: vehicle.nextService,
+  serviceNote: vehicle.serviceNote,
+  purchaseCost: vehicle.purchaseCost,
+  registrationNo: vehicle.registrationNo,
+  registrationExpiry: vehicle.registrationExpiry,
+  roadTaxExpiry: vehicle.roadTaxExpiry,
+  insuranceExpiry: vehicle.insuranceExpiry,
+  insuranceProvider: vehicle.insuranceProvider,
+  insurancePolicy: vehicle.insurancePolicy,
+  inspectionDue: vehicle.inspectionDue,
+  acquiredDate: vehicle.acquiredDate,
+  vehicleImageFile: vehicle.vehicleImageFile,
+  driverImageFile: vehicle.driverImageFile,
+  removeVehicleImage: vehicle.removeVehicleImage,
+  removeDriverImage: vehicle.removeDriverImage
+})
+
+const readImageFile = (file, callback) => {
+  const reader = new FileReader()
+  reader.onload = (event) => {
+    callback(event.target?.result || '')
+  }
+  reader.readAsDataURL(file)
+}
+
+const handleVehicleImageUpload = (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  formData.value.vehicleImageFile = file
+  formData.value.removeVehicleImage = false
+  readImageFile(file, (value) => {
+    formData.value.image = value
+  })
+}
+
+const handleDriverImageUpload = (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  formData.value.driverImageFile = file
+  formData.value.removeDriverImage = false
+  readImageFile(file, (value) => {
+    formData.value.driverImage = value
+  })
+}
+
+const syncSelectedDriverImage = () => {
+  const selectedDriver = driverOptions.value.find((driver) => driver.name === formData.value.driver)
+  if (!selectedDriver?.avatar) return
+  formData.value.driverImage = selectedDriver.avatar
+  formData.value.driverImageFile = null
+  formData.value.removeDriverImage = false
+  if (driverImageInput.value) driverImageInput.value.value = ''
+}
+
+const handleVehicleImageRemove = () => {
+  formData.value.image = ''
+  formData.value.vehicleImageFile = null
+  formData.value.removeVehicleImage = true
+  if (vehicleImageInput.value) vehicleImageInput.value.value = ''
+}
+
+const handleDriverImageRemove = () => {
+  formData.value.driverImage = ''
+  formData.value.driverImageFile = null
+  formData.value.removeDriverImage = true
+  if (driverImageInput.value) driverImageInput.value.value = ''
+}
+
+const saveForm = async () => {
   if (
     !formData.value.plate ||
     !formData.value.region ||
@@ -882,28 +922,30 @@ const saveForm = () => {
     return
   }
 
-  if (formMode.value === 'add') {
-    const newId = `VH-${Math.floor(1000 + Math.random() * 9000)}`
-    vehicles.value = [
-      {
-        ...formData.value,
-        id: newId,
-        image:
-          formData.value.image ||
-          'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80',
-        driverImage:
-          formData.value.driverImage ||
-          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80'
-      },
-      ...vehicles.value
-    ]
-  } else {
-    vehicles.value = vehicles.value.map((item) =>
-      item.id === formData.value.id ? { ...item, ...formData.value } : item
-    )
-  }
+  loading.value = true
+  formError.value = ''
+  try {
+    const payload = toVehiclePayload(formData.value)
 
-  formOpen.value = false
+    const savedVehicle = formMode.value === 'add'
+      ? await createVehicle(payload)
+      : await updateVehicle(formData.value.id, payload)
+
+    if (formMode.value === 'add') {
+      vehicles.value = [savedVehicle, ...vehicles.value]
+    } else {
+      vehicles.value = vehicles.value.map((item) =>
+        item.id === savedVehicle.id ? savedVehicle : item
+      )
+      if (selectedVehicle.value?.id === savedVehicle.id) selectedVehicle.value = savedVehicle
+    }
+
+    formOpen.value = false
+  } catch (error) {
+    formError.value = error.message || 'Unable to save vehicle.'
+  } finally {
+    loading.value = false
+  }
 }
 
 const openConfirm = ({ title, message, confirmText, tone, action }) => {
@@ -915,8 +957,8 @@ const openConfirm = ({ title, message, confirmText, tone, action }) => {
   confirmOpen.value = true
 }
 
-const runConfirm = () => {
-  pendingAction.value()
+const runConfirm = async () => {
+  await pendingAction.value()
   confirmOpen.value = false
 }
 
@@ -929,10 +971,20 @@ const toggleStatus = (id) => {
     message: `This will mark ${vehicle.id} as ${nextStatus.toLowerCase()}.`,
     confirmText: nextStatus,
     tone: 'warning',
-    action: () => {
-      vehicles.value = vehicles.value.map((item) =>
-        item.id === id ? { ...item, status: nextStatus } : item
-      )
+    action: async () => {
+      loading.value = true
+      try {
+        const savedVehicle = await updateVehicleStatus(id, nextStatus)
+        formError.value = ''
+        vehicles.value = vehicles.value.map((item) =>
+          item.id === id ? savedVehicle : item
+        )
+        if (selectedVehicle.value?.id === id) selectedVehicle.value = savedVehicle
+      } catch (error) {
+        formError.value = error.message || 'Unable to update vehicle status.'
+      } finally {
+        loading.value = false
+      }
     }
   })
 }
@@ -945,8 +997,21 @@ const deleteVehicle = (id) => {
     message: `This will permanently remove ${vehicle.id}.`,
     confirmText: 'Delete',
     tone: 'danger',
-    action: () => {
-      vehicles.value = vehicles.value.filter((item) => item.id !== id)
+    action: async () => {
+      loading.value = true
+      try {
+        await deleteVehicleRecord(id)
+        formError.value = ''
+        vehicles.value = vehicles.value.filter((item) => item.id !== id)
+        if (selectedVehicle.value?.id === id) {
+          selectedVehicle.value = null
+          detailsOpen.value = false
+        }
+      } catch (error) {
+        formError.value = error.message || 'Unable to delete vehicle.'
+      } finally {
+        loading.value = false
+      }
     }
   })
 }
@@ -1176,6 +1241,14 @@ const deleteVehicle = (id) => {
   border: 1px solid var(--fleet-border);
 }
 
+.image-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  color: var(--fleet-muted);
+}
+
 .vehicle-sub {
   font-size: 12px;
   margin-top: 2px;
@@ -1190,12 +1263,21 @@ const deleteVehicle = (id) => {
   display: block;
 }
 
+.vehicle-image.image-placeholder,
+.driver-photo.image-placeholder {
+  display: inline-flex;
+}
+
 .thumb-button {
   border: none;
   background: transparent;
   padding: 0;
   border-radius: 12px;
   cursor: pointer;
+}
+
+.thumb-button:disabled {
+  cursor: default;
 }
 
 .thumb-button:focus-visible {
@@ -1395,6 +1477,29 @@ const deleteVehicle = (id) => {
   font-size: 13px;
 }
 
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-row input[type="file"] {
+  width: 100%;
+  min-width: 0;
+}
+
+.image-preview {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  max-height: 150px;
+  margin-top: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--fleet-border);
+  object-fit: cover;
+  background: #f8fafc;
+}
+
 .form-steps {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1474,7 +1579,7 @@ const deleteVehicle = (id) => {
   gap: 10px;
 }
 
-.required {
+.required-mark {
   color: #dc2626;
   font-weight: 700;
 }

@@ -49,6 +49,28 @@ public static class SchemaBootstrapper
       await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_Roles_Code ON Roles(Code);");
     }
 
+    var hasRolePermissionsTable = await TableExistsAsync(db, "RolePermissions");
+    if (!hasRolePermissionsTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE RolePermissions (
+          Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+          RoleId nvarchar(80) NOT NULL,
+          ModuleKey nvarchar(80) NOT NULL,
+          CanView bit NOT NULL,
+          CanCreate bit NOT NULL,
+          CanEdit bit NOT NULL,
+          CanDelete bit NOT NULL,
+          CreatedAt datetime2 NOT NULL,
+          UpdatedAt datetime2 NOT NULL,
+          CONSTRAINT FK_RolePermissions_Roles_RoleId FOREIGN KEY (RoleId) REFERENCES Roles(Id) ON DELETE CASCADE
+        );
+        CREATE UNIQUE INDEX IX_RolePermissions_RoleId_ModuleKey ON RolePermissions(RoleId, ModuleKey);
+        """
+      );
+    }
+
     var hasUsersTable = await TableExistsAsync(db, "Users");
     if (!hasUsersTable)
     {
@@ -60,6 +82,7 @@ public static class SchemaBootstrapper
           EmployeeId nvarchar(80) NOT NULL,
           NrcNumber nvarchar(80) NOT NULL,
           Email nvarchar(160) NOT NULL,
+          PasswordHash nvarchar(128) NOT NULL CONSTRAINT DF_Users_PasswordHash DEFAULT '',
           RoleId nvarchar(80) NOT NULL,
           Status nvarchar(30) NOT NULL,
           Phone nvarchar(40) NOT NULL,
@@ -91,6 +114,14 @@ public static class SchemaBootstrapper
         CREATE INDEX IX_Users_RoleId ON Users(RoleId);
         """
       );
+    }
+    else
+    {
+      var hasPasswordHashColumn = await ColumnExistsAsync(db, "Users", "PasswordHash");
+      if (!hasPasswordHashColumn)
+      {
+        await db.Database.ExecuteSqlRawAsync("ALTER TABLE Users ADD PasswordHash nvarchar(128) NOT NULL CONSTRAINT DF_Users_PasswordHash DEFAULT '';");
+      }
     }
 
     var hasDepartmentsTable = await TableExistsAsync(db, "DepartmentCodeOptions");
@@ -286,6 +317,61 @@ public static class SchemaBootstrapper
       }
     }
 
+    var hasVehiclesTable = await TableExistsAsync(db, "Vehicles");
+    if (!hasVehiclesTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE Vehicles (
+          Id nvarchar(40) NOT NULL PRIMARY KEY,
+          Plate nvarchar(40) NOT NULL,
+          Region nvarchar(120) NOT NULL,
+          Type nvarchar(120) NOT NULL,
+          Model nvarchar(120) NOT NULL,
+          Make nvarchar(120) NULL,
+          Year nvarchar(20) NULL,
+          Color nvarchar(80) NULL,
+          Status nvarchar(30) NOT NULL,
+          Ownership nvarchar(40) NULL,
+          Driver nvarchar(120) NOT NULL,
+          DriverImage nvarchar(500) NULL,
+          Depot nvarchar(120) NULL,
+          Capacity nvarchar(80) NULL,
+          FuelCapacity nvarchar(80) NULL,
+          FuelType nvarchar(80) NOT NULL,
+          Vin nvarchar(120) NULL,
+          EngineNo nvarchar(120) NULL,
+          Odometer nvarchar(80) NULL,
+          LastService nvarchar(40) NULL,
+          NextService nvarchar(40) NULL,
+          ServiceNote nvarchar(255) NULL,
+          PurchaseCost nvarchar(80) NULL,
+          RegistrationNo nvarchar(120) NULL,
+          RegistrationExpiry nvarchar(40) NULL,
+          RoadTaxExpiry nvarchar(40) NULL,
+          InsuranceExpiry nvarchar(40) NULL,
+          InsuranceProvider nvarchar(120) NULL,
+          InsurancePolicy nvarchar(120) NULL,
+          InspectionDue nvarchar(40) NULL,
+          AcquiredDate nvarchar(40) NULL,
+          Image nvarchar(500) NULL,
+          IsDeleted int NOT NULL CONSTRAINT DF_Vehicles_IsDeleted DEFAULT 0,
+          CreatedAt datetime2 NOT NULL,
+          UpdatedAt datetime2 NOT NULL
+        );
+        CREATE UNIQUE INDEX IX_Vehicles_Plate ON Vehicles(Plate);
+        """
+      );
+    }
+    else
+    {
+      var hasVehiclesPlateIndex = await IndexExistsAsync(db, "Vehicles", "IX_Vehicles_Plate");
+      if (!hasVehiclesPlateIndex)
+      {
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IX_Vehicles_Plate ON Vehicles(Plate);");
+      }
+    }
+
     var hasMaintenanceTicketsTable = await TableExistsAsync(db, "MaintenanceTickets");
     if (!hasMaintenanceTicketsTable)
     {
@@ -307,6 +393,102 @@ public static class SchemaBootstrapper
         CREATE UNIQUE INDEX IX_MaintenanceTickets_Id ON MaintenanceTickets(Id);
         """
       );
+    }
+
+    await EnsureTripSetupTableAsync(db, "TripTypeCodeOptions");
+    await EnsureTripSetupTableAsync(db, "CargoTypeCodeOptions");
+    await EnsureTripSetupTableAsync(db, "StatusCodeOptions");
+    await EnsureTripSetupTableAsync(db, "TripPriorityCodeOptions");
+    await EnsureTripSetupTableAsync(db, "IncidentTypeCodeOptions");
+    await EnsureTripSetupTableAsync(db, "SeverityCodeOptions");
+    await EnsureTripSetupTableAsync(db, "ExpenseTypeCodeOptions");
+    await EnsureTripSetupTableAsync(db, "MaintenanceTypeCodeOptions");
+    await EnsureTripSetupTableAsync(db, "DocumentTypeCodeOptions");
+
+    var hasTripsTable = await TableExistsAsync(db, "Trips");
+    if (!hasTripsTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        """
+        CREATE TABLE Trips (
+          Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+          TripNumber nvarchar(40) NOT NULL,
+          TripType nvarchar(80) NOT NULL,
+          Status nvarchar(40) NOT NULL,
+          Priority nvarchar(40) NOT NULL,
+          CustomerName nvarchar(160) NOT NULL,
+          Department nvarchar(120) NOT NULL,
+          CostCenter nvarchar(80) NULL,
+          VehicleId nvarchar(40) NOT NULL,
+          VehiclePlate nvarchar(40) NOT NULL,
+          TrailerNumber nvarchar(80) NULL,
+          DriverName nvarchar(120) NOT NULL,
+          CoDriverName nvarchar(120) NULL,
+          DispatcherName nvarchar(120) NOT NULL,
+          CargoType nvarchar(120) NOT NULL,
+          LoadWeightKg decimal(18,2) NOT NULL,
+          LoadVolumeM3 decimal(18,2) NOT NULL,
+          PickupLocation nvarchar(160) NOT NULL,
+          DropoffLocation nvarchar(160) NOT NULL,
+          PickupContact nvarchar(160) NULL,
+          DropoffContact nvarchar(160) NULL,
+          DepartureDateTime nvarchar(40) NOT NULL,
+          EstimatedArrival nvarchar(40) NOT NULL,
+          ActualArrival nvarchar(40) NULL,
+          PlannedDistanceKm decimal(18,2) NOT NULL,
+          StartingOdometerKm decimal(18,2) NOT NULL,
+          CurrentOdometerKm decimal(18,2) NOT NULL,
+          EndingOdometerKm decimal(18,2) NULL,
+          FuelIssuedLiters decimal(18,2) NOT NULL,
+          TollEstimate decimal(18,2) NOT NULL,
+          PermitRequired bit NOT NULL,
+          TemperatureControlled bit NOT NULL,
+          TemperatureRange nvarchar(80) NULL,
+          SpecialInstructions nvarchar(1000) NULL,
+          DriverNotes nvarchar(1000) NULL,
+          IsDeleted int NOT NULL CONSTRAINT DF_Trips_IsDeleted DEFAULT 0,
+          CreatedAt datetime2 NOT NULL,
+          UpdatedAt datetime2 NOT NULL
+        );
+        CREATE UNIQUE INDEX IX_Trips_TripNumber ON Trips(TripNumber);
+        """
+      );
+    }
+  }
+
+  private static async Task EnsureTripSetupTableAsync(FleetDbContext db, string tableName)
+  {
+    var hasTable = await TableExistsAsync(db, tableName);
+    if (!hasTable)
+    {
+      await db.Database.ExecuteSqlRawAsync(
+        $"""
+        CREATE TABLE {tableName} (
+          Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+          Name nvarchar(120) NOT NULL,
+          Code nvarchar(40) NOT NULL,
+          Description nvarchar(500) NULL,
+          Status nvarchar(20) NOT NULL,
+          CreatedAt datetimeoffset NOT NULL,
+          UpdatedAt datetimeoffset NULL
+        );
+        CREATE UNIQUE INDEX IX_{tableName}_Name ON {tableName}(Name);
+        CREATE UNIQUE INDEX IX_{tableName}_Code ON {tableName}(Code);
+        """
+      );
+      return;
+    }
+
+    var hasNameIndex = await IndexExistsAsync(db, tableName, $"IX_{tableName}_Name");
+    if (!hasNameIndex)
+    {
+      await db.Database.ExecuteSqlRawAsync($"CREATE UNIQUE INDEX IX_{tableName}_Name ON {tableName}(Name);");
+    }
+
+    var hasCodeIndex = await IndexExistsAsync(db, tableName, $"IX_{tableName}_Code");
+    if (!hasCodeIndex)
+    {
+      await db.Database.ExecuteSqlRawAsync($"CREATE UNIQUE INDEX IX_{tableName}_Code ON {tableName}(Code);");
     }
   }
 

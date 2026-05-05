@@ -1,72 +1,152 @@
 <template>
-  <div class="inventory-page">
+  <div class="role-page inventory-page">
     <div class="page-header">
       <div>
         <h1 class="section-title">Inventory & Spare Parts</h1>
-        <p class="section-subtitle">Track stock levels, suppliers, and reorder points</p>
+        <p class="section-subtitle">Track stock levels, suppliers, and reorder points.</p>
       </div>
-      <button class="primary-button" type="button" @click="openPart">
-        <v-icon icon="mdi-toolbox-outline" size="18" />
-        Add Part
-      </button>
     </div>
 
-    <div class="card-surface section-card">
-      <div class="section-header">
-        <div>
-          <div class="section-title">Parts Inventory</div>
-          <div class="text-muted section-subtitle">Monitor stock and replenishment</div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <p>Total Parts</p>
+        <h3>{{ parts.length }}</h3>
+        <span class="stat-foot text-muted">Catalog items</span>
+      </div>
+      <div class="stat-card">
+        <p>Low Stock</p>
+        <h3 class="text-warning">{{ lowStockCount }}</h3>
+        <span class="stat-foot text-muted">Needs reorder</span>
+      </div>
+      <div class="stat-card">
+        <p>Categories</p>
+        <h3 class="text-info">{{ categoryOptions.length }}</h3>
+        <span class="stat-foot text-muted">Inventory groups</span>
+      </div>
+      <div class="stat-card">
+        <p>Stock Value</p>
+        <h3>{{ inventoryValue }}</h3>
+        <span class="stat-foot text-muted">On hand estimate</span>
+      </div>
+    </div>
+
+    <div class="card-surface toolbar">
+      <div class="toolbar-row">
+        <div class="toolbar-search">
+          <v-icon icon="mdi-magnify" />
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search part, number, supplier, or bin..."
+          />
+          <button
+            v-if="searchQuery"
+            class="clear-button"
+            type="button"
+            aria-label="Clear search"
+            @click="searchQuery = ''"
+          >
+            <v-icon icon="mdi-close-circle" size="18" />
+          </button>
+        </div>
+
+        <div class="toolbar-actions">
+          <div class="toolbar-filter">
+            <v-icon icon="mdi-shape-outline" />
+            <select v-model="categoryFilter">
+              <option value="All">All Categories</option>
+              <option v-for="category in categoryOptions" :key="category" :value="category">
+                {{ category }}
+              </option>
+            </select>
+          </div>
+
+          <div class="toolbar-filter">
+            <v-icon icon="mdi-filter-variant" />
+            <select v-model="stockFilter">
+              <option value="All">All Stock</option>
+              <option value="Low">Low Stock</option>
+              <option value="Healthy">Healthy Stock</option>
+            </select>
+          </div>
+
+          <button class="primary-button" type="button" @click="openPart">
+            <v-icon icon="mdi-toolbox-outline" size="18" />
+            Add Part
+          </button>
         </div>
       </div>
-      <div class="table-wrap">
-        <table class="table-base">
-          <thead>
-            <tr>
-              <th>Part</th>
-              <th>Part No.</th>
-              <th>Category</th>
-              <th>Stock</th>
-              <th>Reorder</th>
-              <th>Supplier</th>
-              <th class="align-right">Unit Cost</th>
-              <th class="align-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="part in parts" :key="part.id">
-              <td>
-                <strong>{{ part.name }}</strong>
-                <div class="text-muted part-sub">{{ part.location }}</div>
-              </td>
-              <td class="text-muted">{{ part.partNo }}</td>
-              <td>{{ part.category }}</td>
-              <td>
-                <span :class="part.stock <= part.reorderPoint ? 'text-warning' : ''">
-                  {{ part.stock }}
-                </span>
-              </td>
-              <td>{{ part.reorderPoint }}</td>
-              <td>{{ part.supplier }}</td>
-              <td class="align-right">{{ part.unitCost || '—' }}</td>
-              <td class="align-right">
-                <div class="inline-actions">
-                  <button class="icon-button" type="button" @click="openPartDetails(part)">
-                    <v-icon icon="mdi-eye-outline" size="18" />
-                  </button>
-                  <button class="icon-button" type="button" @click="openPartEdit(part)">
-                    <v-icon icon="mdi-pencil-outline" size="18" />
-                  </button>
-                  <button class="icon-button danger" type="button" @click="deletePart(part.id)">
-                    <v-icon icon="mdi-trash-can-outline" size="18" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+
+      <div class="toolbar-count text-muted">
+        Showing {{ filteredParts.length }} of {{ parts.length }} parts
       </div>
-      <div v-if="parts.length === 0" class="empty-state">
-        No parts added yet
+    </div>
+
+    <div class="card-surface table-card">
+      <div class="table-wrap">
+        <v-data-table
+          class="table-base inventory-table"
+          :headers="partHeaders"
+          :items="filteredParts"
+          :items-per-page="10"
+          :items-per-page-options="[10, 20, 30]"
+          :mobile-breakpoint="0"
+          :mobile="false"
+          fixed-header
+          height="520"
+          density="comfortable"
+        >
+          <template #item.part="{ item }">
+            <div class="part-cell">
+              <span class="part-avatar">
+                <v-icon icon="mdi-cog-outline" size="18" />
+              </span>
+              <div>
+                <strong>{{ item.name }}</strong>
+                <div class="text-muted part-sub">{{ item.location }}</div>
+              </div>
+            </div>
+          </template>
+
+          <template #item.partNo="{ item }">
+            <span class="text-muted">{{ item.partNo }}</span>
+          </template>
+
+          <template #item.stock="{ item }">
+            <span class="role-badge" :class="stockClass(item)">
+              {{ item.stock }} on hand
+            </span>
+          </template>
+
+          <template #item.reorderPoint="{ item }">
+            <span class="text-muted">{{ item.reorderPoint }}</span>
+          </template>
+
+          <template #item.unitCost="{ item }">
+            <span>{{ item.unitCost || '—' }}</span>
+          </template>
+
+          <template #item.actions="{ item }">
+            <div class="inline-actions">
+              <button class="icon-button tooltip" type="button" @click="openPartDetails(item)">
+                <v-icon icon="mdi-eye-outline" size="18" />
+                <span class="tooltip-text">View details</span>
+              </button>
+              <button class="icon-button tooltip" type="button" @click="openPartEdit(item)">
+                <v-icon icon="mdi-pencil-outline" size="18" />
+                <span class="tooltip-text">Edit part</span>
+              </button>
+              <button class="icon-button danger tooltip" type="button" @click="deletePart(item.id)">
+                <v-icon icon="mdi-trash-can-outline" size="18" />
+                <span class="tooltip-text">Delete part</span>
+              </button>
+            </div>
+          </template>
+
+          <template #no-data>
+            <div class="empty-state">No parts found matching your criteria</div>
+          </template>
+        </v-data-table>
       </div>
     </div>
 
@@ -166,7 +246,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
 
 const parts = ref([
@@ -194,6 +274,9 @@ const parts = ref([
   }
 ])
 
+const searchQuery = ref('')
+const categoryFilter = ref('All')
+const stockFilter = ref('All')
 const partOpen = ref(false)
 const partMode = ref('add')
 const partError = ref('')
@@ -206,6 +289,64 @@ const confirmMessage = ref('')
 const confirmButton = ref('Confirm')
 const confirmTone = ref('danger')
 const pendingAction = ref(() => {})
+
+const partHeaders = [
+  { title: 'Part', key: 'part', sortable: false },
+  { title: 'Part No.', key: 'partNo', sortable: false },
+  { title: 'Category', key: 'category', sortable: false },
+  { title: 'Stock', key: 'stock', sortable: false },
+  { title: 'Reorder', key: 'reorderPoint', sortable: false },
+  { title: 'Supplier', key: 'supplier', sortable: false },
+  { title: 'Unit Cost', key: 'unitCost', align: 'end', sortable: false },
+  { title: 'Actions', key: 'actions', align: 'end', sortable: false }
+]
+
+const categoryOptions = computed(() =>
+  [...new Set(parts.value.map((part) => part.category).filter(Boolean))].sort()
+)
+
+const lowStockCount = computed(() =>
+  parts.value.filter((part) => Number(part.stock) <= Number(part.reorderPoint)).length
+)
+
+const inventoryValue = computed(() => {
+  const value = parts.value.reduce((total, part) => {
+    const unitCost = Number(String(part.unitCost || '').replace(/[^0-9.]/g, '')) || 0
+    return total + unitCost * Number(part.stock || 0)
+  }, 0)
+
+  return value.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  })
+})
+
+const filteredParts = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+
+  return parts.value.filter((part) => {
+    const matchesSearch = !query || [
+      part.name,
+      part.partNo,
+      part.category,
+      part.supplier,
+      part.location
+    ].some((value) => String(value || '').toLowerCase().includes(query))
+
+    const matchesCategory = categoryFilter.value === 'All' || part.category === categoryFilter.value
+    const isLowStock = Number(part.stock) <= Number(part.reorderPoint)
+    const matchesStock =
+      stockFilter.value === 'All' ||
+      (stockFilter.value === 'Low' && isLowStock) ||
+      (stockFilter.value === 'Healthy' && !isLowStock)
+
+    return matchesSearch && matchesCategory && matchesStock
+  })
+})
+
+const stockClass = (part) =>
+  Number(part.stock) <= Number(part.reorderPoint) ? 'role-mechanic' : 'role-driver'
 
 const buildEmptyPart = () => ({
   id: '',
@@ -289,78 +430,56 @@ const deletePart = (id) => {
 }
 </script>
 
-<style scoped>
-.inventory-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
+<style scoped src="../roles/roles_styles/RoleManagementContent.css"></style>
+<style scoped src="../roles/roles_styles/RoleTable.css"></style>
 
-.page-header {
+<style scoped>
+.toolbar-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.section-card {
-  padding: 18px 20px 22px;
+.table-card {
+  overflow: hidden;
 }
 
-.section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--fleet-border);
-  margin-bottom: 14px;
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.section-subtitle {
-  font-size: 12px;
-  margin-top: 4px;
-}
-
+.stat-foot,
 .part-sub {
   font-size: 12px;
-  margin-top: 2px;
 }
 
-.table-wrap {
-  overflow-x: auto;
+.text-warning {
+  color: var(--fleet-warning);
 }
 
-.align-right {
-  text-align: right;
+.inventory-table :deep(thead th:nth-child(1)),
+.inventory-table :deep(tbody td:nth-child(1)) {
+  width: 260px;
 }
 
-.empty-state {
-  text-align: center;
-  padding: 32px;
-  color: var(--fleet-muted);
+.inventory-table :deep(thead th:nth-child(6)),
+.inventory-table :deep(tbody td:nth-child(6)) {
+  width: 220px;
 }
 
-.primary-button {
+.part-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.part-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  border: none;
-  border-radius: 12px;
-  padding: 10px 16px;
-  background: var(--fleet-primary);
+  justify-content: center;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #fff;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.primary-button:hover {
-  background: var(--fleet-primary-dark);
+  flex: 0 0 36px;
 }
 
 .ghost-button {
@@ -386,16 +505,18 @@ const deletePart = (id) => {
   overflow-y: auto;
 }
 
-.form-header {
+.form-header,
+.details-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 12px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--fleet-border);
 }
 
-.form-title {
+.form-title,
+.details-title {
   font-weight: 700;
   font-size: 18px;
 }
@@ -409,7 +530,8 @@ const deletePart = (id) => {
   font-size: 13px;
 }
 
-.form-grid {
+.form-grid,
+.details-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px 16px;
@@ -425,10 +547,6 @@ const deletePart = (id) => {
 
 .form-field label {
   color: var(--fleet-muted);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
 }
 
 .form-field input,
@@ -457,30 +575,9 @@ const deletePart = (id) => {
   padding: 20px 22px 24px;
 }
 
-.details-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--fleet-border);
-}
-
-.details-title {
-  font-size: 18px;
-  font-weight: 700;
-}
-
 .details-subtitle {
   font-size: 13px;
   margin-top: 4px;
-}
-
-.details-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-  padding-top: 18px;
 }
 
 .details-section {
@@ -508,17 +605,11 @@ const deletePart = (id) => {
   border-bottom: none;
 }
 
-.icon-button {
-  border: none;
-  background: transparent;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  cursor: pointer;
-  color: #2563eb;
-}
-
-.icon-button:hover {
-  background: #eff6ff;
+@media (max-width: 720px) {
+  .toolbar-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>

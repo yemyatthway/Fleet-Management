@@ -43,9 +43,10 @@
           <div class="field">
             <label class="required">Status</label>
             <select v-model="form.status" required>
-              <option value="Pending">Pending</option>
-              <option value="Repairing">Repairing</option>
-              <option value="Completed">Completed</option>
+              <option value="" disabled>Select status</option>
+              <option v-for="status in statusOptions" :key="status" :value="status">
+                {{ status }}
+              </option>
             </select>
           </div>
         </div>
@@ -92,6 +93,10 @@ const props = defineProps({
   mechanics: {
     type: Array,
     default: () => []
+  },
+  statuses: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -112,7 +117,7 @@ const form = reactive({
   details: '',
   reportedDate: '',
   mechanic: '',
-  status: 'Pending'
+  status: ''
 })
 
 const formError = ref('')
@@ -125,6 +130,14 @@ const mechanicOptions = computed(() => {
   return options
 })
 
+const statusOptions = computed(() => {
+  const options = props.statuses.filter(Boolean)
+  if (form.status && !options.includes(form.status)) {
+    return [form.status, ...options]
+  }
+  return options
+})
+
 const reset = () => {
   form.id = props.ticket?.id || ''
   form.vehicle = props.ticket?.vehicle || ''
@@ -133,7 +146,7 @@ const reset = () => {
   form.details = props.ticket?.details || ''
   form.reportedDate = props.ticket?.reportedDate || ''
   form.mechanic = props.ticket?.mechanic || ''
-  form.status = props.ticket?.status || 'Pending'
+  form.status = props.ticket?.status || props.statuses[0] || ''
   formError.value = ''
 }
 
@@ -147,7 +160,7 @@ watch(
 const close = () => emit('close')
 
 const submit = () => {
-  if (!form.vehicle || !form.vehicleId || !form.issue || !form.details || !form.reportedDate || !form.mechanic) {
+  if (!form.vehicle || !form.vehicleId || !form.issue || !form.details || !form.reportedDate || !form.mechanic || !form.status) {
     formError.value = 'Please complete all required fields.'
     return
   }

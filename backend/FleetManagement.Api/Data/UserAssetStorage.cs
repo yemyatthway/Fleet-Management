@@ -19,6 +19,16 @@ public static class UserAssetStorage
     string assetName,
     IWebHostEnvironment environment)
   {
+    return await SaveImageAsync(file, "users", userId, assetName, environment);
+  }
+
+  public static async Task<string> SaveImageAsync(
+    IFormFile file,
+    string entityFolder,
+    string entityId,
+    string assetName,
+    IWebHostEnvironment environment)
+  {
     if (file.Length <= 0) throw new InvalidOperationException("Uploaded file is empty.");
     if (string.IsNullOrWhiteSpace(file.ContentType) || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
     {
@@ -31,7 +41,7 @@ public static class UserAssetStorage
       throw new InvalidOperationException("Unsupported image format.");
     }
 
-    var userDirectory = GetUserDirectoryPath(userId, environment);
+    var userDirectory = GetEntityDirectoryPath(entityFolder, entityId, environment);
 
     Directory.CreateDirectory(userDirectory);
 
@@ -46,7 +56,7 @@ public static class UserAssetStorage
     await using var stream = File.Create(fullPath);
     await file.CopyToAsync(stream);
 
-    return $"/uploads/users/{userId}/{fileName}";
+    return $"/uploads/{entityFolder}/{entityId}/{fileName}";
   }
 
   public static async Task RepairStoredUserAssetPathsAsync(FleetDbContext db, IWebHostEnvironment environment)
@@ -156,5 +166,8 @@ public static class UserAssetStorage
     Path.Combine(GetWebRootPath(environment), "uploads");
 
   private static string GetUserDirectoryPath(string userId, IWebHostEnvironment environment) =>
-    Path.Combine(GetUploadsRootPath(environment), "users", userId);
+    GetEntityDirectoryPath("users", userId, environment);
+
+  private static string GetEntityDirectoryPath(string entityFolder, string entityId, IWebHostEnvironment environment) =>
+    Path.Combine(GetUploadsRootPath(environment), entityFolder, entityId);
 }

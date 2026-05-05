@@ -49,14 +49,15 @@
           <a class="link" href="#">Forgot password?</a>
         </div>
 
-        <button class="submit" type="submit">Sign In</button>
+        <button class="submit" type="submit" :disabled="loading">
+          {{ loading ? 'Signing In...' : 'Sign In' }}
+        </button>
+        <p v-if="errorMessage" class="login-error">{{ errorMessage }}</p>
       </form>
 
       <div class="footer">
-        <p>
-          Don't have an account?
-          <a class="link" href="#">Contact Admin</a>
-        </p>
+        <p>Seed login password: <strong>Password@123</strong></p>
+        <p class="seed-users">admin@fleet.com · dispatcher@fleet.com · driver@fleet.com · mechanic@fleet.com</p>
       </div>
     </div>
 
@@ -67,15 +68,28 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { login } from '../services/authApi'
+import { setAuthSession } from '../utils/authSession'
 
 const router = useRouter()
 const email = ref('')
 const password = ref('')
 const rememberMe = ref(false)
+const loading = ref(false)
+const errorMessage = ref('')
 
-const handleSubmit = () => {
-  console.log('Login attempt:', { email: email.value, password: password.value, rememberMe: rememberMe.value })
-  router.push('/dashboard')
+const handleSubmit = async () => {
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    const session = await login({ email: email.value, password: password.value })
+    setAuthSession(session)
+    router.push('/dashboard')
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -232,11 +246,32 @@ const handleSubmit = () => {
   background: linear-gradient(90deg, #1e40af, #1e3a8a);
 }
 
+.submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.login-error {
+  margin: -4px 0 0;
+  color: var(--fleet-danger);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
 .footer {
   margin-top: 20px;
   text-align: center;
   font-size: 13px;
   color: var(--fleet-muted);
+}
+
+.footer strong {
+  color: #0f172a;
+}
+
+.seed-users {
+  line-height: 1.5;
 }
 
 .version {

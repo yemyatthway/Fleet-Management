@@ -55,6 +55,7 @@ app.MapGet("/api/roles", async (
   int pageSize = 10,
   string? search = null,
   string? role = null,
+  string? status = null,
   string? sortBy = "id",
   string? sortOrder = "asc") =>
 {
@@ -164,6 +165,108 @@ app.MapDelete("/api/roles/{roleId}", (string roleId, FleetDbContext db) =>
   return Results.BadRequest(new ApiError("Roles are fixed system roles and cannot be deleted."));
 });
 
+app.MapGet("/api/permissions", async (FleetDbContext db) =>
+{
+  return Results.Ok(await BuildPermissionMatrixAsync(db));
+});
+
+app.MapPut("/api/permissions", async (PermissionBulkUpdateRequest request, FleetDbContext db) =>
+{
+  var fixedRoleIds = SeedData.FixedRoleIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+  var moduleKeys = GetPermissionModules().Select(module => module.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+  var submitted = request.Permissions ?? [];
+
+  foreach (var permission in submitted)
+  {
+    if (!fixedRoleIds.Contains(permission.RoleId))
+    {
+      return Results.BadRequest(new ApiError("Permission role is not a fixed system role."));
+    }
+
+    if (!moduleKeys.Contains(permission.ModuleKey))
+    {
+      return Results.BadRequest(new ApiError("Permission module does not exist."));
+    }
+  }
+
+  var now = DateTime.UtcNow;
+  foreach (var permission in submitted)
+  {
+    var normalizedRoleId = permission.RoleId.Trim();
+    var normalizedModuleKey = permission.ModuleKey.Trim();
+    var existingPermission = await db.RolePermissions.FirstOrDefaultAsync(item =>
+      item.RoleId == normalizedRoleId && item.ModuleKey == normalizedModuleKey);
+
+    if (existingPermission is null)
+    {
+      db.RolePermissions.Add(new RolePermission
+      {
+        RoleId = normalizedRoleId,
+        ModuleKey = normalizedModuleKey,
+        CanView = permission.CanView,
+        CanCreate = permission.CanCreate,
+        CanEdit = permission.CanEdit,
+        CanDelete = permission.CanDelete,
+        CreatedAt = now,
+        UpdatedAt = now
+      });
+      continue;
+    }
+
+    existingPermission.CanView = permission.CanView;
+    existingPermission.CanCreate = permission.CanCreate;
+    existingPermission.CanEdit = permission.CanEdit;
+    existingPermission.CanDelete = permission.CanDelete;
+    existingPermission.UpdatedAt = now;
+  }
+
+  await db.SaveChangesAsync();
+  return Results.Ok(await BuildPermissionMatrixAsync(db));
+});
+
+app.MapPost("/api/auth/login", async (LoginRequest request, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+  {
+    return Results.BadRequest(new ApiError("Email and password are required."));
+  }
+
+  var normalizedEmail = request.Email.Trim().ToLower();
+  var user = await db.Users
+    .Include(item => item.Role)
+    .FirstOrDefaultAsync(item =>
+      item.IsDeleted == 0 &&
+      item.Email.ToLower() == normalizedEmail &&
+      item.Role != null &&
+      item.Role.IsDeleted == 0);
+
+  if (user is null || string.IsNullOrWhiteSpace(user.PasswordHash) || !SeedData.VerifyPassword(request.Password, user.PasswordHash))
+  {
+    return Results.BadRequest(new ApiError("Invalid email or password."));
+  }
+
+  if (!string.Equals(user.Status, "Active", StringComparison.OrdinalIgnoreCase))
+  {
+    return Results.BadRequest(new ApiError("This user account is not active."));
+  }
+
+  user.LastLogin = DateTime.UtcNow.ToString("o");
+  user.UpdatedAt = DateTime.UtcNow;
+  await db.SaveChangesAsync();
+
+  var permissions = await GetPermissionsForRoleAsync(db, user.RoleId);
+  return Results.Ok(new LoginResponseDto(
+    new AuthUserDto(
+      user.Id,
+      user.Name,
+      user.Email,
+      user.RoleId,
+      user.Role!.Name,
+      user.Status,
+      ToPublicAssetUrl(httpRequest, user.Avatar)),
+    permissions));
+});
+
 app.MapGet("/api/users", async (
   HttpRequest request,
   FleetDbContext db,
@@ -171,6 +274,7 @@ app.MapGet("/api/users", async (
   int pageSize = 10,
   string? search = null,
   string? role = null,
+  string? status = null,
   string? sortBy = "id",
   string? sortOrder = "asc") =>
 {
@@ -194,6 +298,12 @@ app.MapGet("/api/users", async (
   {
     var normalizedRole = role.Trim().ToLower();
     query = query.Where(u => u.Role!.Name.ToLower() == normalizedRole);
+  }
+
+  if (!string.IsNullOrWhiteSpace(status))
+  {
+    var normalizedStatus = status.Trim().ToLower();
+    query = query.Where(u => u.Status.ToLower() == normalizedStatus);
   }
 
   query = (sortBy?.ToLowerInvariant(), sortOrder?.ToLowerInvariant()) switch
@@ -388,6 +498,8 @@ app.MapPost("/api/users", async (
   var roleEntity = await db.Roles.FirstOrDefaultAsync(r => r.Name == form.Role && r.IsDeleted == 0);
   if (roleEntity is null) return Results.BadRequest(new ApiError("Selected role does not exist."));
 
+  if (string.IsNullOrWhiteSpace(form.Status)) return Results.BadRequest(new ApiError("User status is required."));
+
   var normalizedDepartment = form.Department.Trim();
   var departmentExists = await db.DepartmentCodeOptions.AnyAsync(department =>
     department.Status == "Active" && department.Name.ToLower() == normalizedDepartment.ToLower());
@@ -418,7 +530,8 @@ app.MapPost("/api/users", async (
     NrcNumber = form.NrcNumber.Trim(),
     Email = form.Email.Trim(),
     RoleId = roleEntity.Id,
-    Status = string.IsNullOrWhiteSpace(form.Status) ? "Active" : form.Status.Trim(),
+    PasswordHash = SeedData.HashPassword("Password@123"),
+    Status = form.Status.Trim(),
     Phone = form.Phone.Trim(),
     Avatar = string.Empty,
     NrcFront = string.Empty,
@@ -468,6 +581,8 @@ app.MapPut("/api/users/{userId}", async (
   var roleEntity = await db.Roles.FirstOrDefaultAsync(r => r.Name == form.Role && r.IsDeleted == 0);
   if (roleEntity is null) return Results.BadRequest(new ApiError("Selected role does not exist."));
 
+  if (string.IsNullOrWhiteSpace(form.Status)) return Results.BadRequest(new ApiError("User status is required."));
+
   var normalizedDepartment = form.Department.Trim();
   var departmentExists = await db.DepartmentCodeOptions.AnyAsync(department =>
     department.Status == "Active" && department.Name.ToLower() == normalizedDepartment.ToLower());
@@ -480,7 +595,7 @@ app.MapPut("/api/users/{userId}", async (
   user.NrcNumber = form.NrcNumber.Trim();
   user.Email = form.Email.Trim();
   user.RoleId = roleEntity.Id;
-  user.Status = string.IsNullOrWhiteSpace(form.Status) ? "Active" : form.Status.Trim();
+  user.Status = form.Status.Trim();
   user.Phone = form.Phone.Trim();
   user.Department = normalizedDepartment;
   user.Title = form.Title.Trim();
@@ -1102,6 +1217,434 @@ app.MapDelete("/api/fuel-types/{id:int}", async (int id, FleetDbContext db) =>
   return Results.NoContent();
 });
 
+app.MapGet("/api/trip-types", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = "id", string? sortOrder = "asc") =>
+  Results.Ok(await GetTripSetupPage<TripTypeCodeOption>(db, page, pageSize, search, sortBy, sortOrder)));
+app.MapGet("/api/trip-types/options", async (FleetDbContext db) => Results.Ok(await GetTripSetupOptions<TripTypeCodeOption>(db)));
+app.MapPost("/api/trip-types", async (TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await CreateTripSetupOption<TripTypeCodeOption>(request, httpRequest, db, "trip-type-setup"));
+app.MapPut("/api/trip-types/{id:int}", async (int id, TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await UpdateTripSetupOption<TripTypeCodeOption>(id, request, httpRequest, db, "trip-type-setup"));
+app.MapDelete("/api/trip-types/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) => await DeleteTripSetupOption<TripTypeCodeOption>(id, httpRequest, db, "trip-type-setup"));
+
+app.MapGet("/api/cargo-types", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = "id", string? sortOrder = "asc") =>
+  Results.Ok(await GetTripSetupPage<CargoTypeCodeOption>(db, page, pageSize, search, sortBy, sortOrder)));
+app.MapGet("/api/cargo-types/options", async (FleetDbContext db) => Results.Ok(await GetTripSetupOptions<CargoTypeCodeOption>(db)));
+app.MapPost("/api/cargo-types", async (TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await CreateTripSetupOption<CargoTypeCodeOption>(request, httpRequest, db, "cargo-type-setup"));
+app.MapPut("/api/cargo-types/{id:int}", async (int id, TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await UpdateTripSetupOption<CargoTypeCodeOption>(id, request, httpRequest, db, "cargo-type-setup"));
+app.MapDelete("/api/cargo-types/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) => await DeleteTripSetupOption<CargoTypeCodeOption>(id, httpRequest, db, "cargo-type-setup"));
+
+app.MapGet("/api/statuses", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = "id", string? sortOrder = "asc") =>
+  Results.Ok(await GetTripSetupPage<StatusCodeOption>(db, page, pageSize, search, sortBy, sortOrder)));
+app.MapGet("/api/statuses/options", async (FleetDbContext db) => Results.Ok(await GetTripSetupOptions<StatusCodeOption>(db)));
+app.MapPost("/api/statuses", async (TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await CreateTripSetupOption<StatusCodeOption>(request, httpRequest, db, "status-setup"));
+app.MapPut("/api/statuses/{id:int}", async (int id, TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await UpdateTripSetupOption<StatusCodeOption>(id, request, httpRequest, db, "status-setup"));
+app.MapDelete("/api/statuses/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) => await DeleteTripSetupOption<StatusCodeOption>(id, httpRequest, db, "status-setup"));
+
+app.MapGet("/api/trip-priorities", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = "id", string? sortOrder = "asc") =>
+  Results.Ok(await GetTripSetupPage<TripPriorityCodeOption>(db, page, pageSize, search, sortBy, sortOrder)));
+app.MapGet("/api/trip-priorities/options", async (FleetDbContext db) => Results.Ok(await GetTripSetupOptions<TripPriorityCodeOption>(db)));
+app.MapPost("/api/trip-priorities", async (TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await CreateTripSetupOption<TripPriorityCodeOption>(request, httpRequest, db, "trip-priority-setup"));
+app.MapPut("/api/trip-priorities/{id:int}", async (int id, TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await UpdateTripSetupOption<TripPriorityCodeOption>(id, request, httpRequest, db, "trip-priority-setup"));
+app.MapDelete("/api/trip-priorities/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) => await DeleteTripSetupOption<TripPriorityCodeOption>(id, httpRequest, db, "trip-priority-setup"));
+
+app.MapGet("/api/incident-types", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = "id", string? sortOrder = "asc") =>
+  Results.Ok(await GetTripSetupPage<IncidentTypeCodeOption>(db, page, pageSize, search, sortBy, sortOrder)));
+app.MapGet("/api/incident-types/options", async (FleetDbContext db) => Results.Ok(await GetTripSetupOptions<IncidentTypeCodeOption>(db)));
+app.MapPost("/api/incident-types", async (TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await CreateTripSetupOption<IncidentTypeCodeOption>(request, httpRequest, db, "incident-type-setup"));
+app.MapPut("/api/incident-types/{id:int}", async (int id, TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await UpdateTripSetupOption<IncidentTypeCodeOption>(id, request, httpRequest, db, "incident-type-setup"));
+app.MapDelete("/api/incident-types/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) => await DeleteTripSetupOption<IncidentTypeCodeOption>(id, httpRequest, db, "incident-type-setup"));
+
+app.MapGet("/api/severities", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = "id", string? sortOrder = "asc") =>
+  Results.Ok(await GetTripSetupPage<SeverityCodeOption>(db, page, pageSize, search, sortBy, sortOrder)));
+app.MapGet("/api/severities/options", async (FleetDbContext db) => Results.Ok(await GetTripSetupOptions<SeverityCodeOption>(db)));
+app.MapPost("/api/severities", async (TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await CreateTripSetupOption<SeverityCodeOption>(request, httpRequest, db, "severity-setup"));
+app.MapPut("/api/severities/{id:int}", async (int id, TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await UpdateTripSetupOption<SeverityCodeOption>(id, request, httpRequest, db, "severity-setup"));
+app.MapDelete("/api/severities/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) => await DeleteTripSetupOption<SeverityCodeOption>(id, httpRequest, db, "severity-setup"));
+
+app.MapGet("/api/expense-types", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = "id", string? sortOrder = "asc") =>
+  Results.Ok(await GetTripSetupPage<ExpenseTypeCodeOption>(db, page, pageSize, search, sortBy, sortOrder)));
+app.MapGet("/api/expense-types/options", async (FleetDbContext db) => Results.Ok(await GetTripSetupOptions<ExpenseTypeCodeOption>(db)));
+app.MapPost("/api/expense-types", async (TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await CreateTripSetupOption<ExpenseTypeCodeOption>(request, httpRequest, db, "expense-type-setup"));
+app.MapPut("/api/expense-types/{id:int}", async (int id, TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await UpdateTripSetupOption<ExpenseTypeCodeOption>(id, request, httpRequest, db, "expense-type-setup"));
+app.MapDelete("/api/expense-types/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) => await DeleteTripSetupOption<ExpenseTypeCodeOption>(id, httpRequest, db, "expense-type-setup"));
+
+app.MapGet("/api/maintenance-types", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = "id", string? sortOrder = "asc") =>
+  Results.Ok(await GetTripSetupPage<MaintenanceTypeCodeOption>(db, page, pageSize, search, sortBy, sortOrder)));
+app.MapGet("/api/maintenance-types/options", async (FleetDbContext db) => Results.Ok(await GetTripSetupOptions<MaintenanceTypeCodeOption>(db)));
+app.MapPost("/api/maintenance-types", async (TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await CreateTripSetupOption<MaintenanceTypeCodeOption>(request, httpRequest, db, "maintenance-type-setup"));
+app.MapPut("/api/maintenance-types/{id:int}", async (int id, TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await UpdateTripSetupOption<MaintenanceTypeCodeOption>(id, request, httpRequest, db, "maintenance-type-setup"));
+app.MapDelete("/api/maintenance-types/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) => await DeleteTripSetupOption<MaintenanceTypeCodeOption>(id, httpRequest, db, "maintenance-type-setup"));
+
+app.MapGet("/api/document-types", async (FleetDbContext db, int page = 1, int pageSize = 10, string? search = null, string? sortBy = "id", string? sortOrder = "asc") =>
+  Results.Ok(await GetTripSetupPage<DocumentTypeCodeOption>(db, page, pageSize, search, sortBy, sortOrder)));
+app.MapGet("/api/document-types/options", async (FleetDbContext db) => Results.Ok(await GetTripSetupOptions<DocumentTypeCodeOption>(db)));
+app.MapPost("/api/document-types", async (TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await CreateTripSetupOption<DocumentTypeCodeOption>(request, httpRequest, db, "document-type-setup"));
+app.MapPut("/api/document-types/{id:int}", async (int id, TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db) => await UpdateTripSetupOption<DocumentTypeCodeOption>(id, request, httpRequest, db, "document-type-setup"));
+app.MapDelete("/api/document-types/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) => await DeleteTripSetupOption<DocumentTypeCodeOption>(id, httpRequest, db, "document-type-setup"));
+
+app.MapGet("/api/vehicles", async (
+  HttpRequest request,
+  FleetDbContext db,
+  string? search = null,
+  string? status = null) =>
+{
+  var query = db.Vehicles
+    .Where(vehicle => vehicle.IsDeleted == 0)
+    .AsNoTracking()
+    .AsQueryable();
+
+  if (!string.IsNullOrWhiteSpace(search))
+  {
+    var normalizedSearch = search.Trim().ToLower();
+    query = query.Where(vehicle =>
+      vehicle.Id.ToLower().Contains(normalizedSearch) ||
+      vehicle.Plate.ToLower().Contains(normalizedSearch) ||
+      vehicle.Driver.ToLower().Contains(normalizedSearch) ||
+      vehicle.Type.ToLower().Contains(normalizedSearch) ||
+      vehicle.Model.ToLower().Contains(normalizedSearch));
+  }
+
+  if (!string.IsNullOrWhiteSpace(status) && status != "All")
+  {
+    var normalizedStatus = status.Trim().ToLower();
+    query = query.Where(vehicle => vehicle.Status.ToLower() == normalizedStatus);
+  }
+
+  var records = await query
+    .OrderBy(vehicle => vehicle.Id)
+    .ToListAsync();
+
+  return Results.Ok(records.Select(vehicle => ToVehicleDto(vehicle, request)).ToList());
+});
+
+app.MapPost("/api/vehicles", async (
+  [FromForm] VehicleFormData form,
+  HttpRequest request,
+  IWebHostEnvironment environment,
+  FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(request, db, "vehicles", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
+  var validationError = ValidateVehicleRequest(form);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var normalizedPlate = form.Plate!.Trim().ToUpperInvariant();
+  var duplicatePlate = await db.Vehicles.AnyAsync(vehicle =>
+    vehicle.IsDeleted == 0 && vehicle.Plate.ToLower() == normalizedPlate.ToLower());
+  if (duplicatePlate) return Results.BadRequest(new ApiError("Vehicle plate already exists."));
+
+  var now = DateTime.UtcNow;
+  var vehicle = new Vehicle
+  {
+    Id = NextVehicleId(await db.Vehicles.Select(item => item.Id).ToListAsync()),
+    Plate = normalizedPlate,
+    Region = form.Region!.Trim(),
+    Type = form.Type!.Trim(),
+    Model = form.Model!.Trim(),
+    Make = NormalizeOptional(form.Make),
+    Year = NormalizeOptional(form.Year),
+    Color = NormalizeOptional(form.Color),
+    Status = form.Status!.Trim(),
+    Ownership = NormalizeOptional(form.Ownership) ?? "Owned",
+    Driver = form.Driver!.Trim(),
+    DriverImage = string.Empty,
+    Depot = NormalizeOptional(form.Depot),
+    Capacity = NormalizeOptional(form.Capacity),
+    FuelCapacity = NormalizeOptional(form.FuelCapacity),
+    FuelType = form.FuelType!.Trim(),
+    Vin = NormalizeOptional(form.Vin),
+    EngineNo = NormalizeOptional(form.EngineNo),
+    Odometer = NormalizeOptional(form.Odometer),
+    LastService = NormalizeOptional(form.LastService),
+    NextService = NormalizeOptional(form.NextService),
+    ServiceNote = NormalizeOptional(form.ServiceNote),
+    PurchaseCost = NormalizeOptional(form.PurchaseCost),
+    RegistrationNo = NormalizeOptional(form.RegistrationNo),
+    RegistrationExpiry = NormalizeOptional(form.RegistrationExpiry),
+    RoadTaxExpiry = NormalizeOptional(form.RoadTaxExpiry),
+    InsuranceExpiry = NormalizeOptional(form.InsuranceExpiry),
+    InsuranceProvider = NormalizeOptional(form.InsuranceProvider),
+    InsurancePolicy = NormalizeOptional(form.InsurancePolicy),
+    InspectionDue = NormalizeOptional(form.InspectionDue),
+    AcquiredDate = NormalizeOptional(form.AcquiredDate),
+    Image = string.Empty,
+    IsDeleted = 0,
+    CreatedAt = now,
+    UpdatedAt = now
+  };
+
+  db.Vehicles.Add(vehicle);
+  await db.SaveChangesAsync();
+
+  if (form.DriverImageFile is null && !form.RemoveDriverImage)
+  {
+    var driverAvatar = await db.Users
+      .Include(user => user.Role)
+      .Where(user =>
+        user.IsDeleted == 0 &&
+        user.Status == "Active" &&
+        user.Name == vehicle.Driver &&
+        user.Role != null &&
+        user.Role.Name == "Driver")
+      .Select(user => user.Avatar)
+      .FirstOrDefaultAsync();
+
+    vehicle.DriverImage = NormalizeOptional(driverAvatar);
+  }
+
+  if (form.VehicleImageFile is not null)
+  {
+    vehicle.Image = await UserAssetStorage.SaveImageAsync(form.VehicleImageFile, "vehicles", vehicle.Id, "vehicle-image", environment);
+  }
+
+  if (form.DriverImageFile is not null)
+  {
+    vehicle.DriverImage = await UserAssetStorage.SaveImageAsync(form.DriverImageFile, "vehicles", vehicle.Id, "driver-image", environment);
+  }
+
+  vehicle.UpdatedAt = DateTime.UtcNow;
+  await db.SaveChangesAsync();
+
+  return Results.Ok(ToVehicleDto(vehicle, request));
+}).DisableAntiforgery();
+
+app.MapPut("/api/vehicles/{vehicleId}", async (
+  string vehicleId,
+  [FromForm] VehicleFormData form,
+  HttpRequest request,
+  IWebHostEnvironment environment,
+  FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(request, db, "vehicles", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
+  var validationError = ValidateVehicleRequest(form);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+  var vehicle = await db.Vehicles.FirstOrDefaultAsync(item => item.Id == vehicleId && item.IsDeleted == 0);
+  if (vehicle is null) return Results.NotFound(new ApiError("Vehicle not found."));
+
+  var normalizedPlate = form.Plate!.Trim().ToUpperInvariant();
+  var duplicatePlate = await db.Vehicles.AnyAsync(item =>
+    item.Id != vehicleId &&
+    item.IsDeleted == 0 &&
+    item.Plate.ToLower() == normalizedPlate.ToLower());
+  if (duplicatePlate) return Results.BadRequest(new ApiError("Vehicle plate already exists."));
+
+  vehicle.Plate = normalizedPlate;
+  vehicle.Region = form.Region!.Trim();
+  vehicle.Type = form.Type!.Trim();
+  vehicle.Model = form.Model!.Trim();
+  vehicle.Make = NormalizeOptional(form.Make);
+  vehicle.Year = NormalizeOptional(form.Year);
+  vehicle.Color = NormalizeOptional(form.Color);
+  vehicle.Status = form.Status!.Trim();
+  vehicle.Ownership = NormalizeOptional(form.Ownership) ?? "Owned";
+  vehicle.Driver = form.Driver!.Trim();
+  vehicle.Depot = NormalizeOptional(form.Depot);
+  vehicle.Capacity = NormalizeOptional(form.Capacity);
+  vehicle.FuelCapacity = NormalizeOptional(form.FuelCapacity);
+  vehicle.FuelType = form.FuelType!.Trim();
+  vehicle.Vin = NormalizeOptional(form.Vin);
+  vehicle.EngineNo = NormalizeOptional(form.EngineNo);
+  vehicle.Odometer = NormalizeOptional(form.Odometer);
+  vehicle.LastService = NormalizeOptional(form.LastService);
+  vehicle.NextService = NormalizeOptional(form.NextService);
+  vehicle.ServiceNote = NormalizeOptional(form.ServiceNote);
+  vehicle.PurchaseCost = NormalizeOptional(form.PurchaseCost);
+  vehicle.RegistrationNo = NormalizeOptional(form.RegistrationNo);
+  vehicle.RegistrationExpiry = NormalizeOptional(form.RegistrationExpiry);
+  vehicle.RoadTaxExpiry = NormalizeOptional(form.RoadTaxExpiry);
+  vehicle.InsuranceExpiry = NormalizeOptional(form.InsuranceExpiry);
+  vehicle.InsuranceProvider = NormalizeOptional(form.InsuranceProvider);
+  vehicle.InsurancePolicy = NormalizeOptional(form.InsurancePolicy);
+  vehicle.InspectionDue = NormalizeOptional(form.InspectionDue);
+  vehicle.AcquiredDate = NormalizeOptional(form.AcquiredDate);
+
+  if (form.RemoveVehicleImage)
+  {
+    vehicle.Image = string.Empty;
+  }
+
+  if (form.RemoveDriverImage)
+  {
+    vehicle.DriverImage = string.Empty;
+  }
+
+  if (form.DriverImageFile is null && !form.RemoveDriverImage)
+  {
+    var driverAvatar = await db.Users
+      .Include(user => user.Role)
+      .Where(user =>
+        user.IsDeleted == 0 &&
+        user.Status == "Active" &&
+        user.Name == vehicle.Driver &&
+        user.Role != null &&
+        user.Role.Name == "Driver")
+      .Select(user => user.Avatar)
+      .FirstOrDefaultAsync();
+
+    vehicle.DriverImage = NormalizeOptional(driverAvatar);
+  }
+
+  if (form.VehicleImageFile is not null)
+  {
+    vehicle.Image = await UserAssetStorage.SaveImageAsync(form.VehicleImageFile, "vehicles", vehicle.Id, "vehicle-image", environment);
+  }
+
+  if (form.DriverImageFile is not null)
+  {
+    vehicle.DriverImage = await UserAssetStorage.SaveImageAsync(form.DriverImageFile, "vehicles", vehicle.Id, "driver-image", environment);
+  }
+
+  vehicle.UpdatedAt = DateTime.UtcNow;
+
+  await db.SaveChangesAsync();
+
+  return Results.Ok(ToVehicleDto(vehicle, request));
+}).DisableAntiforgery();
+
+app.MapPatch("/api/vehicles/{vehicleId}/status", async (string vehicleId, VehicleStatusRequest request, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "vehicles", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
+  var normalizedStatus = string.IsNullOrWhiteSpace(request.Status) ? string.Empty : request.Status.Trim();
+  if (string.IsNullOrWhiteSpace(normalizedStatus))
+  {
+    return Results.BadRequest(new ApiError("Vehicle status is required."));
+  }
+
+  var vehicle = await db.Vehicles.FirstOrDefaultAsync(item => item.Id == vehicleId && item.IsDeleted == 0);
+  if (vehicle is null) return Results.NotFound(new ApiError("Vehicle not found."));
+
+  vehicle.Status = normalizedStatus;
+  vehicle.UpdatedAt = DateTime.UtcNow;
+  await db.SaveChangesAsync();
+
+  return Results.Ok(ToVehicleDto(vehicle, httpRequest));
+});
+
+app.MapDelete("/api/vehicles/{vehicleId}", async (string vehicleId, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "vehicles", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
+  var vehicle = await db.Vehicles.FirstOrDefaultAsync(item => item.Id == vehicleId && item.IsDeleted == 0);
+  if (vehicle is null) return Results.NotFound(new ApiError("Vehicle not found."));
+
+  vehicle.IsDeleted = 1;
+  vehicle.UpdatedAt = DateTime.UtcNow;
+  await db.SaveChangesAsync();
+  return Results.NoContent();
+});
+
+app.MapGet("/api/trips", async (
+  FleetDbContext db,
+  int page = 1,
+  int pageSize = 10,
+  string? search = null,
+  string? status = null,
+  string? tripType = null,
+  string? sortBy = "id",
+  string? sortOrder = "desc") =>
+{
+  var query = db.Trips.Where(trip => trip.IsDeleted == 0).AsNoTracking().AsQueryable();
+  if (!string.IsNullOrWhiteSpace(search))
+  {
+    var normalizedSearch = search.Trim().ToLower();
+    query = query.Where(trip =>
+      trip.TripNumber.ToLower().Contains(normalizedSearch) ||
+      trip.PickupLocation.ToLower().Contains(normalizedSearch) ||
+      trip.DropoffLocation.ToLower().Contains(normalizedSearch) ||
+      trip.DriverName.ToLower().Contains(normalizedSearch) ||
+      (trip.CoDriverName ?? string.Empty).ToLower().Contains(normalizedSearch) ||
+      trip.DispatcherName.ToLower().Contains(normalizedSearch) ||
+      trip.CustomerName.ToLower().Contains(normalizedSearch) ||
+      trip.VehicleId.ToLower().Contains(normalizedSearch) ||
+      trip.VehiclePlate.ToLower().Contains(normalizedSearch) ||
+      trip.CargoType.ToLower().Contains(normalizedSearch));
+  }
+
+  if (!string.IsNullOrWhiteSpace(status) && status != "All")
+  {
+    var normalizedStatus = status.Trim().ToLower();
+    query = query.Where(trip => trip.Status.ToLower() == normalizedStatus);
+  }
+
+  if (!string.IsNullOrWhiteSpace(tripType) && tripType != "All")
+  {
+    var normalizedType = tripType.Trim().ToLower();
+    query = query.Where(trip => trip.TripType.ToLower() == normalizedType);
+  }
+
+  query = (sortBy?.ToLowerInvariant(), sortOrder?.ToLowerInvariant()) switch
+  {
+    ("tripnumber", "asc") => query.OrderBy(trip => trip.TripNumber),
+    ("tripnumber", _) => query.OrderByDescending(trip => trip.TripNumber),
+    ("status", "asc") => query.OrderBy(trip => trip.Status),
+    ("status", _) => query.OrderByDescending(trip => trip.Status),
+    ("triptype", "asc") => query.OrderBy(trip => trip.TripType),
+    ("triptype", _) => query.OrderByDescending(trip => trip.TripType),
+    ("departure", "asc") => query.OrderBy(trip => trip.DepartureDateTime),
+    ("departure", _) => query.OrderByDescending(trip => trip.DepartureDateTime),
+    ("id", "asc") => query.OrderBy(trip => trip.Id),
+    _ => query.OrderByDescending(trip => trip.Id)
+  };
+
+  var total = await query.CountAsync();
+  var records = await query.Skip(Math.Max(page - 1, 0) * pageSize).Take(pageSize).ToListAsync();
+  return Results.Ok(new PagedResult<TripDto>(records.Select(ToTripDto).ToList(), total));
+});
+
+app.MapPost("/api/trips", async (TripRequest request, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "trips", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
+  var validationError = ValidateTripRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+  var duplicate = await db.Trips.AnyAsync(trip => trip.IsDeleted == 0 && trip.TripNumber.ToLower() == request.TripNumber!.Trim().ToLower());
+  if (duplicate) return Results.BadRequest(new ApiError("Trip number already exists."));
+
+  var now = DateTime.UtcNow;
+  var trip = ApplyTripRequest(new Trip { CreatedAt = now, IsDeleted = 0 }, request);
+  trip.UpdatedAt = now;
+  db.Trips.Add(trip);
+  await db.SaveChangesAsync();
+  return Results.Ok(ToTripDto(trip));
+});
+
+app.MapPut("/api/trips/{id:int}", async (int id, TripRequest request, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "trips", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
+  var validationError = ValidateTripRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+  var trip = await db.Trips.FirstOrDefaultAsync(item => item.Id == id && item.IsDeleted == 0);
+  if (trip is null) return Results.NotFound(new ApiError("Trip not found."));
+  var duplicate = await db.Trips.AnyAsync(item => item.Id != id && item.IsDeleted == 0 && item.TripNumber.ToLower() == request.TripNumber!.Trim().ToLower());
+  if (duplicate) return Results.BadRequest(new ApiError("Trip number already exists."));
+
+  ApplyTripRequest(trip, request);
+  trip.UpdatedAt = DateTime.UtcNow;
+  await db.SaveChangesAsync();
+  return Results.Ok(ToTripDto(trip));
+});
+
+app.MapDelete("/api/trips/{id:int}", async (int id, HttpRequest httpRequest, FleetDbContext db) =>
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "trips", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
+  var trip = await db.Trips.FirstOrDefaultAsync(item => item.Id == id && item.IsDeleted == 0);
+  if (trip is null) return Results.NotFound(new ApiError("Trip not found."));
+  trip.IsDeleted = 1;
+  trip.UpdatedAt = DateTime.UtcNow;
+  await db.SaveChangesAsync();
+  return Results.NoContent();
+});
+
 app.MapGet("/api/maintenance-tickets", async (
   FleetDbContext db,
   int page = 1,
@@ -1170,8 +1713,11 @@ app.MapGet("/api/maintenance-tickets", async (
   return Results.Ok(new MaintenanceTicketPagedResult(items, total, stats));
 });
 
-app.MapPost("/api/maintenance-tickets", async (MaintenanceTicketRequest request, FleetDbContext db) =>
+app.MapPost("/api/maintenance-tickets", async (MaintenanceTicketRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "maintenance-tickets", PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
   var validationError = ValidateMaintenanceTicketRequest(request);
   if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
@@ -1196,8 +1742,11 @@ app.MapPost("/api/maintenance-tickets", async (MaintenanceTicketRequest request,
   return Results.Ok(ToMaintenanceTicketDto(ticket));
 });
 
-app.MapPut("/api/maintenance-tickets/{ticketId}", async (string ticketId, MaintenanceTicketRequest request, FleetDbContext db) =>
+app.MapPut("/api/maintenance-tickets/{ticketId}", async (string ticketId, MaintenanceTicketRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "maintenance-tickets", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
   var validationError = ValidateMaintenanceTicketRequest(request);
   if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
@@ -1218,12 +1767,15 @@ app.MapPut("/api/maintenance-tickets/{ticketId}", async (string ticketId, Mainte
   return Results.Ok(ToMaintenanceTicketDto(ticket));
 });
 
-app.MapPatch("/api/maintenance-tickets/{ticketId}/status", async (string ticketId, MaintenanceTicketStatusRequest request, FleetDbContext db) =>
+app.MapPatch("/api/maintenance-tickets/{ticketId}/status", async (string ticketId, MaintenanceTicketStatusRequest request, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "maintenance-tickets", PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
   var normalizedStatus = string.IsNullOrWhiteSpace(request.Status) ? string.Empty : request.Status.Trim();
-  if (normalizedStatus is not ("Pending" or "Repairing" or "Completed"))
+  if (string.IsNullOrWhiteSpace(normalizedStatus))
   {
-    return Results.BadRequest(new ApiError("Ticket status must be Pending, Repairing, or Completed."));
+    return Results.BadRequest(new ApiError("Ticket status is required."));
   }
 
   var ticket = await db.MaintenanceTickets.FirstOrDefaultAsync(item => item.Id == ticketId && item.IsDeleted == 0);
@@ -1236,8 +1788,11 @@ app.MapPatch("/api/maintenance-tickets/{ticketId}/status", async (string ticketI
   return Results.Ok(ToMaintenanceTicketDto(ticket));
 });
 
-app.MapDelete("/api/maintenance-tickets/{ticketId}", async (string ticketId, FleetDbContext db) =>
+app.MapDelete("/api/maintenance-tickets/{ticketId}", async (string ticketId, HttpRequest httpRequest, FleetDbContext db) =>
 {
+  var permissionError = await RequirePermissionAsync(httpRequest, db, "maintenance-tickets", PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
   var ticket = await db.MaintenanceTickets.FirstOrDefaultAsync(item => item.Id == ticketId && item.IsDeleted == 0);
   if (ticket is null) return Results.NotFound(new ApiError("Ticket not found."));
 
@@ -1248,6 +1803,38 @@ app.MapDelete("/api/maintenance-tickets/{ticketId}", async (string ticketId, Fle
 });
 
 app.Run();
+
+static async Task<IResult?> RequirePermissionAsync(
+  HttpRequest request,
+  FleetDbContext db,
+  string moduleKey,
+  PermissionAction action)
+{
+  var roleId = request.Headers["X-Fleet-Role-Id"].FirstOrDefault();
+  if (string.IsNullOrWhiteSpace(roleId))
+  {
+    return Results.Json(new ApiError("Login session is required."), statusCode: StatusCodes.Status401Unauthorized);
+  }
+
+  var savedPermission = await db.RolePermissions
+    .AsNoTracking()
+    .FirstOrDefaultAsync(permission =>
+      permission.RoleId == roleId &&
+      permission.ModuleKey == moduleKey);
+
+  var defaultPermission = GetDefaultPermission(roleId, moduleKey);
+  var allowed = action switch
+  {
+    PermissionAction.Create => savedPermission?.CanCreate ?? defaultPermission.CanCreate,
+    PermissionAction.Edit => savedPermission?.CanEdit ?? defaultPermission.CanEdit,
+    PermissionAction.Delete => savedPermission?.CanDelete ?? defaultPermission.CanDelete,
+    _ => false
+  };
+
+  return allowed
+    ? null
+    : Results.Json(new ApiError("You do not have permission to perform this action."), statusCode: StatusCodes.Status403Forbidden);
+}
 
 static UserDto ToUserDto(User user, string roleName, HttpRequest request) =>
   new(
@@ -1325,6 +1912,86 @@ static FuelTypeDto ToFuelTypeDto(FuelTypeCodeOption fuelType) =>
     fuelType.CreatedAt,
     fuelType.UpdatedAt);
 
+static VehicleDto ToVehicleDto(Vehicle vehicle, HttpRequest request) =>
+  new(
+    vehicle.Id,
+    vehicle.Plate,
+    vehicle.Region,
+    vehicle.Type,
+    vehicle.Model,
+    vehicle.Make,
+    vehicle.Year,
+    vehicle.Color,
+    vehicle.Status,
+    vehicle.Ownership,
+    vehicle.Driver,
+    ToPublicAssetUrl(request, vehicle.DriverImage),
+    vehicle.Depot,
+    vehicle.Capacity,
+    vehicle.FuelCapacity,
+    vehicle.FuelType,
+    vehicle.Vin,
+    vehicle.EngineNo,
+    vehicle.Odometer,
+    vehicle.LastService,
+    vehicle.NextService,
+    vehicle.ServiceNote,
+    vehicle.PurchaseCost,
+    vehicle.RegistrationNo,
+    vehicle.RegistrationExpiry,
+    vehicle.RoadTaxExpiry,
+    vehicle.InsuranceExpiry,
+    vehicle.InsuranceProvider,
+    vehicle.InsurancePolicy,
+    vehicle.InspectionDue,
+    vehicle.AcquiredDate,
+    ToPublicAssetUrl(request, vehicle.Image),
+    vehicle.CreatedAt,
+    vehicle.UpdatedAt);
+
+static TripDto ToTripDto(Trip trip) =>
+  new(
+    trip.Id,
+    trip.TripNumber,
+    trip.TripType,
+    trip.Status,
+    trip.Priority,
+    trip.CustomerName,
+    trip.Department,
+    trip.CostCenter,
+    trip.VehicleId,
+    trip.VehiclePlate,
+    trip.TrailerNumber,
+    trip.DriverName,
+    trip.CoDriverName,
+    trip.DispatcherName,
+    trip.CargoType,
+    trip.LoadWeightKg,
+    trip.LoadVolumeM3,
+    trip.PickupLocation,
+    trip.DropoffLocation,
+    trip.PickupContact,
+    trip.DropoffContact,
+    trip.DepartureDateTime,
+    trip.EstimatedArrival,
+    trip.ActualArrival,
+    trip.PlannedDistanceKm,
+    trip.StartingOdometerKm,
+    trip.CurrentOdometerKm,
+    trip.EndingOdometerKm,
+    trip.FuelIssuedLiters,
+    trip.TollEstimate,
+    trip.PermitRequired,
+    trip.TemperatureControlled,
+    trip.TemperatureRange,
+    trip.SpecialInstructions,
+    trip.DriverNotes,
+    trip.CreatedAt,
+    trip.UpdatedAt);
+
+static TripSetupDto ToTripSetupDto(TripSetupCodeOption option) =>
+  new(option.Id, option.Name, option.Code, option.Description, option.Status, option.CreatedAt, option.UpdatedAt);
+
 static MaintenanceTicketDto ToMaintenanceTicketDto(MaintenanceTicket ticket) =>
   new(
     ticket.Id,
@@ -1371,6 +2038,23 @@ static string NextMaintenanceTicketId(IEnumerable<string> existingIds)
     .Max();
 
   return $"MT-{max + 1}";
+}
+
+static string NextVehicleId(IEnumerable<string> existingIds)
+{
+  var max = existingIds
+    .Select(value =>
+    {
+      if (string.IsNullOrWhiteSpace(value)) return 0;
+      var normalized = value.StartsWith("VH-", StringComparison.OrdinalIgnoreCase)
+        ? value[3..]
+        : value;
+      return int.TryParse(normalized, out var number) ? number : 0;
+    })
+    .DefaultIfEmpty(1000)
+    .Max();
+
+  return $"VH-{max + 1:D4}";
 }
 
 static string? ValidateLocationRequest(LocationRequest request)
@@ -1438,6 +2122,308 @@ static string? ValidateFuelTypeRequest(FuelTypeRequest request)
     : "Fuel type status must be Active or Disabled.";
 }
 
+static string? ValidateVehicleRequest(VehicleFormData request)
+{
+  if (string.IsNullOrWhiteSpace(request.Plate)) return "Plate number is required.";
+  if (request.Plate.Trim().Length > 40) return "Plate number must be 40 characters or fewer.";
+  if (string.IsNullOrWhiteSpace(request.Region)) return "Region is required.";
+  if (string.IsNullOrWhiteSpace(request.Type)) return "Vehicle type is required.";
+  if (string.IsNullOrWhiteSpace(request.Model)) return "Vehicle model is required.";
+  if (string.IsNullOrWhiteSpace(request.Driver)) return "Driver is required.";
+  if (string.IsNullOrWhiteSpace(request.FuelType)) return "Fuel type is required.";
+
+  var normalizedStatus = string.IsNullOrWhiteSpace(request.Status) ? string.Empty : request.Status.Trim();
+  return string.IsNullOrWhiteSpace(normalizedStatus) ? "Vehicle status is required." : null;
+}
+
+static string? ValidateTripRequest(TripRequest request)
+{
+  if (string.IsNullOrWhiteSpace(request.TripNumber)) return "Trip number is required.";
+  if (string.IsNullOrWhiteSpace(request.TripType)) return "Trip type is required.";
+  if (string.IsNullOrWhiteSpace(request.Status)) return "Trip status is required.";
+  if (string.IsNullOrWhiteSpace(request.Priority)) return "Priority is required.";
+  if (string.IsNullOrWhiteSpace(request.CustomerName)) return "Customer is required.";
+  if (string.IsNullOrWhiteSpace(request.Department)) return "Department is required.";
+  if (string.IsNullOrWhiteSpace(request.VehicleId)) return "Vehicle is required.";
+  if (string.IsNullOrWhiteSpace(request.VehiclePlate)) return "Vehicle plate is required.";
+  if (string.IsNullOrWhiteSpace(request.DriverName)) return "Driver is required.";
+  if (string.IsNullOrWhiteSpace(request.DispatcherName)) return "Dispatcher is required.";
+  if (string.IsNullOrWhiteSpace(request.CargoType)) return "Cargo type is required.";
+  if (string.IsNullOrWhiteSpace(request.PickupLocation)) return "Pickup location is required.";
+  if (string.IsNullOrWhiteSpace(request.DropoffLocation)) return "Dropoff location is required.";
+  if (string.IsNullOrWhiteSpace(request.DepartureDateTime)) return "Departure date and time is required.";
+  if (string.IsNullOrWhiteSpace(request.EstimatedArrival)) return "Estimated arrival is required.";
+  return null;
+}
+
+static Trip ApplyTripRequest(Trip trip, TripRequest request)
+{
+  trip.TripNumber = request.TripNumber!.Trim();
+  trip.TripType = request.TripType!.Trim();
+  trip.Status = request.Status!.Trim();
+  trip.Priority = request.Priority!.Trim();
+  trip.CustomerName = request.CustomerName!.Trim();
+  trip.Department = request.Department!.Trim();
+  trip.CostCenter = NormalizeOptional(request.CostCenter);
+  trip.VehicleId = request.VehicleId!.Trim();
+  trip.VehiclePlate = request.VehiclePlate!.Trim();
+  trip.TrailerNumber = NormalizeOptional(request.TrailerNumber);
+  trip.DriverName = request.DriverName!.Trim();
+  trip.CoDriverName = NormalizeOptional(request.CoDriverName);
+  trip.DispatcherName = request.DispatcherName!.Trim();
+  trip.CargoType = request.CargoType!.Trim();
+  trip.LoadWeightKg = request.LoadWeightKg;
+  trip.LoadVolumeM3 = request.LoadVolumeM3;
+  trip.PickupLocation = request.PickupLocation!.Trim();
+  trip.DropoffLocation = request.DropoffLocation!.Trim();
+  trip.PickupContact = NormalizeOptional(request.PickupContact);
+  trip.DropoffContact = NormalizeOptional(request.DropoffContact);
+  trip.DepartureDateTime = request.DepartureDateTime!.Trim();
+  trip.EstimatedArrival = request.EstimatedArrival!.Trim();
+  trip.ActualArrival = NormalizeOptional(request.ActualArrival);
+  trip.PlannedDistanceKm = request.PlannedDistanceKm;
+  trip.StartingOdometerKm = request.StartingOdometerKm;
+  trip.CurrentOdometerKm = request.CurrentOdometerKm;
+  trip.EndingOdometerKm = request.EndingOdometerKm;
+  trip.FuelIssuedLiters = request.FuelIssuedLiters;
+  trip.TollEstimate = request.TollEstimate;
+  trip.PermitRequired = request.PermitRequired;
+  trip.TemperatureControlled = request.TemperatureControlled;
+  trip.TemperatureRange = NormalizeOptional(request.TemperatureRange);
+  trip.SpecialInstructions = NormalizeOptional(request.SpecialInstructions);
+  trip.DriverNotes = NormalizeOptional(request.DriverNotes);
+  return trip;
+}
+
+static string? ValidateTripSetupRequest(TripSetupRequest request)
+{
+  if (string.IsNullOrWhiteSpace(request.Name)) return "Name is required.";
+  if (request.Name.Trim().Length > 120) return "Name must be 120 characters or fewer.";
+  if (string.IsNullOrWhiteSpace(request.Code)) return "Code is required.";
+  if (request.Code.Trim().Length > 40) return "Code must be 40 characters or fewer.";
+  if (!string.IsNullOrWhiteSpace(request.Description) && request.Description.Trim().Length > 500) return "Description must be 500 characters or fewer.";
+  var normalizedStatus = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim();
+  return normalizedStatus is "Active" or "Disabled" ? null : "Status must be Active or Disabled.";
+}
+
+static async Task<PagedResult<TripSetupDto>> GetTripSetupPage<T>(
+  FleetDbContext db,
+  int page,
+  int pageSize,
+  string? search,
+  string? sortBy,
+  string? sortOrder)
+  where T : TripSetupCodeOption
+{
+  var query = db.Set<T>().AsNoTracking().AsQueryable();
+  if (!string.IsNullOrWhiteSpace(search))
+  {
+    var normalizedSearch = search.Trim().ToLower();
+    query = query.Where(option =>
+      option.Name.ToLower().Contains(normalizedSearch) ||
+      option.Code.ToLower().Contains(normalizedSearch) ||
+      (option.Description ?? string.Empty).ToLower().Contains(normalizedSearch) ||
+      option.Status.ToLower().Contains(normalizedSearch));
+  }
+  query = (sortBy?.ToLowerInvariant(), sortOrder?.ToLowerInvariant()) switch
+  {
+    ("name", "desc") => query.OrderByDescending(option => option.Name),
+    ("name", _) => query.OrderBy(option => option.Name),
+    ("code", "desc") => query.OrderByDescending(option => option.Code),
+    ("code", _) => query.OrderBy(option => option.Code),
+    ("status", "desc") => query.OrderByDescending(option => option.Status),
+    ("status", _) => query.OrderBy(option => option.Status),
+    ("id", "desc") => query.OrderByDescending(option => option.Id),
+    _ => query.OrderBy(option => option.Id)
+  };
+  var total = await query.CountAsync();
+  var records = await query.Skip(Math.Max(page - 1, 0) * pageSize).Take(pageSize).ToListAsync();
+  return new PagedResult<TripSetupDto>(records.Select(ToTripSetupDto).ToList(), total);
+}
+
+static async Task<List<string>> GetTripSetupOptions<T>(FleetDbContext db)
+  where T : TripSetupCodeOption =>
+  await db.Set<T>()
+    .AsNoTracking()
+    .Where(option => option.Status == "Active")
+    .OrderBy(option => option.Name)
+    .Select(option => option.Name)
+    .ToListAsync();
+
+static async Task<IResult> CreateTripSetupOption<T>(TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db, string moduleKey)
+  where T : TripSetupCodeOption, new()
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, moduleKey, PermissionAction.Create);
+  if (permissionError is not null) return permissionError;
+
+  var validationError = ValidateTripSetupRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+  var normalizedName = request.Name.Trim();
+  var normalizedCode = request.Code.Trim();
+  var duplicate = await db.Set<T>().AnyAsync(option => option.Name.ToLower() == normalizedName.ToLower() || option.Code.ToLower() == normalizedCode.ToLower());
+  if (duplicate) return Results.BadRequest(new ApiError("Name or code already exists."));
+  var option = new T
+  {
+    Name = normalizedName,
+    Code = normalizedCode,
+    Description = NormalizeOptional(request.Description),
+    Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim(),
+    CreatedAt = DateTimeOffset.UtcNow
+  };
+  db.Set<T>().Add(option);
+  await db.SaveChangesAsync();
+  return Results.Ok(ToTripSetupDto(option));
+}
+
+static async Task<IResult> UpdateTripSetupOption<T>(int id, TripSetupRequest request, HttpRequest httpRequest, FleetDbContext db, string moduleKey)
+  where T : TripSetupCodeOption
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, moduleKey, PermissionAction.Edit);
+  if (permissionError is not null) return permissionError;
+
+  var validationError = ValidateTripSetupRequest(request);
+  if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+  var option = await db.Set<T>().FindAsync(id);
+  if (option is null) return Results.NotFound(new ApiError("Setup option not found."));
+  var normalizedName = request.Name.Trim();
+  var normalizedCode = request.Code.Trim();
+  var duplicate = await db.Set<T>().AnyAsync(item => item.Id != id && (item.Name.ToLower() == normalizedName.ToLower() || item.Code.ToLower() == normalizedCode.ToLower()));
+  if (duplicate) return Results.BadRequest(new ApiError("Name or code already exists."));
+  option.Name = normalizedName;
+  option.Code = normalizedCode;
+  option.Description = NormalizeOptional(request.Description);
+  option.Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim();
+  option.UpdatedAt = DateTimeOffset.UtcNow;
+  await db.SaveChangesAsync();
+  return Results.Ok(ToTripSetupDto(option));
+}
+
+static async Task<IResult> DeleteTripSetupOption<T>(int id, HttpRequest httpRequest, FleetDbContext db, string moduleKey)
+  where T : TripSetupCodeOption
+{
+  var permissionError = await RequirePermissionAsync(httpRequest, db, moduleKey, PermissionAction.Delete);
+  if (permissionError is not null) return permissionError;
+
+  var option = await db.Set<T>().FindAsync(id);
+  if (option is null) return Results.NotFound(new ApiError("Setup option not found."));
+  db.Set<T>().Remove(option);
+  await db.SaveChangesAsync();
+  return Results.NoContent();
+}
+
+static IReadOnlyList<PermissionModuleDefinition> GetPermissionModules() =>
+[
+  new("dashboard", "Dashboard", "Overview"),
+  new("vehicles", "Vehicle Management", "Fleet"),
+  new("trips", "Trips", "Fleet"),
+  new("maintenance-tickets", "Maintenance Tickets", "Maintenance"),
+  new("inventory-parts", "Inventory & Parts", "Maintenance"),
+  new("incidents", "Incidents", "Maintenance"),
+  new("reports", "Reports", "Reports"),
+  new("users", "Users", "Administration"),
+  new("roles", "Roles", "Administration"),
+  new("permissions", "Permissions", "Administration"),
+  new("department-setup", "Department Setup", "Setup"),
+  new("location-setup", "Location Setup", "Setup"),
+  new("location-type-setup", "Location Type Setup", "Setup"),
+  new("vehicle-type-setup", "Vehicle Type Setup", "Setup"),
+  new("fuel-type-setup", "Fuel Type Setup", "Setup"),
+  new("trip-type-setup", "Trip Type Setup", "Setup"),
+  new("cargo-type-setup", "Cargo Type Setup", "Setup"),
+  new("status-setup", "Status Setup", "Setup"),
+  new("trip-priority-setup", "Trip Priority Setup", "Setup"),
+  new("incident-type-setup", "Incident Type Setup", "Setup"),
+  new("severity-setup", "Severity Setup", "Setup"),
+  new("expense-type-setup", "Expense Type Setup", "Setup"),
+  new("maintenance-type-setup", "Maintenance Type Setup", "Setup"),
+  new("document-type-setup", "Document Type Setup", "Setup"),
+  new("settings", "Settings", "Administration")
+];
+
+static async Task<PermissionMatrixDto> BuildPermissionMatrixAsync(FleetDbContext db)
+{
+  var fixedRoleIds = SeedData.FixedRoleIds;
+  var roles = await db.Roles
+    .AsNoTracking()
+    .Where(role => role.IsDeleted == 0 && fixedRoleIds.Contains(role.Id))
+    .OrderBy(role => role.Code)
+    .Select(role => new PermissionRoleDto(role.Id, role.Name))
+    .ToListAsync();
+
+  var modules = GetPermissionModules();
+  var moduleKeys = modules.Select(module => module.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+  var permissions = await db.RolePermissions
+    .AsNoTracking()
+    .Where(permission => fixedRoleIds.Contains(permission.RoleId) && moduleKeys.Contains(permission.ModuleKey))
+    .ToListAsync();
+
+  var permissionLookup = permissions.ToDictionary(
+    permission => $"{permission.RoleId}:{permission.ModuleKey}",
+    StringComparer.OrdinalIgnoreCase);
+
+  var moduleDtos = modules
+    .Select(module => new PermissionModuleDto(
+      module.Key,
+      module.Name,
+      module.Category,
+      roles.Select(role =>
+      {
+        var hasPermission = permissionLookup.TryGetValue($"{role.Id}:{module.Key}", out var permission);
+        var defaultPermission = GetDefaultPermission(role.Id, module.Key);
+        return new RolePermissionDto(
+          role.Id,
+          permission?.CanView ?? defaultPermission.CanView,
+          permission?.CanCreate ?? defaultPermission.CanCreate,
+          permission?.CanEdit ?? defaultPermission.CanEdit,
+          permission?.CanDelete ?? defaultPermission.CanDelete);
+      }).ToList()))
+    .ToList();
+
+  return new PermissionMatrixDto(roles, moduleDtos);
+}
+
+static async Task<IReadOnlyList<UserPermissionDto>> GetPermissionsForRoleAsync(FleetDbContext db, string roleId)
+{
+  var modules = GetPermissionModules();
+  var moduleKeys = modules.Select(module => module.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+  var savedPermissions = await db.RolePermissions
+    .AsNoTracking()
+    .Where(permission => permission.RoleId == roleId && moduleKeys.Contains(permission.ModuleKey))
+    .ToListAsync();
+  var savedLookup = savedPermissions.ToDictionary(permission => permission.ModuleKey, StringComparer.OrdinalIgnoreCase);
+
+  return modules.Select(module =>
+  {
+    var hasSaved = savedLookup.TryGetValue(module.Key, out var saved);
+    var defaultPermission = GetDefaultPermission(roleId, module.Key);
+    return new UserPermissionDto(
+      module.Key,
+      saved?.CanView ?? defaultPermission.CanView,
+      saved?.CanCreate ?? defaultPermission.CanCreate,
+      saved?.CanEdit ?? defaultPermission.CanEdit,
+      saved?.CanDelete ?? defaultPermission.CanDelete);
+  }).ToList();
+}
+
+static RolePermissionDto GetDefaultPermission(string roleId, string moduleKey)
+{
+  if (roleId.Equals("admin", StringComparison.OrdinalIgnoreCase))
+  {
+    return new RolePermissionDto(roleId, true, true, true, true);
+  }
+
+  var viewOnly = new RolePermissionDto(roleId, true, false, false, false);
+  var none = new RolePermissionDto(roleId, false, false, false, false);
+
+  return roleId.ToLowerInvariant() switch
+  {
+    "dispatcher" when moduleKey is "dashboard" or "vehicles" or "trips" or "reports" or "location-setup" => viewOnly with { CanCreate = moduleKey == "trips", CanEdit = moduleKey == "trips" },
+    "driver" when moduleKey is "dashboard" or "trips" or "vehicles" => viewOnly,
+    "mechanic" when moduleKey is "dashboard" or "vehicles" or "maintenance-tickets" or "inventory-parts" or "incidents" => viewOnly with { CanCreate = moduleKey is "maintenance-tickets" or "incidents", CanEdit = moduleKey is "maintenance-tickets" or "inventory-parts" or "incidents" },
+    _ => none
+  };
+}
+
 static string? NormalizeOptional(string? value) =>
   string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
@@ -1466,9 +2452,7 @@ static string? ValidateMaintenanceTicketRequest(MaintenanceTicketRequest request
   if (string.IsNullOrWhiteSpace(request.Mechanic)) return "Mechanic is required.";
 
   var normalizedStatus = string.IsNullOrWhiteSpace(request.Status) ? string.Empty : request.Status.Trim();
-  return normalizedStatus is "Pending" or "Repairing" or "Completed"
-    ? null
-    : "Ticket status must be Pending, Repairing, or Completed.";
+  return string.IsNullOrWhiteSpace(normalizedStatus) ? "Ticket status is required." : null;
 }
 
 static string ToPublicAssetUrl(HttpRequest request, string? path)
@@ -1485,4 +2469,13 @@ static string ToPublicAssetUrl(HttpRequest request, string? path)
   }
   if (!path.StartsWith('/')) return path;
   return $"{request.Scheme}://{request.Host}{path}";
+}
+
+public record PermissionModuleDefinition(string Key, string Name, string Category);
+
+enum PermissionAction
+{
+  Create,
+  Edit,
+  Delete
 }
