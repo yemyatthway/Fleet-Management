@@ -148,7 +148,7 @@
 </template>
 
 <script setup>
-import { roleClassMap } from '../../data/roles'
+import { roleClassFor } from '../../utils/roleClasses'
 
 const props = defineProps({
   users: {
@@ -224,7 +224,7 @@ const rowNumber = (index) => {
   return String(value).padStart(3, '0')
 }
 
-const roleClass = (role) => roleClassMap[role] || 'role-driver'
+const roleClass = (role) => roleClassFor(role)
 
 const initials = (name) => name.split(' ').map((part) => part[0]).join('')
 

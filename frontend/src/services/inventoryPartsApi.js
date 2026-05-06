@@ -1,29 +1,6 @@
-import { getAuthHeaders } from './apiAuth'
+import { createApiClient, DEFAULT_API_BASE_URL } from './httpClient'
 
-const API_BASE_URL = import.meta.env.VITE_INVENTORY_PARTS_API_BASE_URL || 'http://localhost:5215'
-
-const parseResponse = async (response) => {
-  if (response.status === 204) return null
-  const contentType = response.headers.get('content-type') || ''
-  const body = contentType.includes('application/json') ? await response.json() : null
-  if (!response.ok) throw new Error(body?.message || `Request failed with status ${response.status}`)
-  return body
-}
-
-const request = async (path, options = {}) => {
-  const isFormData = options.body instanceof FormData
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: isFormData
-      ? { ...getAuthHeaders(), ...options.headers }
-      : {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-          ...options.headers
-        },
-    ...options
-  })
-  return parseResponse(response)
-}
+const { request } = createApiClient(import.meta.env.VITE_INVENTORY_PARTS_API_BASE_URL || DEFAULT_API_BASE_URL)
 
 const appendIfPresent = (formData, key, value) => {
   if (value === undefined || value === null || value === '') return

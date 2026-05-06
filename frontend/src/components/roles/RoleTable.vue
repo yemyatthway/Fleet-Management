@@ -57,7 +57,7 @@
 </template>
 
 <script setup>
-import { roleClassMap } from '../../data/roles'
+import { roleClassFor } from '../../utils/roleClasses'
 
 const props = defineProps({
   roles: {
@@ -101,7 +101,7 @@ const headers = [
   { title: 'Created At', key: 'createdAt', sortable: false }
 ]
 
-const roleClass = (role) => roleClassMap[role] || 'role-driver'
+const roleClass = (role) => roleClassFor(role)
 
 const formatDate = (value) =>
   new Date(value).toLocaleDateString('en-US', {

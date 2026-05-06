@@ -600,10 +600,11 @@ public static class SchemaBootstrapper
 
   private static async Task EnsureTripSetupTableAsync(FleetDbContext db, string tableName)
   {
+    tableName = ValidateSqlIdentifier(tableName);
     var hasTable = await TableExistsAsync(db, tableName);
     if (!hasTable)
     {
-      await db.Database.ExecuteSqlRawAsync(
+      var createTableSql =
         $"""
         CREATE TABLE {tableName} (
           Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
@@ -616,22 +617,34 @@ public static class SchemaBootstrapper
         );
         CREATE UNIQUE INDEX IX_{tableName}_Name ON {tableName}(Name);
         CREATE UNIQUE INDEX IX_{tableName}_Code ON {tableName}(Code);
-        """
-      );
+        """;
+      await db.Database.ExecuteSqlRawAsync(createTableSql);
       return;
     }
 
     var hasNameIndex = await IndexExistsAsync(db, tableName, $"IX_{tableName}_Name");
     if (!hasNameIndex)
     {
-      await db.Database.ExecuteSqlRawAsync($"CREATE UNIQUE INDEX IX_{tableName}_Name ON {tableName}(Name);");
+      var createNameIndexSql = $"CREATE UNIQUE INDEX IX_{tableName}_Name ON {tableName}(Name);";
+      await db.Database.ExecuteSqlRawAsync(createNameIndexSql);
     }
 
     var hasCodeIndex = await IndexExistsAsync(db, tableName, $"IX_{tableName}_Code");
     if (!hasCodeIndex)
     {
-      await db.Database.ExecuteSqlRawAsync($"CREATE UNIQUE INDEX IX_{tableName}_Code ON {tableName}(Code);");
+      var createCodeIndexSql = $"CREATE UNIQUE INDEX IX_{tableName}_Code ON {tableName}(Code);";
+      await db.Database.ExecuteSqlRawAsync(createCodeIndexSql);
     }
+  }
+
+  private static string ValidateSqlIdentifier(string value)
+  {
+    if (string.IsNullOrWhiteSpace(value) || value.Any(character => !char.IsLetterOrDigit(character) && character != '_'))
+    {
+      throw new InvalidOperationException($"Invalid SQL identifier: {value}");
+    }
+
+    return value;
   }
 
   private static async Task<bool> TableExistsAsync(FleetDbContext db, string tableName)
