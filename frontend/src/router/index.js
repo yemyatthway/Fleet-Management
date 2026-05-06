@@ -5,11 +5,11 @@ const routes = [
   { path: '/', redirect: '/login' },
   { path: '/login', component: () => import('../pages/Login.vue') },
   { path: '/dashboard', component: () => import('../pages/Dashboard.vue'), meta: { module: 'dashboard' } },
-  { path: '/notifications', component: () => import('../pages/Notifications.vue'), meta: { module: 'dashboard' } },
   { path: '/users', component: () => import('../pages/UserManagement.vue'), meta: { module: 'users' } },
   { path: '/roles', component: () => import('../pages/RoleManagement.vue'), meta: { module: 'roles' } },
   { path: '/permissions', component: () => import('../pages/PermissionManagement.vue'), meta: { module: 'permissions' } },
   { path: '/audit-logs', component: () => import('../pages/AuditLogs.vue'), meta: { module: 'audit-logs' } },
+  { path: '/profile', component: () => import('../pages/Profile.vue') },
   { path: '/user-code-setup', redirect: '/user-code-setup/departments' },
   { path: '/user-code-setup/departments', component: () => import('../pages/DepartmentCodeSetup.vue'), meta: { module: 'department-setup' } },
   { path: '/user-code-setup/locations', component: () => import('../pages/LocationCodeSetup.vue'), meta: { module: 'location-setup' } },
@@ -34,8 +34,6 @@ const routes = [
   { path: '/maintenance/inventory', component: () => import('../pages/InventorySpareParts.vue'), meta: { module: 'inventory-parts' } },
   { path: '/reports', component: () => import('../pages/Reports.vue'), meta: { module: 'reports' } },
   { path: '/expenses', component: () => import('../pages/Expenses.vue'), meta: { module: 'expenses' } },
-  { path: '/vehicle-documents', component: () => import('../pages/VehicleDocuments.vue'), meta: { module: 'vehicle-documents' } },
-  { path: '/driver-documents', component: () => import('../pages/DriverDocuments.vue'), meta: { module: 'driver-documents' } },
   { path: '/settings', component: () => import('../pages/Placeholder.vue'), meta: { module: 'settings' } }
 ]
 

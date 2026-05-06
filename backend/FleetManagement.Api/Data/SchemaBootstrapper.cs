@@ -442,30 +442,6 @@ public static class SchemaBootstrapper
       );
     }
 
-    var hasFleetDocumentsTable = await TableExistsAsync(db, "FleetDocuments");
-    if (!hasFleetDocumentsTable)
-    {
-      await db.Database.ExecuteSqlRawAsync(
-        """
-        CREATE TABLE FleetDocuments (
-          Id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
-          OwnerType nvarchar(40) NOT NULL,
-          OwnerId nvarchar(80) NOT NULL,
-          OwnerName nvarchar(160) NOT NULL,
-          DocumentType nvarchar(120) NOT NULL,
-          DocumentNumber nvarchar(120) NULL,
-          IssueDate nvarchar(40) NULL,
-          ExpiryDate nvarchar(40) NULL,
-          Status nvarchar(40) NOT NULL,
-          Notes nvarchar(1000) NULL,
-          IsDeleted int NOT NULL CONSTRAINT DF_FleetDocuments_IsDeleted DEFAULT 0,
-          CreatedAt datetime2 NOT NULL,
-          UpdatedAt datetime2 NOT NULL
-        );
-        """
-      );
-    }
-
     var hasAuditLogsTable = await TableExistsAsync(db, "AuditLogs");
     if (!hasAuditLogsTable)
     {

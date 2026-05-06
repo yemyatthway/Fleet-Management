@@ -2,15 +2,15 @@
   <div class="recent-trips-card">
     <div class="table-header">
       <div>
-        <h2 class="table-title">Recent Trips</h2>
-        <p class="table-subtitle">Latest fleet activity</p>
+        <h2 class="table-title">{{ title }}</h2>
+        <p class="table-subtitle">{{ subtitle }}</p>
       </div>
     </div>
     <div class="table-wrap">
       <table class="dashboard-table">
         <thead>
           <tr>
-            <th>Trip ID</th>
+            <th>{{ firstColumnLabel }}</th>
             <th>Vehicle</th>
             <th>Driver</th>
             <th>Route</th>
@@ -20,7 +20,7 @@
         </thead>
         <tbody>
           <tr v-for="trip in pagedTrips" :key="trip.id">
-            <td data-label="Trip ID"><strong>{{ trip.tripNumber || trip.id }}</strong></td>
+            <td :data-label="firstColumnLabel"><strong>{{ trip.tripNumber || trip.id }}</strong></td>
             <td class="text-muted" data-label="Vehicle">{{ trip.vehicle }}</td>
             <td data-label="Driver">{{ trip.driver }}</td>
             <td data-label="Route">
@@ -38,13 +38,13 @@
             <td class="text-muted" data-label="Details">{{ trip.details || `${trip.duration} • ${trip.distance}` }}</td>
           </tr>
           <tr v-if="!trips.length" class="empty-row">
-            <td colspan="6" class="empty-cell">No recent trips found</td>
+            <td colspan="6" class="empty-cell">{{ emptyText }}</td>
           </tr>
         </tbody>
       </table>
     </div>
     <div class="table-footer">
-      <button class="link-button" type="button" @click="goToTrips">View All Trips →</button>
+      <button v-if="linkTo" class="link-button" type="button" @click="goToLink">{{ linkLabel }}</button>
       <div v-if="totalPages > 1" class="pager">
         <span class="pager-info text-muted">Page {{ safePage }} of {{ totalPages }}</span>
         <div class="pager-actions">
@@ -78,6 +78,30 @@ const props = defineProps({
   trips: {
     type: Array,
     default: () => []
+  },
+  title: {
+    type: String,
+    default: 'Recent Trips'
+  },
+  subtitle: {
+    type: String,
+    default: 'Latest fleet activity'
+  },
+  firstColumnLabel: {
+    type: String,
+    default: 'Trip ID'
+  },
+  emptyText: {
+    type: String,
+    default: 'No recent trips found'
+  },
+  linkLabel: {
+    type: String,
+    default: 'View All Trips ->'
+  },
+  linkTo: {
+    type: String,
+    default: '/trips'
   }
 })
 
@@ -96,8 +120,8 @@ const goToPage = (page) => {
   currentPage.value = Math.min(Math.max(1, page), totalPages.value)
 }
 
-const goToTrips = () => {
-  router.push('/trips')
+const goToLink = () => {
+  if (props.linkTo) router.push(props.linkTo)
 }
 
 const statusClass = (status) => {

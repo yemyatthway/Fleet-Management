@@ -1081,6 +1081,7 @@ const deleteVehicle = (id) => {
   gap: 12px;
   align-items: center;
   justify-content: space-between;
+  min-height: 0;
 }
 
 .toolbar-search,
@@ -1093,6 +1094,10 @@ const deleteVehicle = (id) => {
   padding: 10px 12px;
   background: #fff;
   min-width: 220px;
+  min-height: 46px;
+  height: 46px;
+  box-sizing: border-box;
+  flex: 0 0 auto;
 }
 
 .toolbar-filter {
@@ -1105,6 +1110,9 @@ const deleteVehicle = (id) => {
   outline: none;
   background: transparent;
   font-size: 14px;
+  min-height: 0;
+  height: 100%;
+  line-height: 1.2;
 }
 
 .toolbar-filter select {
@@ -1129,6 +1137,8 @@ const deleteVehicle = (id) => {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 0 0 auto;
+  min-height: 0;
 }
 
 .clear-button {
@@ -1792,14 +1802,16 @@ const deleteVehicle = (id) => {
   }
 
   .toolbar-row {
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .toolbar-search,
   .toolbar-filter {
     width: 100%;
     min-width: 0;
+    max-height: 46px;
   }
 
   .section-header {
@@ -1819,8 +1831,9 @@ const deleteVehicle = (id) => {
 
 @media (max-width: 720px) {
   .toolbar-row {
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .toolbar-search {
@@ -1833,8 +1846,9 @@ const deleteVehicle = (id) => {
 
   .toolbar-actions {
     width: 100%;
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .primary-button {
@@ -1864,7 +1878,9 @@ const deleteVehicle = (id) => {
   .toolbar-filter {
     padding: 8px 10px;
     border-radius: 12px;
-    min-height: 38px;
+    min-height: 42px;
+    height: 42px;
+    max-height: 42px;
   }
 
   .toolbar-search v-icon,
@@ -1876,6 +1892,8 @@ const deleteVehicle = (id) => {
   .toolbar-search input,
   .toolbar-filter select {
     font-size: 12px;
+    min-height: 0;
+    height: 100%;
   }
 
   .toolbar-filter select {

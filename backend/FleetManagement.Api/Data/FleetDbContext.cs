@@ -29,7 +29,6 @@ public class FleetDbContext(DbContextOptions<FleetDbContext> options) : DbContex
   public DbSet<InventoryPart> InventoryParts => Set<InventoryPart>();
   public DbSet<Incident> Incidents => Set<Incident>();
   public DbSet<Expense> Expenses => Set<Expense>();
-  public DbSet<FleetDocument> FleetDocuments => Set<FleetDocument>();
   public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
   public DbSet<StatusHistory> StatusHistories => Set<StatusHistory>();
 
@@ -305,21 +304,6 @@ public class FleetDbContext(DbContextOptions<FleetDbContext> options) : DbContex
       entity.Property(expense => expense.Amount).HasColumnType("decimal(18,2)");
       entity.Property(expense => expense.Status).HasMaxLength(40).IsRequired();
       entity.Property(expense => expense.Notes).HasMaxLength(1000);
-    });
-
-    modelBuilder.Entity<FleetDocument>(entity =>
-    {
-      entity.ToTable("FleetDocuments");
-      entity.HasKey(document => document.Id);
-      entity.Property(document => document.OwnerType).HasMaxLength(40).IsRequired();
-      entity.Property(document => document.OwnerId).HasMaxLength(80).IsRequired();
-      entity.Property(document => document.OwnerName).HasMaxLength(160).IsRequired();
-      entity.Property(document => document.DocumentType).HasMaxLength(120).IsRequired();
-      entity.Property(document => document.DocumentNumber).HasMaxLength(120);
-      entity.Property(document => document.IssueDate).HasMaxLength(40);
-      entity.Property(document => document.ExpiryDate).HasMaxLength(40);
-      entity.Property(document => document.Status).HasMaxLength(40).IsRequired();
-      entity.Property(document => document.Notes).HasMaxLength(1000);
     });
 
     modelBuilder.Entity<AuditLog>(entity =>

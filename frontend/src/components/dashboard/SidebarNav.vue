@@ -6,7 +6,6 @@
       </div>
       <div>
         <h1 class="logo-title">FleetManager</h1>
-        <p class="logo-subtitle">Admin Portal</p>
       </div>
     </div>
 
@@ -102,13 +101,13 @@
       </div>
     </nav>
 
-    <div class="profile-card">
+    <button class="profile-card" type="button" :class="{ active: route.path === '/profile' }" @click="navigateTo('/profile')">
         <div class="avatar">{{ userInitials }}</div>
         <div class="profile-info">
         <div class="profile-name">{{ currentUser?.name || 'Fleet User' }}</div>
         <div class="profile-email">{{ currentUser?.role || currentUser?.email || '' }}</div>
       </div>
-    </div>
+    </button>
   </div>
 </template>
 
@@ -128,9 +127,7 @@ const menuItems = [
   { icon: 'mdi-truck', label: 'Vehicles', path: '/vehicles', module: 'vehicles' },
   { icon: 'mdi-map-marker', label: 'Trips', path: '/trips', module: 'trips' },
   { icon: 'mdi-file-document-outline', label: 'Reports', path: '/reports', module: 'reports' },
-  { icon: 'mdi-cash-multiple', label: 'Expenses', path: '/expenses', module: 'expenses' },
-  { icon: 'mdi-file-certificate-outline', label: 'Vehicle Documents', path: '/vehicle-documents', module: 'vehicle-documents' },
-  { icon: 'mdi-card-account-details-outline', label: 'Driver Documents', path: '/driver-documents', module: 'driver-documents' }
+  { icon: 'mdi-cash-multiple', label: 'Expenses', path: '/expenses', module: 'expenses' }
 ]
 
 const userItems = [
@@ -381,6 +378,19 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 12px;
   border-top: 1px solid var(--fleet-border);
+  border-right: none;
+  border-bottom: none;
+  border-left: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  border-radius: 12px;
+}
+
+.profile-card:hover,
+.profile-card.active {
+  background: #eff6ff;
 }
 
 .avatar {

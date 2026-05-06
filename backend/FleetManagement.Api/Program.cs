@@ -56,7 +56,6 @@ app.MapRolesEndpoints();
 app.MapPermissionsEndpoints();
 app.MapTripSetupEndpoints();
 app.MapExpensesEndpoints();
-app.MapDocumentsEndpoints();
 app.MapInventoryEndpoints();
 app.MapMaintenanceEndpoints();
 app.MapIncidentsEndpoints();

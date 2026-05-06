@@ -1,8 +1,8 @@
 <template>
   <div class="card-surface chart-card">
     <div class="chart-header">
-      <h2 class="chart-title">Vehicle Status</h2>
-      <p class="chart-subtitle">Current fleet distribution</p>
+      <h2 class="chart-title">{{ title }}</h2>
+      <p class="chart-subtitle">{{ subtitle }}</p>
     </div>
 
     <div class="donut-wrap" ref="donutWrap">
@@ -29,7 +29,7 @@
       </svg>
       <div class="donut-center">
         <p class="donut-total">{{ total }}</p>
-        <span>Total Vehicles</span>
+        <span>{{ totalLabel }}</span>
       </div>
       <div
         v-if="tooltip.visible"
@@ -37,7 +37,7 @@
         :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }"
       >
         <div class="tooltip-title">{{ tooltip.label }}</div>
-        <div class="tooltip-value">{{ tooltip.value }} vehicles • {{ tooltip.percent }}%</div>
+        <div class="tooltip-value">{{ tooltip.value }} {{ unitLabel }} • {{ tooltip.percent }}%</div>
       </div>
     </div>
 
@@ -61,6 +61,22 @@ const props = defineProps({
   statuses: {
     type: Array,
     default: () => []
+  },
+  title: {
+    type: String,
+    default: 'Vehicle Status'
+  },
+  subtitle: {
+    type: String,
+    default: 'Current fleet distribution'
+  },
+  totalLabel: {
+    type: String,
+    default: 'Total Vehicles'
+  },
+  unitLabel: {
+    type: String,
+    default: 'vehicles'
   }
 })
 

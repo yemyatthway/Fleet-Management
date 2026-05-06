@@ -50,6 +50,7 @@
   gap: 12px;
   align-items: center;
   justify-content: space-between;
+  min-height: 0;
 }
 
 .toolbar-search,
@@ -62,6 +63,9 @@
   padding: 10px 12px;
   background: #fff;
   min-width: 260px;
+  min-height: 46px;
+  height: 46px;
+  box-sizing: border-box;
 }
 
 .toolbar-search input,
@@ -71,6 +75,9 @@
   background: transparent;
   font-size: 14px;
   width: 100%;
+  height: 100%;
+  min-height: 0;
+  line-height: 1.2;
 }
 
 .clear-button {
@@ -104,26 +111,37 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  min-height: 0;
 }
 
 @media (max-width: 720px) {
   .toolbar-row {
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .toolbar-search {
     width: 100%;
+    min-width: 0;
+    height: 42px;
+    min-height: 42px;
+    max-height: 42px;
   }
 
   .toolbar-actions {
     width: 100%;
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .toolbar-filter {
     width: 100%;
+    min-width: 0;
+    height: 42px;
+    min-height: 42px;
+    max-height: 42px;
   }
 
   .primary-button {

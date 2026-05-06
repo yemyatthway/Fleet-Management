@@ -9,12 +9,35 @@ public static class DashboardEndpoints
 {
   public static IEndpointRouteBuilder MapDashboardEndpoints(this IEndpointRouteBuilder app)
   {
-    app.MapGet("/api/dashboard/summary", async (FleetDbContext db) =>
+    app.MapGet("/api/dashboard/summary", async (HttpRequest request, FleetDbContext db) =>
     {
+      var roleId = request.Headers["X-Fleet-Role-Id"].FirstOrDefault() ?? string.Empty;
+      var userName = request.Headers["X-Fleet-User-Name"].FirstOrDefault() ?? string.Empty;
+      var normalizedRoleId = roleId.Trim().ToLowerInvariant();
+      var normalizedUserName = userName.Trim().ToLowerInvariant();
+
       var vehicles = db.Vehicles.Where(vehicle => vehicle.IsDeleted == 0);
       var trips = db.Trips.Where(trip => trip.IsDeleted == 0);
       var tickets = db.MaintenanceTickets.Where(ticket => ticket.IsDeleted == 0);
       var incidents = db.Incidents.Where(incident => incident.IsDeleted == 0);
+      var inventoryParts = db.InventoryParts.Where(part => part.IsDeleted == 0);
+
+      if (normalizedRoleId == "driver" && !string.IsNullOrWhiteSpace(normalizedUserName))
+      {
+        trips = trips.Where(trip =>
+          trip.DriverName.ToLower() == normalizedUserName ||
+          (trip.CoDriverName != null && trip.CoDriverName.ToLower() == normalizedUserName));
+        vehicles = vehicles.Where(vehicle => vehicle.Driver.ToLower() == normalizedUserName);
+        incidents = incidents.Where(incident => incident.Driver.ToLower() == normalizedUserName);
+      }
+      else if (normalizedRoleId == "dispatcher" && !string.IsNullOrWhiteSpace(normalizedUserName))
+      {
+        trips = trips.Where(trip => trip.DispatcherName.ToLower() == normalizedUserName);
+      }
+      else if (normalizedRoleId == "mechanic" && !string.IsNullOrWhiteSpace(normalizedUserName))
+      {
+        tickets = tickets.Where(ticket => ticket.Mechanic.ToLower() == normalizedUserName);
+      }
 
       var vehicleStatuses = await SafeDashboardValueAsync(async () => await vehicles
         .GroupBy(vehicle => vehicle.Status)
@@ -22,7 +45,13 @@ public static class DashboardEndpoints
         .OrderByDescending(item => item.Value)
         .ToListAsync(), new List<NamedCountDto>());
 
-      var tripStatuses = await SafeDashboardValueAsync(async () => await trips
+      var primaryStatuses = normalizedRoleId == "mechanic"
+        ? await SafeDashboardValueAsync(async () => await tickets
+          .GroupBy(ticket => ticket.Status)
+          .Select(group => new NamedCountDto(group.Key, group.Count()))
+          .OrderByDescending(item => item.Value)
+          .ToListAsync(), new List<NamedCountDto>())
+        : await SafeDashboardValueAsync(async () => await trips
         .GroupBy(trip => trip.Status)
         .Select(group => new NamedCountDto(group.Key, group.Count()))
         .OrderByDescending(item => item.Value)
@@ -67,16 +96,16 @@ public static class DashboardEndpoints
         .Take(8)
         .ToList();
 
-      var metrics = new List<DashboardMetricDto>
-      {
-        new("Total Vehicles", await SafeDashboardValueAsync(() => vehicles.CountAsync(), 0), "mdi-truck", "info"),
-        new("Active Trips", await SafeDashboardValueAsync(() => trips.CountAsync(trip => trip.Status == "In Transit" || trip.Status == "Active" || trip.Status == "Ongoing"), 0), "mdi-map-marker", "success"),
-        new("Open Maintenance", await SafeDashboardValueAsync(() => tickets.CountAsync(ticket => ticket.Status != "Completed" && ticket.Status != "Closed"), 0), "mdi-wrench", "warning"),
-        new("Incidents", await SafeDashboardValueAsync(() => incidents.CountAsync(), 0), "mdi-alert-circle-outline", "danger"),
-        new("Upcoming Expiries", upcomingExpiries.Count, "mdi-calendar-alert", "purple")
-      };
+      var metrics = await BuildMetricsAsync(
+        normalizedRoleId,
+        vehicles,
+        trips,
+        tickets,
+        incidents,
+        inventoryParts,
+        upcomingExpiries.Count);
 
-      return Results.Ok(new DashboardSummaryDto(metrics, vehicleStatuses, tripStatuses, recentTrips, upcomingExpiries));
+      return Results.Ok(new DashboardSummaryDto(metrics, vehicleStatuses, primaryStatuses, recentTrips, upcomingExpiries));
     });
 
     return app;
@@ -92,6 +121,58 @@ public static class DashboardEndpoints
     {
       return fallback;
     }
+  }
+
+  private static async Task<IReadOnlyList<DashboardMetricDto>> BuildMetricsAsync(
+    string roleId,
+    IQueryable<Vehicle> vehicles,
+    IQueryable<Trip> trips,
+    IQueryable<MaintenanceTicket> tickets,
+    IQueryable<Incident> incidents,
+    IQueryable<InventoryPart> inventoryParts,
+    int upcomingExpiryCount)
+  {
+    if (roleId == "driver")
+    {
+      return new List<DashboardMetricDto>
+      {
+        new("My Trips", await SafeDashboardValueAsync(() => trips.CountAsync(), 0), "mdi-map-marker-path", "info"),
+        new("Active Trips", await SafeDashboardValueAsync(() => trips.CountAsync(trip => trip.Status == "In Transit" || trip.Status == "Active" || trip.Status == "Ongoing"), 0), "mdi-truck-fast", "success"),
+        new("Assigned Vehicles", await SafeDashboardValueAsync(() => vehicles.CountAsync(), 0), "mdi-truck", "warning"),
+        new("My Incidents", await SafeDashboardValueAsync(() => incidents.CountAsync(), 0), "mdi-alert-circle-outline", "danger")
+      };
+    }
+
+    if (roleId == "dispatcher")
+    {
+      return new List<DashboardMetricDto>
+      {
+        new("Assigned Trips", await SafeDashboardValueAsync(() => trips.CountAsync(), 0), "mdi-map-marker-path", "info"),
+        new("Active Dispatches", await SafeDashboardValueAsync(() => trips.CountAsync(trip => trip.Status == "In Transit" || trip.Status == "Active" || trip.Status == "Ongoing"), 0), "mdi-truck-fast", "success"),
+        new("Pending Trips", await SafeDashboardValueAsync(() => trips.CountAsync(trip => trip.Status == "Pending" || trip.Status == "Scheduled"), 0), "mdi-clock-outline", "warning"),
+        new("Completed Trips", await SafeDashboardValueAsync(() => trips.CountAsync(trip => trip.Status == "Completed"), 0), "mdi-check-circle-outline", "purple")
+      };
+    }
+
+    if (roleId == "mechanic")
+    {
+      return new List<DashboardMetricDto>
+      {
+        new("Assigned Tickets", await SafeDashboardValueAsync(() => tickets.CountAsync(), 0), "mdi-wrench", "info"),
+        new("Open Tickets", await SafeDashboardValueAsync(() => tickets.CountAsync(ticket => ticket.Status != "Completed" && ticket.Status != "Closed"), 0), "mdi-alert-circle-outline", "warning"),
+        new("Low Stock Parts", await SafeDashboardValueAsync(() => inventoryParts.CountAsync(part => part.Stock <= part.ReorderPoint), 0), "mdi-package-variant-closed", "danger"),
+        new("Fleet Incidents", await SafeDashboardValueAsync(() => incidents.CountAsync(), 0), "mdi-clipboard-alert-outline", "purple")
+      };
+    }
+
+    return new List<DashboardMetricDto>
+    {
+      new("Total Vehicles", await SafeDashboardValueAsync(() => vehicles.CountAsync(), 0), "mdi-truck", "info"),
+      new("Active Trips", await SafeDashboardValueAsync(() => trips.CountAsync(trip => trip.Status == "In Transit" || trip.Status == "Active" || trip.Status == "Ongoing"), 0), "mdi-map-marker", "success"),
+      new("Open Maintenance", await SafeDashboardValueAsync(() => tickets.CountAsync(ticket => ticket.Status != "Completed" && ticket.Status != "Closed"), 0), "mdi-wrench", "warning"),
+      new("Incidents", await SafeDashboardValueAsync(() => incidents.CountAsync(), 0), "mdi-alert-circle-outline", "danger"),
+      new("Upcoming Expiries", upcomingExpiryCount, "mdi-calendar-alert", "purple")
+    };
   }
 
   private static IEnumerable<DashboardUpcomingExpiryDto> GetUpcomingVehicleExpiries(Vehicle vehicle)

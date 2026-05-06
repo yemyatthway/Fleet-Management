@@ -285,6 +285,36 @@ public static class UsersEndpoints
       return Results.NoContent();
     });
 
+    app.MapGet("/api/profile", async (HttpRequest httpRequest, FleetDbContext db) =>
+    {
+      var user = await GetRequestUserAsync(httpRequest, db);
+      if (user is null) return Results.Json(new ApiError("Login session is required."), statusCode: StatusCodes.Status401Unauthorized);
+      return Results.Ok(ToUserDto(user, user.Role!.Name, httpRequest));
+    });
+
+    app.MapPost("/api/profile/change-password", async (ChangePasswordRequest request, HttpRequest httpRequest, FleetDbContext db) =>
+    {
+      var user = await GetRequestUserAsync(httpRequest, db);
+      if (user is null) return Results.Json(new ApiError("Login session is required."), statusCode: StatusCodes.Status401Unauthorized);
+
+      if (string.IsNullOrWhiteSpace(request.CurrentPassword)) return Results.BadRequest(new ApiError("Current password is required."));
+      if (string.IsNullOrWhiteSpace(request.NewPassword)) return Results.BadRequest(new ApiError("New password is required."));
+      if (request.NewPassword.Length < 8) return Results.BadRequest(new ApiError("New password must be at least 8 characters."));
+      if (!request.NewPassword.Any(char.IsUpper) || !request.NewPassword.Any(char.IsDigit))
+      {
+        return Results.BadRequest(new ApiError("New password must include at least one uppercase letter and one number."));
+      }
+      if (request.NewPassword != request.ConfirmPassword) return Results.BadRequest(new ApiError("Password confirmation does not match."));
+      if (!SeedData.VerifyPassword(request.CurrentPassword, user.PasswordHash)) return Results.BadRequest(new ApiError("Current password is incorrect."));
+
+      user.PasswordHash = SeedData.HashPassword(request.NewPassword);
+      user.UpdatedAt = DateTime.UtcNow;
+      await AuditLogWriter.LogAuditAsync(db, httpRequest, "profile", "Edit", user.Id, $"Changed password for {user.Name}.");
+      await db.SaveChangesAsync();
+
+      return Results.Ok(new { message = "Password changed successfully." });
+    });
+
     app.MapGet("/api/users/options", async (FleetDbContext db, string? role = null) =>
     {
       var query = db.Users
@@ -342,6 +372,20 @@ public static class UsersEndpoints
       user.Notes,
       user.JoinDate,
       user.LastLogin);
+
+  private static async Task<User?> GetRequestUserAsync(HttpRequest request, FleetDbContext db)
+  {
+    var userId = request.Headers["X-Fleet-User-Id"].FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(userId)) return null;
+
+    return await db.Users
+      .Include(user => user.Role)
+      .FirstOrDefaultAsync(user =>
+        user.Id == userId &&
+        user.IsDeleted == 0 &&
+        user.Role != null &&
+        user.Role.IsDeleted == 0);
+  }
 
   private static string NextEmployeeId(IEnumerable<string> existingEmployeeIds)
   {

@@ -478,6 +478,7 @@ onMounted(async () => {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  min-height: 0;
 }
 
 .table-card {
@@ -663,8 +664,9 @@ onMounted(async () => {
 @media (max-width: 720px) {
   .toolbar-actions {
     width: 100%;
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 }
 </style>

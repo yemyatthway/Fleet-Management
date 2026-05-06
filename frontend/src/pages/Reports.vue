@@ -192,7 +192,7 @@ p { margin: 6px 0 0; color: #64748b; }
 .summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .summary-card span { display: block; color: #64748b; margin-bottom: 10px; }
 .summary-card strong { font-size: 24px; }
-input, select { width: 100%; min-height: 44px; border: 1px solid #dfe3ea; border-radius: 10px; padding: 0 12px; font: inherit; background: #fff; }
+input, select { width: 100%; min-height: 44px; height: 44px; max-height: 44px; border: 1px solid #dfe3ea; border-radius: 10px; padding: 0 12px; font: inherit; line-height: 1.2; background: #fff; box-sizing: border-box; }
 .primary-button, .ghost-button { min-height: 44px; border: 0; border-radius: 10px; padding: 0 18px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
 .primary-button { background: #2563eb; color: white; }
 .ghost-button { background: #eef2f7; color: #334155; }

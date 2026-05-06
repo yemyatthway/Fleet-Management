@@ -22,8 +22,12 @@
         <template #item.tripNumber="{ item }">
           <div class="trip-id-cell">
             <strong class="trip-number">{{ item.tripNumber }}</strong>
-            <div class="text-muted trip-sub">{{ item.tripType }} • {{ item.priority }}</div>
+            <div class="text-muted trip-sub">{{ item.priority }}</div>
           </div>
+        </template>
+
+        <template #item.tripType="{ item }">
+          <span class="type-pill">{{ item.tripType || '—' }}</span>
         </template>
 
         <template #item.route="{ item }">
@@ -110,6 +114,7 @@ defineEmits(['update:options', 'view', 'edit', 'remove'])
 const headers = [
   { title: 'No.', key: 'displayId', sortable: false },
   { title: 'Trip', key: 'tripNumber', sortable: false },
+  { title: 'Trip Type', key: 'tripType', sortable: false },
   { title: 'Route', key: 'route', sortable: false },
   { title: 'Vehicle', key: 'vehicle', sortable: false },
   { title: 'Driver', key: 'driver', sortable: false },

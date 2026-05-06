@@ -12,8 +12,6 @@ public static class PermissionModules
     new("incidents", "Incidents", "Maintenance"),
     new("reports", "Reports", "Reports"),
     new("expenses", "Expenses", "Reports"),
-    new("vehicle-documents", "Vehicle Documents", "Compliance"),
-    new("driver-documents", "Driver Documents", "Compliance"),
     new("audit-logs", "Audit Logs", "Administration"),
     new("users", "Users", "Administration"),
     new("roles", "Roles", "Administration"),

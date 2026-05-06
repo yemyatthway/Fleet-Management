@@ -51,9 +51,9 @@ public static class PermissionChecks
 
     return roleId.ToLowerInvariant() switch
     {
-      "dispatcher" when moduleKey is "dashboard" or "vehicles" or "trips" or "reports" or "expenses" or "vehicle-documents" or "driver-documents" or "location-setup" => viewOnly with { CanCreate = moduleKey is "trips" or "expenses", CanEdit = moduleKey is "trips" or "expenses" },
-      "driver" when moduleKey is "dashboard" or "trips" or "vehicles" or "driver-documents" => viewOnly,
-      "mechanic" when moduleKey is "dashboard" or "vehicles" or "maintenance-tickets" or "inventory-parts" or "incidents" or "vehicle-documents" => viewOnly with { CanCreate = moduleKey is "maintenance-tickets" or "incidents", CanEdit = moduleKey is "maintenance-tickets" or "inventory-parts" or "incidents" },
+      "dispatcher" when moduleKey is "dashboard" or "vehicles" or "trips" or "reports" or "expenses" or "location-setup" => viewOnly with { CanCreate = moduleKey is "trips" or "expenses", CanEdit = moduleKey is "trips" or "expenses" },
+      "driver" when moduleKey is "dashboard" or "trips" or "vehicles" => viewOnly,
+      "mechanic" when moduleKey is "dashboard" or "vehicles" or "maintenance-tickets" or "inventory-parts" or "incidents" => viewOnly with { CanCreate = moduleKey is "maintenance-tickets" or "incidents", CanEdit = moduleKey is "maintenance-tickets" or "inventory-parts" or "incidents" },
       _ => none
     };
   }
