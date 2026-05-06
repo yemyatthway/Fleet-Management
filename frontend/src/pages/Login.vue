@@ -46,7 +46,7 @@
             <input type="checkbox" v-model="rememberMe" />
             Remember me
           </label>
-          <a class="link" href="#">Forgot password?</a>
+          
         </div>
 
         <button class="submit" type="submit" :disabled="loading">
@@ -54,11 +54,6 @@
         </button>
         <p v-if="errorMessage" class="login-error">{{ errorMessage }}</p>
       </form>
-
-      <div class="footer">
-        <p>Seed login password: <strong>Password@123</strong></p>
-        <p class="seed-users">admin@fleet.com · dispatcher@fleet.com · driver@fleet.com · mechanic@fleet.com</p>
-      </div>
     </div>
 
     <div class="version">Fleet Management System v2.0</div>
