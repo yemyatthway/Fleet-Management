@@ -35,7 +35,7 @@ Fleet Management is a Vue 3 + Vuetify frontend with an ASP.NET Core API backend 
 Default connection string:
 
 ```json
-"Server=localhost,1433;Database=FleetManagementDb;User Id=sa;Password=Ryen@123;TrustServerCertificate=True;Encrypt=False"
+"Server=localhost,1433;Database=FleetManagementDb;User Id=Username;Password=YourStrongPsw;TrustServerCertificate=True;Encrypt=False"
 ```
 
 ## Run Backend
