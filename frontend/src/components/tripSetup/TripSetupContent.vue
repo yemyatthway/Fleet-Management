@@ -195,16 +195,4 @@ const handleDelete = (item) => {
 </script>
 
 <style scoped src="../roles/roles_styles/RoleManagementContent.css"></style>
-<style scoped>
-.role-page {
-  gap: 0;
-}
-
-.page-header + .stats-grid,
-.stats-grid + .toolbar,
-.toolbar + .message-section,
-.toolbar + .setup-table-section,
-.message-section + .setup-table-section {
-  margin-top: 24px;
-}
-</style>
+<style scoped src="./trip_setup_styles/TripSetupContent.css"></style>

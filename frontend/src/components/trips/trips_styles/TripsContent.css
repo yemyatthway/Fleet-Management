@@ -678,6 +678,22 @@
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
 }
 
+.field select:disabled {
+  color: #94a3b8;
+  background: #f8fafc;
+  cursor: not-allowed;
+}
+
+.field-hint {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.field-hint.warning {
+  color: #b45309;
+}
+
 .required::after {
   content: " *";
   color: var(--fleet-danger);

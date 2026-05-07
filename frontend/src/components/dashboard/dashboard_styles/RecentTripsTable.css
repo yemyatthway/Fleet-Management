@@ -1,0 +1,100 @@
+.recent-trips-card {
+  overflow: hidden;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--fleet-border);
+  background: #fff;
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.04);
+}
+
+.table-header {
+  margin-bottom: 16px;
+}
+
+.table-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.table-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--fleet-muted);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.recent-trips-table :deep(.v-table__wrapper) { min-width: 920px; }
+
+.route {
+  white-space: normal;
+  min-width: 220px;
+}
+
+.route {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.empty-cell {
+  text-align: center;
+  padding: 40px 16px !important;
+  color: var(--fleet-muted);
+  background: #fff !important;
+  border-radius: 12px !important;
+}
+
+.table-footer {
+  padding-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.link-button {
+  border: none;
+  background: transparent;
+  color: var(--fleet-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--fleet-primary-dark);
+}
+
+@media (max-width: 900px) {
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  .route {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .table-header {
+    margin-bottom: 12px;
+  }
+
+  .table-footer {
+    padding-top: 12px;
+  }
+
+  .table-wrap {
+    overscroll-behavior-x: contain;
+    scrollbar-gutter: stable both-edges;
+    padding-bottom: 6px;
+  }
+}

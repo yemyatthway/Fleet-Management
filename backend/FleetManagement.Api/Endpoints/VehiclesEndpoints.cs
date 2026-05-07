@@ -17,7 +17,8 @@ public static class VehiclesEndpoints
       HttpRequest request,
       FleetDbContext db,
       string? search = null,
-      string? status = null) =>
+      string? status = null,
+      string? scope = null) =>
     {
       var query = db.Vehicles
         .Where(vehicle => vehicle.IsDeleted == 0)
@@ -25,7 +26,8 @@ public static class VehiclesEndpoints
         .AsQueryable();
       var roleId = AuditLogWriter.GetRequestRoleId(request);
       var userName = request.Headers["X-Fleet-User-Name"].FirstOrDefault();
-      if (string.Equals(roleId, "driver", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(userName))
+      var normalizedScope = string.IsNullOrWhiteSpace(scope) ? "mine" : scope.Trim().ToLowerInvariant();
+      if (normalizedScope != "all" && string.Equals(roleId, "driver", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(userName))
       {
         var normalizedUserName = userName.Trim().ToLower();
         query = query.Where(vehicle => vehicle.Driver.ToLower() == normalizedUserName);

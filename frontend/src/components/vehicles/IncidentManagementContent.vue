@@ -58,6 +58,14 @@
         </div>
 
         <div class="toolbar-actions">
+          <div v-if="showScopeFilter" class="toolbar-filter">
+            <v-icon icon="mdi-account-switch-outline" />
+            <select v-model="scopeFilter" @change="loadIncidents">
+              <option value="mine">My Incidents</option>
+              <option value="all">All Incidents</option>
+            </select>
+          </div>
+
           <div class="toolbar-filter">
             <v-icon icon="mdi-filter-variant" />
             <select v-model="statusFilter">
@@ -284,7 +292,7 @@ import { usePageMessage } from '../../composables/usePageMessage'
 import { incidentTypesApi, severitiesApi, statusesApi } from '../../services/tripSetupApi'
 import { createIncident, deleteIncident as deleteIncidentRecord, getIncidents, updateIncident } from '../../services/incidentsApi'
 import { getVehicles } from '../../services/vehiclesApi'
-import { canCreateModule, canDeleteModule, canEditModule } from '../../utils/authSession'
+import { canCreateModule, canDeleteModule, canEditModule, getCurrentUser } from '../../utils/authSession'
 
 const vehicleOptions = ref([])
 const incidents = ref([])
@@ -312,6 +320,10 @@ const pendingAction = ref(() => {})
 const canCreateIncidents = computed(() => canCreateModule('incidents'))
 const canEditIncidents = computed(() => canEditModule('incidents'))
 const canDeleteIncidents = computed(() => canDeleteModule('incidents'))
+const currentUser = computed(() => getCurrentUser())
+const currentRole = computed(() => String(currentUser.value?.roleId || currentUser.value?.role || '').toLowerCase())
+const showScopeFilter = computed(() => currentRole.value === 'driver')
+const scopeFilter = ref(showScopeFilter.value ? 'mine' : 'all')
 
 const incidentHeaders = [
   { title: 'Date', key: 'date', sortable: false },
@@ -508,7 +520,7 @@ const runConfirm = async () => {
 const loadIncidents = async () => {
   loadingIncidents.value = true
   try {
-    const result = await getIncidents({ page: 1, pageSize: 500, sortBy: 'date', sortOrder: 'desc' })
+    const result = await getIncidents({ page: 1, pageSize: 500, sortBy: 'date', sortOrder: 'desc', scope: scopeFilter.value })
     incidents.value = result.items || []
   } catch (error) {
     incidentError.value = error.message || 'Unable to load incidents.'
@@ -543,196 +555,4 @@ onMounted(async () => {
 <style scoped src="../roles/roles_styles/RoleManagementContent.css"></style>
 <style scoped src="../roles/roles_styles/RoleTable.css"></style>
 
-<style scoped>
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  min-height: 0;
-}
-
-.table-card {
-  overflow: hidden;
-}
-
-.stat-foot,
-.vehicle-sub {
-  font-size: 12px;
-}
-
-.text-warning {
-  color: var(--fleet-warning);
-}
-
-.text-danger {
-  color: var(--fleet-danger);
-}
-
-.incident-table :deep(thead th:nth-child(1)),
-.incident-table :deep(tbody td:nth-child(1)) {
-  width: 150px;
-}
-
-.incident-table :deep(thead th:nth-child(2)),
-.incident-table :deep(tbody td:nth-child(2)) {
-  width: 240px;
-}
-
-.incident-table :deep(thead th:nth-child(3)),
-.incident-table :deep(tbody td:nth-child(3)) {
-  width: 220px;
-}
-
-.vehicle-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.vehicle-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  flex: 0 0 36px;
-}
-
-.ghost-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--fleet-border);
-  border-radius: 12px;
-  padding: 10px 16px;
-  background: #fff;
-  color: var(--fleet-text);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.ghost-button:hover {
-  background: #f8fafc;
-}
-
-.form-card {
-  padding: 18px 20px 22px;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.form-header,
-.details-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--fleet-border);
-}
-
-.form-title,
-.details-title {
-  font-weight: 700;
-  font-size: 18px;
-}
-
-.form-error {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #fee2e2;
-  color: #b91c1c;
-  font-size: 13px;
-}
-
-.form-grid,
-.details-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px 16px;
-  margin-top: 16px;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-}
-
-.form-field label {
-  color: var(--fleet-muted);
-}
-
-.form-field input,
-.form-field select {
-  border: 1px solid var(--fleet-border);
-  border-radius: 10px;
-  padding: 9px 12px;
-  font-size: 14px;
-  background: #fff;
-}
-
-.form-field input:focus,
-.form-field select:focus {
-  outline: 2px solid rgba(37, 99, 235, 0.18);
-  border-color: rgba(37, 99, 235, 0.6);
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.details-card {
-  padding: 20px 22px 24px;
-}
-
-.details-subtitle {
-  font-size: 13px;
-  margin-top: 4px;
-}
-
-.details-section {
-  border: 1px solid var(--fleet-border);
-  border-radius: 14px;
-  padding: 14px;
-  background: #fff;
-}
-
-.details-section h4 {
-  margin: 0 0 10px;
-  font-size: 14px;
-}
-
-.details-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 13px;
-  padding: 6px 0;
-  border-bottom: 1px dashed #e2e8f0;
-}
-
-.details-row:last-child {
-  border-bottom: none;
-}
-
-@media (max-width: 720px) {
-  .toolbar-actions {
-    width: 100%;
-    display: grid;
-    grid-template-columns: 1fr;
-    align-items: start;
-  }
-}
-</style>
+<style scoped src="./vehicles_styles/IncidentManagementContent.css"></style>

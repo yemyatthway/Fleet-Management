@@ -46,14 +46,24 @@
           </button>
         </div>
 
-        <div class="toolbar-filter">
-          <v-icon icon="mdi-filter-variant" />
-          <select v-model="statusFilter">
-            <option value="All">All Status</option>
-            <option v-for="status in statusOptions" :key="status" :value="status">
-              {{ status }}
-            </option>
-          </select>
+        <div class="toolbar-actions">
+          <div v-if="showScopeFilter" class="toolbar-filter">
+            <v-icon icon="mdi-account-switch-outline" />
+            <select v-model="scopeFilter">
+              <option value="mine">My Tickets</option>
+              <option value="all">All Tickets</option>
+            </select>
+          </div>
+
+          <div class="toolbar-filter">
+            <v-icon icon="mdi-filter-variant" />
+            <select v-model="statusFilter">
+              <option value="All">All Status</option>
+              <option v-for="status in statusOptions" :key="status" :value="status">
+                {{ status }}
+              </option>
+            </select>
+          </div>
         </div>
 
         <button v-if="canCreateTickets" class="primary-button" type="button" @click="openCreate">
@@ -123,7 +133,7 @@ import PageMessage from "../common/PageMessage.vue";
 import { useConfirmDialog } from "../../composables/useConfirmDialog";
 import { useListPage } from "../../composables/useListPage";
 import { usePageMessage } from "../../composables/usePageMessage";
-import { canCreateModule, canDeleteModule, canEditModule } from "../../utils/authSession";
+import { canCreateModule, canDeleteModule, canEditModule, getCurrentUser } from "../../utils/authSession";
 import {
   createMaintenanceTicket,
   deleteMaintenanceTicket,
@@ -139,6 +149,10 @@ import MaintenanceTicketsTable from "./MaintenanceTicketsTable.vue";
 const ALL_STATUS_FILTER = "All";
 
 const statusFilter = ref(ALL_STATUS_FILTER);
+const currentUser = computed(() => getCurrentUser());
+const currentRole = computed(() => String(currentUser.value?.roleId || currentUser.value?.role || "").toLowerCase());
+const showScopeFilter = computed(() => currentRole.value === "mechanic");
+const scopeFilter = ref(showScopeFilter.value ? "mine" : "all");
 const dialogOpen = ref(false);
 const dialogMode = ref("create");
 const selectedTicket = ref(null);
@@ -180,13 +194,14 @@ const {
       pageSize,
       search,
       status: statusFilter.value === ALL_STATUS_FILTER ? "" : statusFilter.value,
+      scope: scopeFilter.value,
       sortBy,
       sortOrder,
     }),
   clearPageMessage,
   showPageMessage,
   errorTitle: "Could not load tickets",
-  watchSources: [statusFilter],
+  watchSources: [statusFilter, scopeFilter],
   initialTableOptions: { sortBy: "id", sortOrder: "asc" },
   onLoaded: (result) => {
     ticketStats.value = result?.stats || {

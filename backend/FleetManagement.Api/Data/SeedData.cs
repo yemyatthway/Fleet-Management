@@ -3,8 +3,10 @@ namespace FleetManagement.Api.Data;
 using FleetManagement.Api.Models;
 using FleetManagement.Api.Security;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 public static class SeedData
 {
@@ -230,6 +232,8 @@ public static class SeedData
       ("In Transit", "ST-TRANSIT", "Trip in progress"),
       ("Completed", "ST-COMP", "Completed workflow"),
       ("Maintenance", "ST-MAINT", "Maintenance state"),
+      ("Inactive", "ST-INACT", "Inactive record"),
+      ("Delayed", "ST-DELAY", "Delayed workflow"),
       ("Disabled", "ST-DIS", "Disabled record")
     ], offsetNow);
     await SeedTripSetupAsync(db.TripPriorityCodeOptions, [
@@ -241,7 +245,9 @@ public static class SeedData
     await SeedTripSetupAsync(db.IncidentTypeCodeOptions, [
       ("Accident", "INC-ACC", "Road accident"),
       ("Breakdown", "INC-BRK", "Vehicle breakdown"),
-      ("Damage", "INC-DMG", "Vehicle or cargo damage")
+      ("Damage", "INC-DMG", "Vehicle or cargo damage"),
+      ("Theft", "INC-THEFT", "Theft incident"),
+      ("Other", "INC-OTHER", "Other incident type")
     ], offsetNow);
     await SeedTripSetupAsync(db.SeverityCodeOptions, [
       ("Low", "SEV-LOW", "Minor severity"),
@@ -253,7 +259,9 @@ public static class SeedData
       ("Fuel", "EXP-FUEL", "Fuel cost"),
       ("Toll", "EXP-TOLL", "Toll cost"),
       ("Repair", "EXP-REPAIR", "Repair cost"),
-      ("Parking", "EXP-PARK", "Parking cost")
+      ("Parking", "EXP-PARK", "Parking cost"),
+      ("Insurance", "EXP-INS", "Insurance cost"),
+      ("Tax", "EXP-TAX", "Tax cost")
     ], offsetNow);
     await SeedTripSetupAsync(db.MaintenanceTypeCodeOptions, [
       ("Preventive", "MNT-PREV", "Scheduled preventive service"),
@@ -308,9 +316,9 @@ public static class SeedData
     if (!await db.Vehicles.AnyAsync())
     {
       db.Vehicles.AddRange(
-        new Vehicle { Id = "VH-1001", Plate = "YGN-1187", Region = "Yangon", Type = "Box Truck", Model = "Isuzu FVR", Make = "Isuzu", Year = "2022", Color = "White", Status = "Active", Ownership = "Owned", Driver = "Driver User", DriverImage = string.Empty, Depot = "Yangon East Yard", Capacity = "6 tons", FuelCapacity = "120 L", FuelType = "Diesel", Vin = "MMTFVR20221001", EngineNo = "ENG-FVR-1001", Odometer = "24500", LastService = "2026-04-15", NextService = "2026-06-15", ServiceNote = "Routine oil and filter change.", PurchaseCost = "75000", RegistrationNo = "REG-YGN-1187", RegistrationExpiry = "2027-03-31", RoadTaxExpiry = "2027-03-31", InsuranceExpiry = "2027-04-30", InsuranceProvider = "Global Insurance", InsurancePolicy = "POL-1001", InspectionDue = "2026-08-01", AcquiredDate = "2024-01-10", Image = string.Empty, IsDeleted = 0, CreatedAt = now.AddDays(-20), UpdatedAt = now.AddDays(-2) },
-        new Vehicle { Id = "VH-1002", Plate = "MDY-7742", Region = "Mandalay", Type = "Delivery Van", Model = "Toyota HiAce", Make = "Toyota", Year = "2021", Color = "Silver", Status = "Active", Ownership = "Leased", Driver = "Aung Min", DriverImage = string.Empty, Depot = "Mandalay Depot", Capacity = "1.5 tons", FuelCapacity = "70 L", FuelType = "Petrol", Vin = "MMTHIACE20211002", EngineNo = "ENG-HIA-1002", Odometer = "38600", LastService = "2026-04-20", NextService = "2026-06-20", ServiceNote = "Brake inspection completed.", PurchaseCost = "42000", RegistrationNo = "REG-MDY-7742", RegistrationExpiry = "2027-02-28", RoadTaxExpiry = "2027-02-28", InsuranceExpiry = "2027-05-15", InsuranceProvider = "Apex Insurance", InsurancePolicy = "POL-1002", InspectionDue = "2026-07-15", AcquiredDate = "2023-09-05", Image = string.Empty, IsDeleted = 0, CreatedAt = now.AddDays(-18), UpdatedAt = now.AddDays(-1) },
-        new Vehicle { Id = "VH-1003", Plate = "YGN-4521", Region = "Yangon", Type = "Reefer Truck", Model = "Hino 500", Make = "Hino", Year = "2020", Color = "Blue", Status = "Maintenance", Ownership = "Owned", Driver = "Driver User", DriverImage = string.Empty, Depot = "Yangon East Yard", Capacity = "8 tons", FuelCapacity = "150 L", FuelType = "Diesel", Vin = "MMTHINO20201003", EngineNo = "ENG-HIN-1003", Odometer = "61200", LastService = "2026-03-30", NextService = "2026-05-30", ServiceNote = "Cooling unit requires inspection.", PurchaseCost = "98000", RegistrationNo = "REG-YGN-4521", RegistrationExpiry = "2027-01-31", RoadTaxExpiry = "2027-01-31", InsuranceExpiry = "2026-12-31", InsuranceProvider = "Global Insurance", InsurancePolicy = "POL-1003", InspectionDue = "2026-05-20", AcquiredDate = "2022-04-18", Image = string.Empty, IsDeleted = 0, CreatedAt = now.AddDays(-15), UpdatedAt = now });
+        new Vehicle { Id = "VH-1001", Plate = "YGN-1187", Region = "Yangon", Type = "Box Truck", Model = "Isuzu FVR", Make = "Isuzu", Year = "2022", Color = "White", Status = "Active", Ownership = "Owned", Driver = "Driver User", DriverImage = string.Empty, Depot = "Yangon East Yard", Capacity = "6 tons / 35 m3", FuelCapacity = "120 L", FuelType = "Diesel", Vin = "MMTFVR20221001", EngineNo = "ENG-FVR-1001", Odometer = "24500", LastService = "2026-04-15", NextService = "2026-06-15", ServiceNote = "Routine oil and filter change.", PurchaseCost = "75000", RegistrationNo = "REG-YGN-1187", RegistrationExpiry = "2027-03-31", RoadTaxExpiry = "2027-03-31", InsuranceExpiry = "2027-04-30", InsuranceProvider = "Global Insurance", InsurancePolicy = "POL-1001", InspectionDue = "2026-08-01", AcquiredDate = "2024-01-10", Image = string.Empty, IsDeleted = 0, CreatedAt = now.AddDays(-20), UpdatedAt = now.AddDays(-2) },
+        new Vehicle { Id = "VH-1002", Plate = "MDY-7742", Region = "Mandalay", Type = "Delivery Van", Model = "Toyota HiAce", Make = "Toyota", Year = "2021", Color = "Silver", Status = "Active", Ownership = "Leased", Driver = "Aung Min", DriverImage = string.Empty, Depot = "Mandalay Depot", Capacity = "1.5 tons / 12 m3", FuelCapacity = "70 L", FuelType = "Petrol", Vin = "MMTHIACE20211002", EngineNo = "ENG-HIA-1002", Odometer = "38600", LastService = "2026-04-20", NextService = "2026-06-20", ServiceNote = "Brake inspection completed.", PurchaseCost = "42000", RegistrationNo = "REG-MDY-7742", RegistrationExpiry = "2027-02-28", RoadTaxExpiry = "2027-02-28", InsuranceExpiry = "2027-05-15", InsuranceProvider = "Apex Insurance", InsurancePolicy = "POL-1002", InspectionDue = "2026-07-15", AcquiredDate = "2023-09-05", Image = string.Empty, IsDeleted = 0, CreatedAt = now.AddDays(-18), UpdatedAt = now.AddDays(-1) },
+        new Vehicle { Id = "VH-1003", Plate = "YGN-4521", Region = "Yangon", Type = "Reefer Truck", Model = "Hino 500", Make = "Hino", Year = "2020", Color = "Blue", Status = "Maintenance", Ownership = "Owned", Driver = "Driver User", DriverImage = string.Empty, Depot = "Yangon East Yard", Capacity = "8 tons / 45 m3", FuelCapacity = "150 L", FuelType = "Diesel", Vin = "MMTHINO20201003", EngineNo = "ENG-HIN-1003", Odometer = "61200", LastService = "2026-03-30", NextService = "2026-05-30", ServiceNote = "Cooling unit requires inspection.", PurchaseCost = "98000", RegistrationNo = "REG-YGN-4521", RegistrationExpiry = "2027-01-31", RoadTaxExpiry = "2027-01-31", InsuranceExpiry = "2026-12-31", InsuranceProvider = "Global Insurance", InsurancePolicy = "POL-1003", InspectionDue = "2026-05-20", AcquiredDate = "2022-04-18", Image = string.Empty, IsDeleted = 0, CreatedAt = now.AddDays(-15), UpdatedAt = now });
     }
 
     if (!await db.Trips.AnyAsync())
@@ -381,6 +389,7 @@ public static class SeedData
     await EnsureDemoExpensesAsync(db, now);
     await EnsureDemoAuditLogsAsync(db, now);
     await EnsureDemoStatusHistoryAsync(db, now);
+    await EnsureDemoRelationshipConsistencyAsync(db);
     await db.SaveChangesAsync();
   }
 
@@ -476,7 +485,7 @@ public static class SeedData
         Driver = drivers[index % drivers.Length],
         DriverImage = string.Empty,
         Depot = depots[index % depots.Length],
-        Capacity = $"{2 + index % 9} tons",
+        Capacity = "12 tons / 60 m3",
         FuelCapacity = $"{70 + index % 6 * 15} L",
         FuelType = fuelTypes[index % fuelTypes.Length],
         Vin = $"MMTDEMO{2020 + index % 5}{index:D5}",
@@ -510,7 +519,7 @@ public static class SeedData
 
     var vehicles = await db.Vehicles
       .Where(vehicle => vehicle.IsDeleted == 0)
-      .Select(vehicle => new { vehicle.Id, vehicle.Plate, vehicle.Driver })
+      .Select(vehicle => new { vehicle.Id, vehicle.Plate, vehicle.Driver, vehicle.Capacity })
       .ToListAsync();
     var existingNumbers = new HashSet<string>(await db.Trips.Select(trip => trip.TripNumber).ToListAsync(), StringComparer.OrdinalIgnoreCase);
     var tripTypes = new[] { "Delivery", "Line Haul", "Pickup" };
@@ -526,7 +535,12 @@ public static class SeedData
       var tripNumber = $"TRIP-{2000 + index:D4}";
       if (!existingNumbers.Add(tripNumber)) continue;
 
-      var vehicle = vehicles.Count > 0 ? vehicles[index % vehicles.Count] : new { Id = "VH-1001", Plate = "YGN-1187", Driver = "Driver User" };
+      var vehicle = vehicles.Count > 0
+        ? vehicles[index % vehicles.Count]
+        : new { Id = "VH-1001", Plate = "YGN-1187", Driver = "Driver User", Capacity = (string?)"12 tons / 60 m3" };
+      var capacity = ParseVehicleCapacity(vehicle.Capacity);
+      var loadWeightKg = Math.Min(800m + index * 150m, Math.Max(500m, capacity.WeightKg.GetValueOrDefault(12000m) - 250m));
+      var loadVolumeM3 = Math.Min(5m + index % 16, Math.Max(1m, capacity.VolumeM3.GetValueOrDefault(60m) - 2m));
       db.Trips.Add(new Trip
       {
         TripNumber = tripNumber,
@@ -543,8 +557,8 @@ public static class SeedData
         CoDriverName = index % 3 == 0 ? "Aung Min" : null,
         DispatcherName = "Dispatcher User",
         CargoType = cargoTypes[index % cargoTypes.Length],
-        LoadWeightKg = 800 + index * 150,
-        LoadVolumeM3 = 5 + index % 16,
+        LoadWeightKg = loadWeightKg,
+        LoadVolumeM3 = loadVolumeM3,
         PickupLocation = locations[index % locations.Length],
         DropoffLocation = locations[(index + 1) % locations.Length],
         PickupContact = $"09-2200{index:D5}",
@@ -648,7 +662,7 @@ public static class SeedData
     var activeCount = await db.Incidents.CountAsync(incident => incident.IsDeleted == 0);
     if (activeCount >= DemoRecordTarget) return;
 
-    var vehicleIds = await db.Vehicles.Where(vehicle => vehicle.IsDeleted == 0).Select(vehicle => vehicle.Id).ToListAsync();
+    var vehicles = await db.Vehicles.Where(vehicle => vehicle.IsDeleted == 0).Select(vehicle => new { vehicle.Id, vehicle.Driver }).ToListAsync();
     var existingIds = new HashSet<string>(await db.Incidents.Select(incident => incident.Id).ToListAsync(), StringComparer.OrdinalIgnoreCase);
     var types = new[] { "Accident", "Breakdown", "Damage", "Theft", "Other" };
     var severities = new[] { "Low", "Medium", "High", "Critical" };
@@ -664,8 +678,10 @@ public static class SeedData
       db.Incidents.Add(new Incident
       {
         Id = id,
-        VehicleId = vehicleIds.Count > 0 ? vehicleIds[index % vehicleIds.Count] : "VH-1001",
-        Driver = drivers[index % drivers.Length],
+        VehicleId = vehicles.Count > 0 ? vehicles[index % vehicles.Count].Id : "VH-1001",
+        Driver = vehicles.Count > 0 && !string.IsNullOrWhiteSpace(vehicles[index % vehicles.Count].Driver)
+          ? vehicles[index % vehicles.Count].Driver
+          : drivers[index % drivers.Length],
         Date = $"2026-05-{(index % 25) + 1:D2}",
         Type = types[index % types.Length],
         Severity = severities[index % severities.Length],
@@ -758,14 +774,128 @@ public static class SeedData
     }
   }
 
+  private static async Task EnsureDemoRelationshipConsistencyAsync(FleetDbContext db)
+  {
+    var vehicles = await db.Vehicles.Where(vehicle => vehicle.IsDeleted == 0).ToListAsync();
+    var vehicleById = vehicles.ToDictionary(vehicle => vehicle.Id, StringComparer.OrdinalIgnoreCase);
+
+    foreach (var vehicle in vehicles.Where(vehicle => IsSeedVehicle(vehicle.Id) && !HasVolumeCapacity(vehicle.Capacity)))
+    {
+      vehicle.Capacity = "12 tons / 60 m3";
+    }
+
+    var trips = await db.Trips.Where(trip => trip.IsDeleted == 0 && IsSeedTrip(trip.TripNumber)).ToListAsync();
+    foreach (var trip in trips)
+    {
+      if (!vehicleById.TryGetValue(trip.VehicleId, out var vehicle)) continue;
+
+      trip.VehiclePlate = vehicle.Plate;
+      if (!string.IsNullOrWhiteSpace(vehicle.Driver))
+      {
+        trip.DriverName = vehicle.Driver;
+      }
+
+      var capacity = ParseVehicleCapacity(vehicle.Capacity);
+      if (capacity.WeightKg.HasValue && trip.LoadWeightKg > capacity.WeightKg.Value)
+      {
+        trip.LoadWeightKg = Math.Max(1m, capacity.WeightKg.Value - 250m);
+      }
+
+      if (capacity.VolumeM3.HasValue && trip.LoadVolumeM3 > capacity.VolumeM3.Value)
+      {
+        trip.LoadVolumeM3 = Math.Max(1m, capacity.VolumeM3.Value - 2m);
+      }
+    }
+
+    var incidents = await db.Incidents.Where(incident => incident.IsDeleted == 0 && IsSeedIncident(incident.Id)).ToListAsync();
+    foreach (var incident in incidents)
+    {
+      if (vehicleById.TryGetValue(incident.VehicleId, out var vehicle) && !string.IsNullOrWhiteSpace(vehicle.Driver))
+      {
+        incident.Driver = vehicle.Driver;
+      }
+    }
+
+    var expenses = await db.Expenses.Where(expense => expense.IsDeleted == 0 && expense.VehicleId != null).ToListAsync();
+    foreach (var expense in expenses.Where(expense => expense.Notes == "Seeded expense for testing."))
+    {
+      if (expense.VehicleId is not null &&
+          vehicleById.TryGetValue(expense.VehicleId, out var vehicle) &&
+          !string.IsNullOrWhiteSpace(vehicle.Driver))
+      {
+        expense.DriverName = vehicle.Driver;
+      }
+    }
+  }
+
+  private static bool IsSeedVehicle(string id) =>
+    id.StartsWith("VH-100", StringComparison.OrdinalIgnoreCase) ||
+    id.StartsWith("VH-20", StringComparison.OrdinalIgnoreCase);
+
+  private static bool IsSeedTrip(string tripNumber) =>
+    tripNumber.StartsWith("TRIP-100", StringComparison.OrdinalIgnoreCase) ||
+    tripNumber.StartsWith("TRIP-20", StringComparison.OrdinalIgnoreCase);
+
+  private static bool IsSeedIncident(string id) =>
+    id.StartsWith("INC-100", StringComparison.OrdinalIgnoreCase) ||
+    id.StartsWith("INC-20", StringComparison.OrdinalIgnoreCase);
+
+  private static bool HasVolumeCapacity(string? capacity) =>
+    Regex.IsMatch(capacity ?? string.Empty, @"\b(?:m3|m³|cbm|cubic\s*meters?)\b", RegexOptions.IgnoreCase);
+
+  private static VehicleCapacity ParseVehicleCapacity(string? capacity)
+  {
+    var text = capacity?.Trim() ?? string.Empty;
+    if (text.Length == 0) return new VehicleCapacity(null, null);
+
+    var tonsMatch = Regex.Match(text, @"(\d+(?:\.\d+)?)\s*(?:tons?|tonnes?|t)\b", RegexOptions.IgnoreCase);
+    var kgMatch = Regex.Match(text, @"(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilograms?)\b", RegexOptions.IgnoreCase);
+    var volumeMatch = Regex.Match(text, @"(\d+(?:\.\d+)?)\s*(?:m3|m³|cbm|cubic\s*meters?)\b", RegexOptions.IgnoreCase);
+    var numberMatch = Regex.Match(text, @"(\d+(?:\.\d+)?)", RegexOptions.IgnoreCase);
+
+    decimal? weightKg = null;
+    if (tonsMatch.Success && decimal.TryParse(tonsMatch.Groups[1].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var tons))
+    {
+      weightKg = tons * 1000;
+    }
+    else if (kgMatch.Success && decimal.TryParse(kgMatch.Groups[1].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var kg))
+    {
+      weightKg = kg;
+    }
+    else if (numberMatch.Success && decimal.TryParse(numberMatch.Groups[1].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var number))
+    {
+      weightKg = number;
+    }
+
+    decimal? volumeM3 = null;
+    if (volumeMatch.Success && decimal.TryParse(volumeMatch.Groups[1].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var volume))
+    {
+      volumeM3 = volume;
+    }
+
+    return new VehicleCapacity(weightKg, volumeM3);
+  }
+
+  private sealed record VehicleCapacity(decimal? WeightKg, decimal? VolumeM3);
+
   private static async Task SeedTripSetupAsync<T>(
     DbSet<T> set,
     IEnumerable<(string Name, string Code, string Description)> values,
     DateTimeOffset now) where T : TripSetupCodeOption, new()
   {
-    if (await set.AnyAsync()) return;
+    var existingNames = new HashSet<string>(
+      await set.Select(item => item.Name).ToListAsync(),
+      StringComparer.OrdinalIgnoreCase);
+    var existingCodes = new HashSet<string>(
+      await set.Select(item => item.Code).ToListAsync(),
+      StringComparer.OrdinalIgnoreCase);
+    var missingValues = values
+      .Where(value => !existingNames.Contains(value.Name) && !existingCodes.Contains(value.Code))
+      .ToList();
 
-    set.AddRange(values.Select(value => new T
+    if (missingValues.Count == 0) return;
+
+    set.AddRange(missingValues.Select(value => new T
     {
       Name = value.Name,
       Code = value.Code,

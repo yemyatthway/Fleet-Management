@@ -54,6 +54,14 @@
         </div>
 
         <div class="toolbar-actions">
+          <div v-if="showScopeFilter" class="toolbar-filter">
+            <v-icon icon="mdi-account-switch-outline" />
+            <select v-model="scopeFilter" @change="loadTrips">
+              <option value="mine">My Work</option>
+              <option value="all">All Work</option>
+            </select>
+          </div>
+
           <div class="toolbar-filter">
             <v-icon icon="mdi-filter-variant" />
             <select v-model="statusFilter">
@@ -141,7 +149,8 @@ import { getVehicles } from "../../services/vehiclesApi";
 import { createTrip, deleteTrip as deleteTripRecord, getTrips, updateTrip } from "../../services/tripsApi";
 import { cargoTypesApi, statusesApi, tripPrioritiesApi, tripTypesApi } from "../../services/tripSetupApi";
 import { usePageMessage } from "../../composables/usePageMessage";
-import { canCreateModule, canDeleteModule, canEditModule } from "../../utils/authSession";
+import { canCreateModule, canDeleteModule, canEditModule, getCurrentUser } from "../../utils/authSession";
+import { validateTripLoadAgainstVehicle } from "../../utils/loadCapacity";
 
 const tripStatuses = ref([]);
 const tripTypes = ref([]);
@@ -195,8 +204,12 @@ const trips = ref([]);
 const canCreateTrips = computed(() => canCreateModule("trips"));
 const canEditTrips = computed(() => canEditModule("trips"));
 const canDeleteTrips = computed(() => canDeleteModule("trips"));
+const currentUser = computed(() => getCurrentUser());
+const currentRole = computed(() => String(currentUser.value?.roleId || currentUser.value?.role || "").toLowerCase());
+const showScopeFilter = computed(() => currentRole.value === "driver" || currentRole.value === "dispatcher");
 
 const searchQuery = ref("");
+const scopeFilter = ref(showScopeFilter.value ? "mine" : "all");
 const statusFilter = ref("All");
 const tripTypeFilter = ref("All");
 const selectedTrip = ref(null);
@@ -213,7 +226,7 @@ const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage(4000);
 
 const loadTrips = async () => {
   try {
-    const result = await getTrips({ page: 1, pageSize: 500 });
+    const result = await getTrips({ page: 1, pageSize: 500, scope: scopeFilter.value });
     trips.value = result.items || [];
   } catch (error) {
     formError.value = error.message || "Could not load trips.";
@@ -327,15 +340,98 @@ const closeForm = () => {
 };
 
 const submitForm = async () => {
-  if (
-    !form.tripNumber ||
-    !form.vehicleId ||
-    !form.driverName ||
-    !form.pickupLocation ||
-    !form.dropoffLocation
-  ) {
-    formError.value =
-      "Fill in the required trip, assignment, and route fields.";
+  const selectedVehicle = vehicleOptions.value.find((vehicle) => vehicle.id === form.vehicleId);
+  const assignedDriver = String(selectedVehicle?.driver || "").trim();
+
+  const requiredFields = [
+    ["Trip number", form.tripNumber],
+    ["Trip type", form.tripType],
+    ["Status", form.status],
+    ["Priority", form.priority],
+    ["Customer", form.customerName],
+    ["Department", form.department],
+    ["Vehicle", form.vehicleId],
+    ["Vehicle plate", form.vehiclePlate],
+    ["Driver", form.driverName],
+    ["Dispatcher", form.dispatcherName],
+    ["Cargo type", form.cargoType],
+    ["Pickup location", form.pickupLocation],
+    ["Dropoff location", form.dropoffLocation],
+    ["Departure", form.departureDateTime],
+    ["Estimated arrival", form.estimatedArrival],
+  ];
+  const missingFields = requiredFields
+    .filter(([, value]) => String(value ?? "").trim() === "")
+    .map(([label]) => label);
+
+  if (missingFields.length) {
+    formError.value = `Fill required fields: ${missingFields.join(", ")}.`;
+    showPageMessage({
+      tone: "error",
+      title: "Trip was not saved",
+      message: formError.value,
+    });
+    return;
+  }
+
+  if (Number(form.loadWeightKg || 0) <= 0) {
+    formError.value = "Load weight must be greater than 0 kg.";
+    showPageMessage({
+      tone: "error",
+      title: "Trip was not saved",
+      message: formError.value,
+    });
+    return;
+  }
+
+  if (Number(form.plannedDistanceKm || 0) <= 0) {
+    formError.value = "Planned distance must be greater than 0 km.";
+    showPageMessage({
+      tone: "error",
+      title: "Trip was not saved",
+      message: formError.value,
+    });
+    return;
+  }
+
+  if (!selectedVehicle) {
+    formError.value = "Selected vehicle could not be found.";
+    showPageMessage({
+      tone: "error",
+      title: "Trip was not saved",
+      message: formError.value,
+    });
+    return;
+  }
+
+  if (!assignedDriver) {
+    formError.value = "Selected vehicle has no assigned driver. Assign a driver to the vehicle before creating a trip.";
+    showPageMessage({
+      tone: "error",
+      title: "Trip was not saved",
+      message: formError.value,
+    });
+    return;
+  }
+
+  if (assignedDriver.toLowerCase() !== String(form.driverName || "").trim().toLowerCase()) {
+    formError.value = "Selected driver is not assigned to the selected vehicle.";
+    showPageMessage({
+      tone: "error",
+      title: "Trip was not saved",
+      message: formError.value,
+    });
+    return;
+  }
+
+  const loadError = validateTripLoadAgainstVehicle(form, selectedVehicle);
+  if (loadError) {
+    formError.value = loadError;
+    showPageMessage({
+      tone: "error",
+      title: "Trip was not saved",
+      message: formError.value,
+    });
     return;
   }
 
@@ -345,6 +441,11 @@ const submitForm = async () => {
     form.estimatedArrival < form.departureDateTime
   ) {
     formError.value = "Estimated arrival cannot be earlier than departure.";
+    showPageMessage({
+      tone: "error",
+      title: "Trip was not saved",
+      message: formError.value,
+    });
     return;
   }
 

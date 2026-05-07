@@ -13,15 +13,4 @@
 import DashboardLayout from '../layouts/DashboardLayout.vue'
 </script>
 
-<style scoped>
-.placeholder {
-  display: grid;
-  place-items: center;
-  min-height: 60vh;
-}
-
-.placeholder-card {
-  padding: 32px;
-  text-align: center;
-}
-</style>
+<style scoped src="./page_styles/Placeholder.css"></style>

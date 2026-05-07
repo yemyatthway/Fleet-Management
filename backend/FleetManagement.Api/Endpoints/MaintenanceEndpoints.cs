@@ -12,11 +12,13 @@ public static class MaintenanceEndpoints
   public static IEndpointRouteBuilder MapMaintenanceEndpoints(this IEndpointRouteBuilder app)
   {
     app.MapGet("/api/maintenance-tickets", async (
+      HttpRequest request,
       FleetDbContext db,
       int page = 1,
       int pageSize = 10,
       string? search = null,
       string? status = null,
+      string? scope = null,
       string? sortBy = "id",
       string? sortOrder = "asc") =>
     {
@@ -24,6 +26,15 @@ public static class MaintenanceEndpoints
         .Where(ticket => ticket.IsDeleted == 0)
         .AsNoTracking()
         .AsQueryable();
+      var roleId = AuditLogWriter.GetRequestRoleId(request);
+      var userName = request.Headers["X-Fleet-User-Name"].FirstOrDefault();
+      var normalizedScope = string.IsNullOrWhiteSpace(scope) ? "mine" : scope.Trim().ToLowerInvariant();
+
+      if (normalizedScope != "all" && string.Equals(roleId, "mechanic", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(userName))
+      {
+        var normalizedUserName = userName.Trim().ToLower();
+        query = query.Where(ticket => ticket.Mechanic.ToLower() == normalizedUserName);
+      }
 
       if (!string.IsNullOrWhiteSpace(search))
       {
@@ -60,7 +71,12 @@ public static class MaintenanceEndpoints
       };
 
       var total = await query.CountAsync();
-      var statsSource = db.MaintenanceTickets.Where(ticket => ticket.IsDeleted == 0);
+      var statsSource = db.MaintenanceTickets.Where(ticket => ticket.IsDeleted == 0).AsQueryable();
+      if (normalizedScope != "all" && string.Equals(roleId, "mechanic", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(userName))
+      {
+        var normalizedUserName = userName.Trim().ToLower();
+        statsSource = statsSource.Where(ticket => ticket.Mechanic.ToLower() == normalizedUserName);
+      }
       var stats = new MaintenanceTicketStatsDto(
         await statsSource.CountAsync(),
         await statsSource.CountAsync(ticket => ticket.Status == "Pending"),

@@ -39,27 +39,4 @@ watch(
 )
 </script>
 
-<style scoped>
-.dashboard-shell {
-  min-height: 100vh;
-  background: var(--fleet-bg);
-}
-
-.sidebar {
-  border-right: 1px solid var(--fleet-border);
-}
-
-.main-column {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 100vh;
-  overflow: hidden;
-}
-
-.page-shell {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-</style>
+<style scoped src="./layout_styles/DashboardLayout.css"></style>

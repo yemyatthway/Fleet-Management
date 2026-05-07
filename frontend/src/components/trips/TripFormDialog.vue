@@ -70,7 +70,7 @@
                 <select v-model="form.vehicleId" required @change="syncVehicle">
                   <option value="" disabled>Select vehicle</option>
                   <option v-for="vehicle in vehicleOptions" :key="vehicle.id" :value="vehicle.id">
-                    {{ vehicle.id }} • {{ vehicle.plate }}
+                    {{ vehicle.id }} • {{ vehicle.plate }} • {{ vehicle.capacity || 'No capacity' }}
                   </option>
                 </select>
               </div>
@@ -80,10 +80,11 @@
               </div>
               <div class="field">
                 <label class="required">Driver Name</label>
-                <select v-model="form.driverName" required>
+                <select v-model="form.driverName" required @change="syncDriver">
                   <option value="" disabled>Select driver</option>
                   <option v-for="driver in driverOptions" :key="driver.name" :value="driver.name">{{ driver.name }}</option>
                 </select>
+                <span v-if="driverAssignmentHint" class="field-hint warning">{{ driverAssignmentHint }}</span>
               </div>
               <div class="field">
                 <label>Co-driver Name</label>
@@ -109,10 +110,12 @@
               <div class="field">
                 <label class="required">Load Weight (kg)</label>
                 <input v-model.number="form.loadWeightKg" type="number" min="0" placeholder="18000" required />
+                <span v-if="capacityText" class="field-hint">Vehicle capacity: {{ capacityText }}</span>
               </div>
               <div class="field">
                 <label>Load Volume (m3)</label>
                 <input v-model.number="form.loadVolumeM3" type="number" min="0" step="0.1" placeholder="42.5" />
+                <span v-if="capacityText" class="field-hint">Keep volume within the selected vehicle capacity.</span>
               </div>
             </div>
           </div>
@@ -225,6 +228,8 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+
 const props = defineProps({
   open: {
     type: Boolean,
@@ -286,6 +291,23 @@ const props = defineProps({
 
 const emit = defineEmits(['update:open', 'close', 'submit'])
 
+const selectedVehicle = computed(() =>
+  props.vehicleOptions.find((vehicle) => vehicle.id === props.form.vehicleId) || null
+)
+
+const assignedDriver = computed(() => String(selectedVehicle.value?.driver || '').trim())
+
+const capacityText = computed(() => selectedVehicle.value?.capacity || '')
+
+const driverAssignmentHint = computed(() => {
+  if (props.form.vehicleId && !assignedDriver.value) return 'Assign a driver to this vehicle before creating a trip.'
+  if (props.form.vehicleId && props.form.driverName && assignedDriver.value.toLowerCase() !== String(props.form.driverName).trim().toLowerCase()) {
+    return `This vehicle is assigned to ${assignedDriver.value}.`
+  }
+  if (props.form.driverName && !props.form.vehicleId) return 'Select a driver to auto-fill their assigned vehicle.'
+  return ''
+})
+
 const updateOpen = (value) => {
   if (!value) emit('close')
   emit('update:open', value)
@@ -295,8 +317,26 @@ const syncVehicle = () => {
   const selectedVehicle = props.vehicleOptions.find((vehicle) => vehicle.id === props.form.vehicleId)
   if (!selectedVehicle) return
   props.form.vehiclePlate = selectedVehicle.plate || ''
-  props.form.driverName = selectedVehicle.driver || props.form.driverName
+  props.form.driverName = selectedVehicle.driver || ''
   props.form.startingOdometerKm = Number(String(selectedVehicle.odometer || '').replace(/[^\d.]/g, '')) || props.form.startingOdometerKm
   props.form.currentOdometerKm = props.form.startingOdometerKm || props.form.currentOdometerKm
+}
+
+const syncDriver = () => {
+  const selectedDriverName = String(props.form.driverName || '').trim().toLowerCase()
+  if (!selectedDriverName) return
+
+  const assignedVehicle = props.vehicleOptions.find(
+    (vehicle) => String(vehicle.driver || '').trim().toLowerCase() === selectedDriverName
+  )
+
+  if (!assignedVehicle) {
+    props.form.vehicleId = ''
+    props.form.vehiclePlate = ''
+    return
+  }
+
+  props.form.vehicleId = assignedVehicle.id || ''
+  syncVehicle()
 }
 </script>

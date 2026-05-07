@@ -14,16 +14,30 @@
       </button>
     </div>
   </v-app-bar>
+
+  <ConfirmDialog
+    :open="logoutConfirmOpen"
+    title="Logout?"
+    message="You will be signed out of FleetManager and returned to the login page."
+    confirm-text="Logout"
+    cancel-text="Stay"
+    tone="warning"
+    icon="mdi-logout"
+    @confirm="confirmLogout"
+    @cancel="logoutConfirmOpen = false"
+  />
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import ConfirmDialog from '../common/ConfirmDialog.vue'
 import { clearAuthSession } from '../../utils/authSession'
 
 defineEmits(['toggle'])
 
 const router = useRouter()
+const logoutConfirmOpen = ref(false)
 
 const today = computed(() =>
   new Date().toLocaleDateString('en-US', {
@@ -35,6 +49,11 @@ const today = computed(() =>
 )
 
 const logout = () => {
+  logoutConfirmOpen.value = true
+}
+
+const confirmLogout = () => {
+  logoutConfirmOpen.value = false
   clearAuthSession()
   router.push('/login')
 }

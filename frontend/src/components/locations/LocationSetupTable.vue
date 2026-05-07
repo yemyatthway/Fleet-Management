@@ -165,12 +165,4 @@ const formatDate = (value) =>
 
 <style scoped src="../roles/roles_styles/RoleTable.css"></style>
 
-<style scoped>
-.notes-cell {
-  display: -webkit-box;
-  max-width: 220px;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-</style>
+<style scoped src="./locations_styles/LocationSetupTable.css"></style>

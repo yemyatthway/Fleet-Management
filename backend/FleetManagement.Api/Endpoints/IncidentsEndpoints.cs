@@ -12,12 +12,14 @@ public static class IncidentsEndpoints
   public static IEndpointRouteBuilder MapIncidentsEndpoints(this IEndpointRouteBuilder app)
   {
     app.MapGet("/api/incidents", async (
+      HttpRequest request,
       FleetDbContext db,
       int page = 1,
       int pageSize = 10,
       string? search = null,
       string? status = null,
       string? severity = null,
+      string? scope = null,
       string? sortBy = "date",
       string? sortOrder = "desc") =>
     {
@@ -25,6 +27,15 @@ public static class IncidentsEndpoints
         .Where(incident => incident.IsDeleted == 0)
         .AsNoTracking()
         .AsQueryable();
+      var roleId = AuditLogWriter.GetRequestRoleId(request);
+      var userName = request.Headers["X-Fleet-User-Name"].FirstOrDefault();
+      var normalizedScope = string.IsNullOrWhiteSpace(scope) ? "mine" : scope.Trim().ToLowerInvariant();
+
+      if (normalizedScope != "all" && string.Equals(roleId, "driver", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(userName))
+      {
+        var normalizedUserName = userName.Trim().ToLower();
+        query = query.Where(incident => incident.Driver.ToLower() == normalizedUserName);
+      }
 
       if (!string.IsNullOrWhiteSpace(search))
       {

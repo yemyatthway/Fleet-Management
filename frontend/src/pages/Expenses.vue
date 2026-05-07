@@ -56,67 +56,57 @@
 
       <section class="table-card">
         <div class="table-wrap">
-        <table class="record-table">
-          <thead>
-            <tr>
-              <th>No.</th>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Vehicle/ID</th>
-              <th>Trip</th>
-              <th>Driver</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(expense, index) in records" :key="expense.id">
-              <td>{{ pageStart + index }}</td>
-              <td>{{ expense.expenseDate }}</td>
-              <td>{{ expense.expenseType }}</td>
-              <td>{{ expense.vehicleId || '-' }}</td>
-              <td>{{ expense.tripNumber || '-' }}</td>
-              <td>{{ expense.driverName || '-' }}</td>
-              <td>{{ formatCurrency(expense.amount) }}</td>
-              <td><span class="role-badge" :class="statusClass(expense.status)">{{ expense.status }}</span></td>
-              <td>
-                <div class="inline-actions">
-                  <button v-if="canEdit" type="button" class="icon-button" @click="startEdit(expense)" aria-label="Edit expense"><v-icon icon="mdi-pencil" size="18" /></button>
-                  <button v-if="canDelete" type="button" class="icon-button danger" @click="removeRecord(expense.id)" aria-label="Delete expense"><v-icon icon="mdi-delete-outline" size="18" /></button>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="!records.length">
-              <td colspan="9" class="empty-cell">No expense records found</td>
-            </tr>
-          </tbody>
-        </table>
-        </div>
-        <div class="table-footer">
-          <label class="page-size">
-            Items per page:
-            <select v-model.number="pagination.pageSize" @change="refreshRecords">
-              <option :value="10">10</option>
-              <option :value="20">20</option>
-              <option :value="30">30</option>
-            </select>
-          </label>
-          <span class="pager-info">{{ pageStart }}-{{ pageEnd }} of {{ totalRecords }}</span>
-          <div class="pager-actions">
-            <button class="pager-button" type="button" :disabled="pagination.page === 1" @click="goToPage(1)">
-              <v-icon icon="mdi-page-first" size="18" />
-            </button>
-            <button class="pager-button" type="button" :disabled="pagination.page === 1" @click="goToPage(pagination.page - 1)">
-              <v-icon icon="mdi-chevron-left" size="18" />
-            </button>
-            <button class="pager-button" type="button" :disabled="pagination.page >= totalPages" @click="goToPage(pagination.page + 1)">
-              <v-icon icon="mdi-chevron-right" size="18" />
-            </button>
-            <button class="pager-button" type="button" :disabled="pagination.page >= totalPages" @click="goToPage(totalPages)">
-              <v-icon icon="mdi-page-last" size="18" />
-            </button>
-          </div>
+          <v-data-table-server
+            v-model:page="pagination.page"
+            v-model:items-per-page="pagination.pageSize"
+            class="table-base expenses-table"
+            :headers="expenseHeaders"
+            :items="tableRows"
+            :items-length="totalRecords"
+            :items-per-page-options="[10, 20, 30]"
+            :loading="loading"
+            :mobile-breakpoint="0"
+            :mobile="false"
+            fixed-header
+            height="560"
+            density="comfortable"
+            @update:options="handleTableOptions"
+          >
+            <template #item.vehicleId="{ item }">
+              <span class="text-muted">{{ item.vehicleId || '-' }}</span>
+            </template>
+
+            <template #item.tripNumber="{ item }">
+              <span class="text-muted">{{ item.tripNumber || '-' }}</span>
+            </template>
+
+            <template #item.driverName="{ item }">
+              <span>{{ item.driverName || '-' }}</span>
+            </template>
+
+            <template #item.amount="{ item }">
+              <strong>{{ formatCurrency(item.amount) }}</strong>
+            </template>
+
+            <template #item.status="{ item }">
+              <span class="role-badge" :class="statusClass(item.status)">{{ item.status }}</span>
+            </template>
+
+            <template #item.actions="{ item }">
+              <div class="inline-actions">
+                <button v-if="canEdit" type="button" class="icon-button" @click="startEdit(item)" aria-label="Edit expense">
+                  <v-icon icon="mdi-pencil" size="18" />
+                </button>
+                <button v-if="canDelete" type="button" class="icon-button danger" @click="removeRecord(item.id)" aria-label="Delete expense">
+                  <v-icon icon="mdi-delete-outline" size="18" />
+                </button>
+              </div>
+            </template>
+
+            <template #no-data>
+              <div class="empty-cell">No expense records found</div>
+            </template>
+          </v-data-table-server>
         </div>
       </section>
     </main>
@@ -135,6 +125,7 @@ import { canCreateModule, canDeleteModule, canEditModule } from '../utils/authSe
 const moduleKey = 'expenses'
 const records = ref([])
 const totalRecords = ref(0)
+const loading = ref(false)
 const pageError = ref('')
 const showForm = ref(false)
 const editingId = ref(null)
@@ -148,6 +139,17 @@ const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage(4000)
 const canCreate = computed(() => canCreateModule(moduleKey))
 const canEdit = computed(() => canEditModule(moduleKey))
 const canDelete = computed(() => canDeleteModule(moduleKey))
+const expenseHeaders = [
+  { title: 'No.', key: 'rowNumber', sortable: false },
+  { title: 'Date', key: 'expenseDate', sortable: false },
+  { title: 'Type', key: 'expenseType', sortable: false },
+  { title: 'Vehicle/ID', key: 'vehicleId', sortable: false },
+  { title: 'Trip', key: 'tripNumber', sortable: false },
+  { title: 'Driver', key: 'driverName', sortable: false },
+  { title: 'Amount', key: 'amount', align: 'end', sortable: false },
+  { title: 'Status', key: 'status', sortable: false },
+  { title: 'Actions', key: 'actions', align: 'end', sortable: false }
+]
 
 const loadOptions = async () => {
   try {
@@ -161,6 +163,7 @@ const loadOptions = async () => {
 
 const loadRecords = async () => {
   pageError.value = ''
+  loading.value = true
   try {
     const result = await getExpenses({ ...filters, page: pagination.page, pageSize: pagination.pageSize })
     records.value = result?.items || []
@@ -177,20 +180,28 @@ const loadRecords = async () => {
     records.value = []
     totalRecords.value = 0
     pageError.value = error.message || 'Could not load expenses.'
+  } finally {
+    loading.value = false
   }
 }
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / pagination.pageSize)))
 const pageStart = computed(() => totalRecords.value ? (pagination.page - 1) * pagination.pageSize + 1 : 0)
-const pageEnd = computed(() => Math.min(totalRecords.value, pagination.page * pagination.pageSize))
+const tableRows = computed(() =>
+  records.value.map((record, index) => ({
+    ...record,
+    rowNumber: pageStart.value + index
+  }))
+)
 
 const refreshRecords = async () => {
   pagination.page = 1
   await loadRecords()
 }
 
-const goToPage = async (page) => {
-  pagination.page = Math.min(Math.max(1, page), totalPages.value)
+const handleTableOptions = async ({ page, itemsPerPage }) => {
+  pagination.page = Math.min(Math.max(1, page || 1), totalPages.value)
+  pagination.pageSize = itemsPerPage || 10
   await loadRecords()
 }
 
@@ -275,51 +286,4 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
-.records-page { padding: 28px 32px; display: grid; gap: 20px; }
-.records-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-h1 { margin: 0; font-size: 28px; }
-p { margin: 6px 0 0; color: #64748b; }
-.toolbar, .record-form, .table-card { background: #fff; border: 1px solid #dfe3ea; border-radius: 16px; padding: 18px; }
-.toolbar { display: grid; grid-template-columns: minmax(260px, 1fr) 180px 160px 160px; gap: 14px; }
-.search-box { display: flex; align-items: center; gap: 10px; min-height: 44px; height: 44px; max-height: 44px; }
-input, select { width: 100%; min-height: 44px; height: 44px; max-height: 44px; border: 1px solid #dfe3ea; border-radius: 10px; padding: 0 12px; font: inherit; line-height: 1.2; background: #fff; box-sizing: border-box; }
-.record-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-.form-actions { display: flex; justify-content: flex-end; gap: 10px; grid-column: 1 / -1; }
-.primary-button, .ghost-button { min-height: 44px; border: 0; border-radius: 10px; padding: 0 18px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
-.primary-button { background: #2563eb; color: white; }
-.ghost-button { background: #eef2f7; color: #334155; }
-.table-card { padding: 18px; overflow: hidden; }
-.table-wrap { overflow-x: auto; }
-.record-table { width: 100%; min-width: 980px; border-collapse: separate; border-spacing: 0; }
-.record-table th, .record-table td { padding: 14px 16px; text-align: left; }
-.record-table thead th { background: #f8fafc; color: #475569; font-size: 13px; letter-spacing: 0.02em; text-transform: uppercase; font-weight: 700; }
-.record-table tbody td { background: #fff; }
-.record-table tbody tr { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06); }
-.record-table tbody tr td { border-bottom: 10px solid transparent; }
-.record-table tbody tr:last-child td { border-bottom: 0; }
-.record-table tbody tr:nth-child(even) td { background: #f8fafc; }
-.record-table thead th:first-child, .record-table tbody td:first-child { border-radius: 12px 0 0 12px; }
-.record-table thead th:last-child, .record-table tbody td:last-child { border-radius: 0 12px 12px 0; }
-.record-table th:last-child, .record-table td:last-child { text-align: right; }
-.role-badge { display: inline-flex; width: fit-content; padding: 4px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; }
-.role-admin { background: #ede9fe; color: #6d28d9; }
-.role-dispatcher { background: #dbeafe; color: #1d4ed8; }
-.role-driver { background: #dcfce7; color: #15803d; }
-.role-mechanic { background: #ffedd5; color: #c2410c; }
-.inline-actions { display: flex; justify-content: flex-end; gap: 6px; }
-.icon-button { border: none; background: transparent; width: 34px; height: 34px; border-radius: 10px; cursor: pointer; color: #2563eb; }
-.icon-button:hover { background: #eff6ff; }
-.icon-button.danger { color: #dc2626; }
-.icon-button.danger:hover { background: #fee2e2; }
-.empty-cell { text-align: center !important; color: #64748b; padding: 48px !important; background: #fff !important; border-radius: 12px !important; }
-.page-error { padding: 12px 14px; border: 1px solid #fecaca; border-radius: 12px; background: #fef2f2; color: #b91c1c; }
-.table-footer { display: flex; align-items: center; justify-content: flex-end; gap: 14px; flex-wrap: wrap; padding-top: 14px; border-top: 1px solid #e5e7eb; }
-.page-size { display: inline-flex; align-items: center; gap: 8px; color: #64748b; font-size: 13px; font-weight: 600; }
-.page-size select { width: 86px; min-height: 36px; height: 36px; }
-.pager-info { color: #64748b; font-size: 13px; font-weight: 600; }
-.pager-actions { display: inline-flex; gap: 6px; }
-.pager-button { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #dfe3ea; border-radius: 10px; background: #fff; color: #334155; cursor: pointer; }
-.pager-button:disabled { opacity: 0.5; cursor: not-allowed; }
-@media (max-width: 900px) { .toolbar, .record-form { grid-template-columns: 1fr; } .records-header { align-items: stretch; flex-direction: column; } }
-</style>
+<style scoped src="./page_styles/Expenses.css"></style>

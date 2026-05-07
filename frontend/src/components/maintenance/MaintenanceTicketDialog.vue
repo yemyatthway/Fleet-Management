@@ -172,20 +172,4 @@ const submit = () => {
 
 <style scoped src="../roles/roles_styles/RoleDialog.css"></style>
 
-<style scoped>
-.ticket-form {
-  gap: 18px;
-}
-
-.field-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (max-width: 640px) {
-  .field-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>
+<style scoped src="./maintenance_styles/MaintenanceTicketDialog.css"></style>

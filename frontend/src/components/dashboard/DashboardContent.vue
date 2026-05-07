@@ -137,37 +137,4 @@ const loadSummary = async () => {
 onMounted(loadSummary)
 </script>
 
-<style scoped>
-.dashboard-content {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.grid {
-  display: grid;
-  gap: 24px;
-}
-
-.graph-stack {
-  grid-template-columns: 1fr;
-}
-
-.dashboard-error {
-  padding: 12px 14px;
-  border: 1px solid #fecaca;
-  border-radius: 12px;
-  background: #fef2f2;
-  color: #b91c1c;
-}
-
-@media (max-width: 900px) {
-  .dashboard-content {
-    gap: 18px;
-  }
-
-  .grid {
-    gap: 18px;
-  }
-}
-</style>
+<style scoped src="./dashboard_styles/DashboardContent.css"></style>

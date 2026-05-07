@@ -255,8 +255,4 @@ const formatDateTime = (value) => {
 
 <style scoped src="./users_styles/UserTable.css"></style>
 
-<style scoped>
-.no-wrap-cell {
-  white-space: nowrap;
-}
-</style>
+<style scoped src="./users_styles/UserTableExtras.css"></style>

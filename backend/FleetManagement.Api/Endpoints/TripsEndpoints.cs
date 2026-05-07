@@ -5,6 +5,8 @@ using FleetManagement.Api.Email;
 using FleetManagement.Api.Models;
 using FleetManagement.Api.Security;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace FleetManagement.Api.Endpoints;
 
@@ -20,18 +22,27 @@ public static class TripsEndpoints
       string? search = null,
       string? status = null,
       string? tripType = null,
+      string? scope = null,
       string? sortBy = "id",
       string? sortOrder = "desc") =>
     {
       var query = db.Trips.Where(trip => trip.IsDeleted == 0).AsNoTracking().AsQueryable();
       var roleId = AuditLogWriter.GetRequestRoleId(request);
       var userName = request.Headers["X-Fleet-User-Name"].FirstOrDefault();
-      if (string.Equals(roleId, "driver", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(userName))
+      var normalizedScope = string.IsNullOrWhiteSpace(scope) ? "mine" : scope.Trim().ToLowerInvariant();
+      if (normalizedScope != "all" && !string.IsNullOrWhiteSpace(userName))
       {
         var normalizedUserName = userName.Trim().ToLower();
-        query = query.Where(trip =>
-          trip.DriverName.ToLower() == normalizedUserName ||
-          (trip.CoDriverName ?? string.Empty).ToLower() == normalizedUserName);
+        if (string.Equals(roleId, "driver", StringComparison.OrdinalIgnoreCase))
+        {
+          query = query.Where(trip =>
+            trip.DriverName.ToLower() == normalizedUserName ||
+            (trip.CoDriverName ?? string.Empty).ToLower() == normalizedUserName);
+        }
+        else if (string.Equals(roleId, "dispatcher", StringComparison.OrdinalIgnoreCase))
+        {
+          query = query.Where(trip => trip.DispatcherName.ToLower() == normalizedUserName);
+        }
       }
 
       if (!string.IsNullOrWhiteSpace(search))
@@ -88,6 +99,8 @@ public static class TripsEndpoints
 
       var validationError = ValidateTripRequest(request);
       if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+      var assignmentError = await ValidateVehicleDriverAssignmentAsync(db, request);
+      if (assignmentError is not null) return Results.BadRequest(new ApiError(assignmentError));
       var duplicate = await db.Trips.AnyAsync(trip => trip.IsDeleted == 0 && trip.TripNumber.ToLower() == request.TripNumber!.Trim().ToLower());
       if (duplicate) return Results.BadRequest(new ApiError("Trip number already exists."));
 
@@ -108,6 +121,8 @@ public static class TripsEndpoints
 
       var validationError = ValidateTripRequest(request);
       if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+      var assignmentError = await ValidateVehicleDriverAssignmentAsync(db, request);
+      if (assignmentError is not null) return Results.BadRequest(new ApiError(assignmentError));
       var trip = await db.Trips.FirstOrDefaultAsync(item => item.Id == id && item.IsDeleted == 0);
       if (trip is null) return Results.NotFound(new ApiError("Trip not found."));
       var duplicate = await db.Trips.AnyAsync(item => item.Id != id && item.IsDeleted == 0 && item.TripNumber.ToLower() == request.TripNumber!.Trim().ToLower());
@@ -206,8 +221,94 @@ public static class TripsEndpoints
     if (string.IsNullOrWhiteSpace(request.DropoffLocation)) return "Dropoff location is required.";
     if (string.IsNullOrWhiteSpace(request.DepartureDateTime)) return "Departure date and time is required.";
     if (string.IsNullOrWhiteSpace(request.EstimatedArrival)) return "Estimated arrival is required.";
+    if (request.LoadWeightKg <= 0) return "Load weight must be greater than 0 kg.";
+    if (request.LoadVolumeM3 < 0) return "Load volume cannot be negative.";
+    if (request.PlannedDistanceKm <= 0) return "Planned distance must be greater than 0 km.";
+    if (request.StartingOdometerKm < 0 || request.CurrentOdometerKm < 0) return "Odometer values cannot be negative.";
+    if (request.EndingOdometerKm.HasValue && request.EndingOdometerKm.Value < 0) return "Ending odometer cannot be negative.";
+    if (request.FuelIssuedLiters < 0) return "Fuel issued cannot be negative.";
+    if (request.TollEstimate < 0) return "Toll estimate cannot be negative.";
+    if (DateTime.TryParse(request.DepartureDateTime, out var departure) &&
+        DateTime.TryParse(request.EstimatedArrival, out var eta) &&
+        eta < departure)
+    {
+      return "Estimated arrival cannot be earlier than departure.";
+    }
+
+    if (!DateTime.TryParse(request.DepartureDateTime, out _)) return "Departure date and time is invalid.";
+    if (!DateTime.TryParse(request.EstimatedArrival, out _)) return "Estimated arrival is invalid.";
+    if (!string.IsNullOrWhiteSpace(request.ActualArrival) && !DateTime.TryParse(request.ActualArrival, out _)) return "Actual arrival is invalid.";
     return null;
   }
+
+  private static async Task<string?> ValidateVehicleDriverAssignmentAsync(FleetDbContext db, TripRequest request)
+  {
+    var vehicleId = request.VehicleId!.Trim();
+    var driverName = request.DriverName!.Trim();
+    var vehicle = await db.Vehicles
+      .AsNoTracking()
+      .FirstOrDefaultAsync(item => item.IsDeleted == 0 && item.Id == vehicleId);
+
+    if (vehicle is null) return "Selected vehicle could not be found.";
+
+    if (string.IsNullOrWhiteSpace(vehicle.Driver))
+    {
+      return "Selected vehicle has no assigned driver. Assign a driver to the vehicle before creating a trip.";
+    }
+
+    if (!string.Equals(vehicle.Driver.Trim(), driverName, StringComparison.OrdinalIgnoreCase))
+    {
+      return "Selected driver is not assigned to the selected vehicle.";
+    }
+
+    var capacity = ParseVehicleCapacity(vehicle.Capacity);
+    if (capacity.WeightKg.HasValue && request.LoadWeightKg > capacity.WeightKg.Value)
+    {
+      return $"Load weight {request.LoadWeightKg:0.##} kg is higher than {vehicle.Id}'s capacity ({vehicle.Capacity}). Choose another vehicle.";
+    }
+
+    if (capacity.VolumeM3.HasValue && request.LoadVolumeM3 > capacity.VolumeM3.Value)
+    {
+      return $"Load volume {request.LoadVolumeM3:0.##} m3 is higher than {vehicle.Id}'s capacity ({vehicle.Capacity}). Choose another vehicle.";
+    }
+
+    return null;
+  }
+
+  private static VehicleCapacity ParseVehicleCapacity(string? capacity)
+  {
+    var text = capacity?.Trim() ?? string.Empty;
+    if (text.Length == 0) return new VehicleCapacity(null, null);
+
+    var tonsMatch = Regex.Match(text, @"(\d+(?:\.\d+)?)\s*(?:tons?|tonnes?|t)\b", RegexOptions.IgnoreCase);
+    var kgMatch = Regex.Match(text, @"(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilograms?)\b", RegexOptions.IgnoreCase);
+    var volumeMatch = Regex.Match(text, @"(\d+(?:\.\d+)?)\s*(?:m3|m³|cbm|cubic\s*meters?)\b", RegexOptions.IgnoreCase);
+    var numberMatch = Regex.Match(text, @"(\d+(?:\.\d+)?)", RegexOptions.IgnoreCase);
+
+    decimal? weightKg = null;
+    if (tonsMatch.Success && decimal.TryParse(tonsMatch.Groups[1].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var tons))
+    {
+      weightKg = tons * 1000;
+    }
+    else if (kgMatch.Success && decimal.TryParse(kgMatch.Groups[1].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var kg))
+    {
+      weightKg = kg;
+    }
+    else if (numberMatch.Success && decimal.TryParse(numberMatch.Groups[1].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var number))
+    {
+      weightKg = number;
+    }
+
+    decimal? volumeM3 = null;
+    if (volumeMatch.Success && decimal.TryParse(volumeMatch.Groups[1].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var volume))
+    {
+      volumeM3 = volume;
+    }
+
+    return new VehicleCapacity(weightKg, volumeM3);
+  }
+
+  private sealed record VehicleCapacity(decimal? WeightKg, decimal? VolumeM3);
 
   private static Trip ApplyTripRequest(Trip trip, TripRequest request)
   {
