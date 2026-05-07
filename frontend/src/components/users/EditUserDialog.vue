@@ -26,7 +26,12 @@
         <div v-if="formStep === 1" class="form-section form-grid">
           <div class="field">
             <label class="required">Full Name</label>
-            <input v-model="form.name" type="text" placeholder="John Doe" required />
+            <input
+              v-model="form.name"
+              type="text"
+              placeholder="John Doe"
+              required
+            />
           </div>
           <div class="field full">
             <label class="required">NRC</label>
@@ -37,15 +42,27 @@
               pattern="\d{1,2}/[A-Za-z]+/\d{6}"
               required
             />
-            <div class="field-hint text-muted">Example Format: 9/ZaYaTha/111111</div>
+            <div class="field-hint text-muted">
+              Example Format: 9/ZaYaTha/111111
+            </div>
           </div>
           <div class="field">
             <label class="required">Email Address</label>
-            <input v-model="form.email" type="email" placeholder="john.doe@fleet.com" required />
+            <input
+              v-model="form.email"
+              type="email"
+              placeholder="john.doe@fleet.com"
+              required
+            />
           </div>
           <div class="field">
             <label class="required">Phone Number</label>
-            <input v-model.trim="form.phone" type="tel" placeholder="+1 (555) 123-4567" required />
+            <input
+              v-model.trim="form.phone"
+              type="tel"
+              placeholder="+1 (555) 123-4567"
+              required
+            />
           </div>
           <div class="field">
             <label class="required">Role</label>
@@ -59,7 +76,11 @@
             <label>Status</label>
             <select v-model="form.status">
               <option value="" disabled>Select status</option>
-              <option v-for="status in statusOptions" :key="status" :value="status">
+              <option
+                v-for="status in statusOptions"
+                :key="status"
+                :value="status"
+              >
                 {{ status }}
               </option>
             </select>
@@ -69,32 +90,61 @@
         <div v-if="formStep === 2" class="form-section form-grid">
           <div class="field">
             <label class="required">Job Title</label>
-            <input v-model="form.title" type="text" placeholder="Dispatcher" required />
+            <input
+              v-model="form.title"
+              type="text"
+              placeholder="Dispatcher"
+              required
+            />
           </div>
           <div class="field">
             <label class="required">Department</label>
             <select v-model="form.department" required>
               <option value="" disabled>Select department</option>
-              <option v-for="department in departmentChoices" :key="department" :value="department">
+              <option
+                v-for="department in departmentChoices"
+                :key="department"
+                :value="department"
+              >
                 {{ department }}
               </option>
             </select>
           </div>
           <div class="field">
             <label class="required">Location / Depot</label>
-            <input v-model="form.location" type="text" placeholder="North Depot" required />
+            <input
+              v-model="form.location"
+              type="text"
+              placeholder="North Depot"
+              required
+            />
           </div>
           <div class="field">
             <label class="required">Manager</label>
-            <input v-model="form.manager" type="text" placeholder="Sarah Johnson" required />
+            <input
+              v-model="form.manager"
+              type="text"
+              placeholder="Sarah Johnson"
+              required
+            />
           </div>
           <div v-if="form.role === 'Driver'" class="field">
             <label class="required">License Number</label>
-            <input v-model="form.licenseNumber" type="text" placeholder="D1234567" required />
+            <input
+              v-model="form.licenseNumber"
+              type="text"
+              placeholder="D1234567"
+              required
+            />
           </div>
           <div v-if="form.role === 'Driver'" class="field">
             <label class="required">License Class</label>
-            <input v-model="form.licenseClass" type="text" placeholder="A" required />
+            <input
+              v-model="form.licenseClass"
+              type="text"
+              placeholder="A"
+              required
+            />
           </div>
           <div v-if="form.role === 'Driver'" class="field">
             <label class="required">License Expiry</label>
@@ -105,19 +155,39 @@
         <div v-if="formStep === 3" class="form-section form-grid">
           <div class="field">
             <label class="required">Emergency Contact Name</label>
-            <input v-model="form.emergencyContactName" type="text" placeholder="Jane Doe" required />
+            <input
+              v-model="form.emergencyContactName"
+              type="text"
+              placeholder="Jane Doe"
+              required
+            />
           </div>
           <div class="field">
             <label class="required">Emergency Contact Relation</label>
-            <input v-model="form.emergencyContactRelation" type="text" placeholder="Spouse" required />
+            <input
+              v-model="form.emergencyContactRelation"
+              type="text"
+              placeholder="Spouse"
+              required
+            />
           </div>
           <div class="field">
             <label class="required">Emergency Contact Phone</label>
-            <input v-model.trim="form.emergencyContactPhone" type="tel" placeholder="+1 (555) 222-3344" required />
+            <input
+              v-model.trim="form.emergencyContactPhone"
+              type="tel"
+              placeholder="+1 (555) 222-3344"
+              required
+            />
           </div>
           <div class="field">
             <label class="required">Address</label>
-            <input v-model="form.address" type="text" placeholder="120 Market St, Springfield, IL" required />
+            <input
+              v-model="form.address"
+              type="text"
+              placeholder="120 Market St, Springfield, IL"
+              required
+            />
           </div>
           <div class="field">
             <label>Last Login</label>
@@ -131,12 +201,21 @@
           </div>
           <div class="field full">
             <label>Notes</label>
-            <textarea v-model="form.notes" rows="3" placeholder="Optional notes"></textarea>
+            <textarea
+              v-model="form.notes"
+              rows="3"
+              placeholder="Optional notes"
+            ></textarea>
           </div>
           <div class="field full">
             <label class="required">Upload Profile Image</label>
             <div class="file-row">
-              <input ref="fileInput" type="file" accept="image/*" @change="handleAvatarUpload" />
+              <input
+                ref="fileInput"
+                type="file"
+                accept="image/*"
+                @change="handleAvatarUpload"
+              />
               <button
                 v-if="form.avatar"
                 class="icon-button ghost"
@@ -146,12 +225,22 @@
                 <v-icon icon="mdi-close" size="16" />
               </button>
             </div>
-            <img v-if="form.avatar" class="image-preview" :src="form.avatar" alt="Profile preview" />
+            <img
+              v-if="form.avatar"
+              class="image-preview"
+              :src="form.avatar"
+              alt="Profile preview"
+            />
           </div>
           <div class="field full">
             <label class="required">Upload NRC Front</label>
             <div class="file-row">
-              <input ref="nrcFrontInput" type="file" accept="image/*" @change="handleNrcFrontUpload" />
+              <input
+                ref="nrcFrontInput"
+                type="file"
+                accept="image/*"
+                @change="handleNrcFrontUpload"
+              />
               <button
                 v-if="form.nrcFront"
                 class="icon-button ghost"
@@ -161,12 +250,22 @@
                 <v-icon icon="mdi-close" size="16" />
               </button>
             </div>
-            <img v-if="form.nrcFront" class="image-preview document-preview" :src="form.nrcFront" alt="NRC front preview" />
+            <img
+              v-if="form.nrcFront"
+              class="image-preview document-preview"
+              :src="form.nrcFront"
+              alt="NRC front preview"
+            />
           </div>
           <div class="field full">
             <label class="required">Upload NRC Back</label>
             <div class="file-row">
-              <input ref="nrcBackInput" type="file" accept="image/*" @change="handleNrcBackUpload" />
+              <input
+                ref="nrcBackInput"
+                type="file"
+                accept="image/*"
+                @change="handleNrcBackUpload"
+              />
               <button
                 v-if="form.nrcBack"
                 class="icon-button ghost"
@@ -176,15 +275,32 @@
                 <v-icon icon="mdi-close" size="16" />
               </button>
             </div>
-            <img v-if="form.nrcBack" class="image-preview document-preview" :src="form.nrcBack" alt="NRC back preview" />
+            <img
+              v-if="form.nrcBack"
+              class="image-preview document-preview"
+              :src="form.nrcBack"
+              alt="NRC back preview"
+            />
           </div>
         </div>
 
         <p v-if="formError" class="form-error">{{ formError }}</p>
         <div class="dialog-actions">
           <button class="ghost" type="button" @click="close">Cancel</button>
-          <button v-if="formStep > 1" class="ghost" type="button" @click="formStep -= 1">Back</button>
-          <button v-if="formStep < formSteps.length" class="primary" type="button" @click="goNext">
+          <button
+            v-if="formStep > 1"
+            class="ghost"
+            type="button"
+            @click="formStep -= 1"
+          >
+            Back
+          </button>
+          <button
+            v-if="formStep < formSteps.length"
+            class="primary"
+            type="button"
+            @click="goNext"
+          >
             Next
           </button>
           <button v-else class="primary" type="submit">Save Changes</button>
@@ -195,310 +311,324 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from "vue";
 
 const props = defineProps({
   open: {
     type: Boolean,
-    default: false
+    default: false,
   },
   user: {
     type: Object,
-    default: null
+    default: null,
   },
   roles: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   departments: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   statuses: {
     type: Array,
-    default: () => []
-  }
-})
+    default: () => [],
+  },
+});
 
-const emit = defineEmits(['close', 'save'])
+const emit = defineEmits(["close", "save"]);
 
-const roleOptions = computed(() => props.roles.length ? props.roles : ['Driver'])
+const roleOptions = computed(() =>
+  props.roles.length ? props.roles : ["Driver"],
+);
 const defaultRole = computed(() =>
-  roleOptions.value.includes('Driver') ? 'Driver' : roleOptions.value[0] || 'Driver'
-)
+  roleOptions.value.includes("Driver")
+    ? "Driver"
+    : roleOptions.value[0] || "Driver",
+);
 const departmentChoices = computed(() => {
-  const values = new Set(props.departments)
-  if (props.user?.department) values.add(props.user.department)
-  return [...values]
-})
+  const values = new Set(props.departments);
+  if (props.user?.department) values.add(props.user.department);
+  return [...values];
+});
 const statusOptions = computed(() => {
-  const options = props.statuses.filter(Boolean)
+  const options = props.statuses.filter(Boolean);
   if (form.status && !options.includes(form.status)) {
-    return [form.status, ...options]
+    return [form.status, ...options];
   }
-  return options
-})
+  return options;
+});
 
 const internalOpen = computed({
   get: () => props.open,
   set: (value) => {
-    if (!value) emit('close')
-  }
-})
+    if (!value) emit("close");
+  },
+});
 
 const form = reactive({
-  id: '',
-  name: '',
-  nrcNumber: '',
-  email: '',
+  id: "",
+  name: "",
+  nrcNumber: "",
+  email: "",
   role: defaultRole.value,
-  status: 'Active',
-  phone: '',
-  avatar: '',
-  nrcFront: '',
-  nrcBack: '',
-  department: '',
-  title: '',
-  location: '',
-  manager: '',
-  licenseNumber: '',
-  licenseClass: '',
-  licenseExpiry: '',
-  emergencyContactName: '',
-  emergencyContactRelation: '',
-  emergencyContactPhone: '',
-  address: '',
-  lastLogin: '',
+  status: "Active",
+  phone: "",
+  avatar: "",
+  nrcFront: "",
+  nrcBack: "",
+  department: "",
+  title: "",
+  location: "",
+  manager: "",
+  licenseNumber: "",
+  licenseClass: "",
+  licenseExpiry: "",
+  emergencyContactName: "",
+  emergencyContactRelation: "",
+  emergencyContactPhone: "",
+  address: "",
+  lastLogin: "",
   twoFactorEnabled: false,
-  notes: ''
-})
+  notes: "",
+});
 
-const formStep = ref(1)
+const formStep = ref(1);
 const formSteps = [
-  { id: 1, title: 'Profile' },
-  { id: 2, title: 'Work' },
-  { id: 3, title: 'Contacts & Docs' }
-]
+  { id: 1, title: "Profile" },
+  { id: 2, title: "Work" },
+  { id: 3, title: "Contacts & Docs" },
+];
 
-const fileInput = ref(null)
-const nrcFrontInput = ref(null)
-const nrcBackInput = ref(null)
-const formError = ref('')
-const avatarFile = ref(null)
-const nrcFrontFile = ref(null)
-const nrcBackFile = ref(null)
+const fileInput = ref(null);
+const nrcFrontInput = ref(null);
+const nrcBackInput = ref(null);
+const formError = ref("");
+const avatarFile = ref(null);
+const nrcFrontFile = ref(null);
+const nrcBackFile = ref(null);
 
 const reset = () => {
-  form.id = props.user?.id || ''
-  form.name = props.user?.name || ''
-  form.nrcNumber = normalizeNrcForInput(props.user?.nrcNumber || '')
-  form.email = props.user?.email || ''
-  form.role = props.user?.role || defaultRole.value
-  form.status = props.user?.status || props.statuses[0] || ''
-  form.phone = props.user?.phone || ''
-  form.avatar = props.user?.avatar || ''
-  form.nrcFront = props.user?.nrcFront || ''
-  form.nrcBack = props.user?.nrcBack || ''
-  form.department = props.user?.department || ''
-  form.title = props.user?.title || ''
-  form.location = props.user?.location || ''
-  form.manager = props.user?.manager || ''
-  form.licenseNumber = props.user?.licenseNumber || ''
-  form.licenseClass = props.user?.licenseClass || ''
-  form.licenseExpiry = props.user?.licenseExpiry || ''
-  form.emergencyContactName = props.user?.emergencyContactName || ''
-  form.emergencyContactRelation = props.user?.emergencyContactRelation || ''
-  form.emergencyContactPhone = props.user?.emergencyContactPhone || ''
-  form.address = props.user?.address || ''
-  form.lastLogin = props.user?.lastLogin ? props.user.lastLogin.replace('Z', '') : ''
-  form.twoFactorEnabled = props.user?.twoFactorEnabled || false
-  form.notes = props.user?.notes || ''
-  avatarFile.value = null
-  nrcFrontFile.value = null
-  nrcBackFile.value = null
-  if (fileInput.value) fileInput.value.value = ''
-  if (nrcFrontInput.value) nrcFrontInput.value.value = ''
-  if (nrcBackInput.value) nrcBackInput.value.value = ''
-  formStep.value = 1
-  formError.value = ''
-}
+  form.id = props.user?.id || "";
+  form.name = props.user?.name || "";
+  form.nrcNumber = normalizeNrcForInput(props.user?.nrcNumber || "");
+  form.email = props.user?.email || "";
+  form.role = props.user?.role || defaultRole.value;
+  form.status = props.user?.status || props.statuses[0] || "";
+  form.phone = props.user?.phone || "";
+  form.avatar = props.user?.avatar || "";
+  form.nrcFront = props.user?.nrcFront || "";
+  form.nrcBack = props.user?.nrcBack || "";
+  form.department = props.user?.department || "";
+  form.title = props.user?.title || "";
+  form.location = props.user?.location || "";
+  form.manager = props.user?.manager || "";
+  form.licenseNumber = props.user?.licenseNumber || "";
+  form.licenseClass = props.user?.licenseClass || "";
+  form.licenseExpiry = props.user?.licenseExpiry || "";
+  form.emergencyContactName = props.user?.emergencyContactName || "";
+  form.emergencyContactRelation = props.user?.emergencyContactRelation || "";
+  form.emergencyContactPhone = props.user?.emergencyContactPhone || "";
+  form.address = props.user?.address || "";
+  form.lastLogin = props.user?.lastLogin
+    ? props.user.lastLogin.replace("Z", "")
+    : "";
+  form.twoFactorEnabled = props.user?.twoFactorEnabled || false;
+  form.notes = props.user?.notes || "";
+  avatarFile.value = null;
+  nrcFrontFile.value = null;
+  nrcBackFile.value = null;
+  if (fileInput.value) fileInput.value.value = "";
+  if (nrcFrontInput.value) nrcFrontInput.value.value = "";
+  if (nrcBackInput.value) nrcBackInput.value.value = "";
+  formStep.value = 1;
+  formError.value = "";
+};
 
 watch(
   () => props.open,
   (value) => {
-    if (value) reset()
-  }
-)
+    if (value) reset();
+  },
+);
 
 watch(
   roleOptions,
   (value) => {
     if (!value.includes(form.role)) {
-      form.role = props.user?.role && value.includes(props.user.role) ? props.user.role : defaultRole.value
+      form.role =
+        props.user?.role && value.includes(props.user.role)
+          ? props.user.role
+          : defaultRole.value;
     }
   },
-  { immediate: true }
-)
+  { immediate: true },
+);
 
-const close = () => emit('close')
+const close = () => emit("close");
 
 const submit = () => {
-  const error = validate()
+  const error = validate();
   if (error) {
-    formError.value = error
-    return
+    formError.value = error;
+    return;
   }
-  formError.value = ''
-  emit('save', {
+  formError.value = "";
+  emit("save", {
     ...form,
     avatarFile: avatarFile.value,
     nrcFrontFile: nrcFrontFile.value,
-    nrcBackFile: nrcBackFile.value
-  })
-}
+    nrcBackFile: nrcBackFile.value,
+  });
+};
 
 const goNext = () => {
-  const error = validateStep(formStep.value)
+  const error = validateStep(formStep.value);
   if (error) {
-    formError.value = error
-    return
+    formError.value = error;
+    return;
   }
-  formError.value = ''
-  formStep.value = Math.min(formStep.value + 1, formSteps.length)
-}
+  formError.value = "";
+  formStep.value = Math.min(formStep.value + 1, formSteps.length);
+};
 
 const goToStep = (target) => {
   if (target <= formStep.value) {
-    formStep.value = target
-    formError.value = ''
-    return
+    formStep.value = target;
+    formError.value = "";
+    return;
   }
-  const error = validateStep(formStep.value)
+  const error = validateStep(formStep.value);
   if (error) {
-    formError.value = error
-    return
+    formError.value = error;
+    return;
   }
-  formError.value = ''
-  formStep.value = target
-}
+  formError.value = "";
+  formStep.value = target;
+};
 
-const NRC_PATTERN = /^\d{1,2}\/[A-Za-z]+\/\d{6}$/
-const OLD_NRC_PATTERN = /^(\d{1,2})\/([A-Za-z]+)\([A-Z]\)(\d{6})$/
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
-const PHONE_PATTERN = /^\+?[\d\s().-]{7,24}$/
+const NRC_PATTERN = /^\d{1,2}\/[A-Za-z]+\/\d{6}$/;
+const OLD_NRC_PATTERN = /^(\d{1,2})\/([A-Za-z]+)\([A-Z]\)(\d{6})$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const PHONE_PATTERN = /^\+?[\d\s().-]{7,24}$/;
 
 const normalizeNrcForInput = (value) => {
-  const oldFormatMatch = value.match(OLD_NRC_PATTERN)
-  if (!oldFormatMatch) return value
-  return `${oldFormatMatch[1]}/${oldFormatMatch[2]}/${oldFormatMatch[3]}`
-}
+  const oldFormatMatch = value.match(OLD_NRC_PATTERN);
+  if (!oldFormatMatch) return value;
+  return `${oldFormatMatch[1]}/${oldFormatMatch[2]}/${oldFormatMatch[3]}`;
+};
 
-const isValidNrc = (value) => NRC_PATTERN.test(value)
-const isValidEmail = (value) => EMAIL_PATTERN.test(value)
+const isValidNrc = (value) => NRC_PATTERN.test(value);
+const isValidEmail = (value) => EMAIL_PATTERN.test(value);
 const isValidPhone = (value) => {
-  const digits = value.replace(/\D/g, '')
-  return PHONE_PATTERN.test(value) && digits.length >= 7 && digits.length <= 15
-}
+  const digits = value.replace(/\D/g, "");
+  return PHONE_PATTERN.test(value) && digits.length >= 7 && digits.length <= 15;
+};
 
 const validate = () => {
-  const step1 = validateStep(1)
-  if (step1) return step1
-  const step2 = validateStep(2)
-  if (step2) return step2
-  const step3 = validateStep(3)
-  if (step3) return step3
-  return ''
-}
+  const step1 = validateStep(1);
+  if (step1) return step1;
+  const step2 = validateStep(2);
+  if (step2) return step2;
+  const step3 = validateStep(3);
+  if (step3) return step3;
+  return "";
+};
 
 const validateStep = (step) => {
   if (step === 1) {
-    if (!form.name) return 'Full name is required.'
-    if (!form.nrcNumber) return 'NRC is required.'
-    if (!isValidNrc(form.nrcNumber)) return 'NRC format must be like 9/ZaYaTha/111111.'
-    if (!form.email) return 'Email is required.'
-    if (!isValidEmail(form.email)) return 'Enter a valid email address.'
-    if (!form.phone) return 'Phone number is required.'
-    if (!isValidPhone(form.phone)) return 'Enter a valid phone number.'
-    if (!form.role) return 'Role is required.'
-    if (!form.status) return 'Status is required.'
-    return ''
+    if (!form.name) return "Full name is required.";
+    if (!form.nrcNumber) return "NRC is required.";
+    if (!isValidNrc(form.nrcNumber))
+      return "NRC format must be like 9/ZaYaTha/111111.";
+    if (!form.email) return "Email is required.";
+    if (!isValidEmail(form.email)) return "Enter a valid email address.";
+    if (!form.phone) return "Phone number is required.";
+    if (!isValidPhone(form.phone)) return "Enter a valid phone number.";
+    if (!form.role) return "Role is required.";
+    if (!form.status) return "Status is required.";
+    return "";
   }
   if (step === 2) {
-    if (!form.title) return 'Job title is required.'
-    if (!form.department) return 'Department is required.'
-    if (!form.location) return 'Location is required.'
-    if (!form.manager) return 'Manager is required.'
-    if (form.role === 'Driver') {
-      if (!form.licenseNumber) return 'License number is required for drivers.'
-      if (!form.licenseClass) return 'License class is required for drivers.'
-      if (!form.licenseExpiry) return 'License expiry is required for drivers.'
+    if (!form.title) return "Job title is required.";
+    if (!form.department) return "Department is required.";
+    if (!form.location) return "Location is required.";
+    if (!form.manager) return "Manager is required.";
+    if (form.role === "Driver") {
+      if (!form.licenseNumber) return "License number is required for drivers.";
+      if (!form.licenseClass) return "License class is required for drivers.";
+      if (!form.licenseExpiry) return "License expiry is required for drivers.";
     }
-    return ''
+    return "";
   }
   if (step === 3) {
-    if (!form.emergencyContactName) return 'Emergency contact name is required.'
-    if (!form.emergencyContactRelation) return 'Emergency contact relation is required.'
-    if (!form.emergencyContactPhone) return 'Emergency contact phone is required.'
-    if (!isValidPhone(form.emergencyContactPhone)) return 'Enter a valid emergency contact phone number.'
-    if (!form.address) return 'Address is required.'
-    if (!form.avatar) return 'Profile image is required.'
-    if (!form.nrcFront) return 'NRC front image is required.'
-    if (!form.nrcBack) return 'NRC back image is required.'
-    return ''
+    if (!form.emergencyContactName)
+      return "Emergency contact name is required.";
+    if (!form.emergencyContactRelation)
+      return "Emergency contact relation is required.";
+    if (!form.emergencyContactPhone)
+      return "Emergency contact phone is required.";
+    if (!isValidPhone(form.emergencyContactPhone))
+      return "Enter a valid emergency contact phone number.";
+    if (!form.address) return "Address is required.";
+    if (!form.avatar) return "Profile image is required.";
+    if (!form.nrcFront) return "NRC front image is required.";
+    if (!form.nrcBack) return "NRC back image is required.";
+    return "";
   }
-  return ''
-}
+  return "";
+};
 
 const handleAvatarUpload = (event) => {
-  const file = event.target.files?.[0]
-  if (!file) return
-  avatarFile.value = file
-  const reader = new FileReader()
+  const file = event.target.files?.[0];
+  if (!file) return;
+  avatarFile.value = file;
+  const reader = new FileReader();
   reader.onload = (e) => {
-    form.avatar = e.target?.result || ''
-  }
-  reader.readAsDataURL(file)
-}
+    form.avatar = e.target?.result || "";
+  };
+  reader.readAsDataURL(file);
+};
 
 const handleAvatarRemove = () => {
-  form.avatar = ''
-  avatarFile.value = null
-  if (fileInput.value) fileInput.value.value = ''
-}
+  form.avatar = "";
+  avatarFile.value = null;
+  if (fileInput.value) fileInput.value.value = "";
+};
 
 const handleNrcFrontUpload = (event) => {
-  const file = event.target.files?.[0]
-  if (!file) return
-  nrcFrontFile.value = file
-  const reader = new FileReader()
+  const file = event.target.files?.[0];
+  if (!file) return;
+  nrcFrontFile.value = file;
+  const reader = new FileReader();
   reader.onload = (e) => {
-    form.nrcFront = e.target?.result || ''
-  }
-  reader.readAsDataURL(file)
-}
+    form.nrcFront = e.target?.result || "";
+  };
+  reader.readAsDataURL(file);
+};
 
 const handleNrcBackUpload = (event) => {
-  const file = event.target.files?.[0]
-  if (!file) return
-  nrcBackFile.value = file
-  const reader = new FileReader()
+  const file = event.target.files?.[0];
+  if (!file) return;
+  nrcBackFile.value = file;
+  const reader = new FileReader();
   reader.onload = (e) => {
-    form.nrcBack = e.target?.result || ''
-  }
-  reader.readAsDataURL(file)
-}
+    form.nrcBack = e.target?.result || "";
+  };
+  reader.readAsDataURL(file);
+};
 
 const handleNrcFrontRemove = () => {
-  form.nrcFront = ''
-  nrcFrontFile.value = null
-  if (nrcFrontInput.value) nrcFrontInput.value.value = ''
-}
+  form.nrcFront = "";
+  nrcFrontFile.value = null;
+  if (nrcFrontInput.value) nrcFrontInput.value.value = "";
+};
 
 const handleNrcBackRemove = () => {
-  form.nrcBack = ''
-  nrcBackFile.value = null
-  if (nrcBackInput.value) nrcBackInput.value.value = ''
-}
+  form.nrcBack = "";
+  nrcBackFile.value = null;
+  if (nrcBackInput.value) nrcBackInput.value.value = "";
+};
 </script>
 
 <style scoped src="./users_styles/EditUserDialog.css"></style>

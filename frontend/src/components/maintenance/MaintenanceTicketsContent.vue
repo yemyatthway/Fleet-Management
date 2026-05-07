@@ -3,7 +3,9 @@
     <div class="page-header">
       <div>
         <h1 class="section-title">Maintenance Tickets</h1>
-        <p class="section-subtitle">Track vehicle issues and repair progress with the same admin workflow.</p>
+        <p class="section-subtitle">
+          Track vehicle issues and repair progress with the same admin workflow.
+        </p>
       </div>
     </div>
 
@@ -59,14 +61,23 @@
             <v-icon icon="mdi-filter-variant" />
             <select v-model="statusFilter">
               <option value="All">All Status</option>
-              <option v-for="status in statusOptions" :key="status" :value="status">
+              <option
+                v-for="status in statusOptions"
+                :key="status"
+                :value="status"
+              >
                 {{ status }}
               </option>
             </select>
           </div>
         </div>
 
-        <button v-if="canCreateTickets" class="primary-button" type="button" @click="openCreate">
+        <button
+          v-if="canCreateTickets"
+          class="primary-button"
+          type="button"
+          @click="openCreate"
+        >
           <v-icon icon="mdi-wrench" size="18" />
           Create Ticket
         </button>
@@ -75,7 +86,7 @@
       <div class="toolbar-count text-muted">
         {{
           loadingTickets
-            ? 'Loading tickets...'
+            ? "Loading tickets..."
             : `Showing ${tickets.length} of ${totalTickets} tickets`
         }}
       </div>
@@ -133,7 +144,12 @@ import PageMessage from "../common/PageMessage.vue";
 import { useConfirmDialog } from "../../composables/useConfirmDialog";
 import { useListPage } from "../../composables/useListPage";
 import { usePageMessage } from "../../composables/usePageMessage";
-import { canCreateModule, canDeleteModule, canEditModule, getCurrentUser } from "../../utils/authSession";
+import {
+  canCreateModule,
+  canDeleteModule,
+  canEditModule,
+  getCurrentUser,
+} from "../../utils/authSession";
 import {
   createMaintenanceTicket,
   deleteMaintenanceTicket,
@@ -150,7 +166,11 @@ const ALL_STATUS_FILTER = "All";
 
 const statusFilter = ref(ALL_STATUS_FILTER);
 const currentUser = computed(() => getCurrentUser());
-const currentRole = computed(() => String(currentUser.value?.roleId || currentUser.value?.role || "").toLowerCase());
+const currentRole = computed(() =>
+  String(
+    currentUser.value?.roleId || currentUser.value?.role || "",
+  ).toLowerCase(),
+);
 const showScopeFilter = computed(() => currentRole.value === "mechanic");
 const scopeFilter = ref(showScopeFilter.value ? "mine" : "all");
 const dialogOpen = ref(false);
@@ -176,7 +196,7 @@ const {
   confirmButton,
   confirmTone,
   openConfirm,
-  runConfirm
+  runConfirm,
 } = useConfirmDialog();
 
 const {
@@ -193,7 +213,8 @@ const {
       page,
       pageSize,
       search,
-      status: statusFilter.value === ALL_STATUS_FILTER ? "" : statusFilter.value,
+      status:
+        statusFilter.value === ALL_STATUS_FILTER ? "" : statusFilter.value,
       scope: scopeFilter.value,
       sortBy,
       sortOrder,
@@ -298,9 +319,12 @@ const handleSave = async (payload) => {
 };
 
 const advanceStatus = (ticket) => {
-  const statuses = statusOptions.value.length ? statusOptions.value : [ticket.status];
+  const statuses = statusOptions.value.length
+    ? statusOptions.value
+    : [ticket.status];
   const currentIndex = statuses.indexOf(ticket.status);
-  const nextStatus = statuses[(currentIndex + 1) % statuses.length] || ticket.status;
+  const nextStatus =
+    statuses[(currentIndex + 1) % statuses.length] || ticket.status;
 
   openConfirm({
     title: "Update Status?",
@@ -358,7 +382,11 @@ const deleteTicket = (ticket) => {
 };
 
 onMounted(async () => {
-  await Promise.all([loadMechanicOptions(), loadStatusOptions(), loadTickets()]);
+  await Promise.all([
+    loadMechanicOptions(),
+    loadStatusOptions(),
+    loadTickets(),
+  ]);
 });
 </script>
 

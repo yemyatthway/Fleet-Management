@@ -2,7 +2,7 @@
   <v-dialog v-model="internalOpen" max-width="760">
     <v-card class="dialog-card">
       <div class="dialog-header">
-        <h2>{{ mode === 'edit' ? 'Edit Location' : 'Create Location' }}</h2>
+        <h2>{{ mode === "edit" ? "Edit Location" : "Create Location" }}</h2>
         <button class="icon-button" type="button" @click="close">
           <v-icon icon="mdi-close" />
         </button>
@@ -12,12 +12,22 @@
         <div class="field-grid">
           <div class="field">
             <label class="required">Name</label>
-            <input v-model.trim="form.name" type="text" placeholder="Bago Main Warehouse" required />
+            <input
+              v-model.trim="form.name"
+              type="text"
+              placeholder="Bago Main Warehouse"
+              required
+            />
           </div>
 
           <div class="field">
             <label class="required">Code</label>
-            <input v-model.trim="form.code" type="text" placeholder="BG-WH-01" required />
+            <input
+              v-model.trim="form.code"
+              type="text"
+              placeholder="BG-WH-01"
+              required
+            />
           </div>
 
           <div class="field">
@@ -40,34 +50,63 @@
 
         <div class="field">
           <label class="required">Address</label>
-          <input v-model.trim="form.address" type="text" placeholder="No. 23, Main Road, Bago" required />
+          <input
+            v-model.trim="form.address"
+            type="text"
+            placeholder="No. 23, Main Road, Bago"
+            required
+          />
         </div>
 
         <div class="field-grid">
           <div class="field">
             <label class="required">City</label>
-            <input v-model.trim="form.city" type="text" placeholder="Bago" required />
+            <input
+              v-model.trim="form.city"
+              type="text"
+              placeholder="Bago"
+              required
+            />
           </div>
 
           <div class="field">
             <label class="required">Country</label>
-            <input v-model.trim="form.country" type="text" placeholder="Myanmar" required />
+            <input
+              v-model.trim="form.country"
+              type="text"
+              placeholder="Myanmar"
+              required
+            />
           </div>
 
           <div class="field">
             <label>Contact Person</label>
-            <input v-model.trim="form.contactPerson" type="text" placeholder="Ko Aung" />
+            <input
+              v-model.trim="form.contactPerson"
+              type="text"
+              placeholder="Ko Aung"
+            />
           </div>
 
           <div class="field">
             <label class="required">Phone</label>
-            <input v-model.trim="form.phone" type="text" placeholder="09-123456789" required />
+            <input
+              v-model.trim="form.phone"
+              type="text"
+              placeholder="09-123456789"
+              required
+            />
           </div>
         </div>
 
         <div class="field">
           <label class="required">Operating Hours</label>
-          <input v-model.trim="form.operatingHours" type="text" placeholder="08:00 - 18:00" required />
+          <input
+            v-model.trim="form.operatingHours"
+            type="text"
+            placeholder="08:00 - 18:00"
+            required
+          />
         </div>
 
         <div class="field">
@@ -83,7 +122,9 @@
 
         <div class="dialog-actions">
           <button class="ghost" type="button" @click="close">Cancel</button>
-          <button class="primary" type="submit">{{ mode === 'edit' ? 'Save Changes' : 'Create Location' }}</button>
+          <button class="primary" type="submit">
+            {{ mode === "edit" ? "Save Changes" : "Create Location" }}
+          </button>
         </div>
       </form>
     </v-card>
@@ -91,77 +132,77 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from "vue";
 
 const props = defineProps({
   open: {
     type: Boolean,
-    default: false
+    default: false,
   },
   mode: {
     type: String,
-    default: 'add'
+    default: "add",
   },
   item: {
     type: Object,
-    default: null
+    default: null,
   },
   locationTypes: {
     type: Array,
-    default: () => ['Warehouse', 'Depot', 'Hub', 'Yard', 'Office']
-  }
-})
+    default: () => ["Warehouse", "Depot", "Hub", "Yard", "Office"],
+  },
+});
 
-const emit = defineEmits(['close', 'save'])
+const emit = defineEmits(["close", "save"]);
 
 const internalOpen = computed({
   get: () => props.open,
   set: (value) => {
-    if (!value) emit('close')
-  }
-})
+    if (!value) emit("close");
+  },
+});
 
 const form = reactive({
-  id: '',
-  name: '',
-  code: '',
-  type: 'Warehouse',
-  address: '',
-  city: '',
-  country: 'Myanmar',
-  contactPerson: '',
-  phone: '',
-  operatingHours: '08:00 - 18:00',
-  status: 'Active',
-  notes: ''
-})
+  id: "",
+  name: "",
+  code: "",
+  type: "Warehouse",
+  address: "",
+  city: "",
+  country: "Myanmar",
+  contactPerson: "",
+  phone: "",
+  operatingHours: "08:00 - 18:00",
+  status: "Active",
+  notes: "",
+});
 
-const formError = ref('')
+const formError = ref("");
 
 const reset = () => {
-  form.id = props.item?.id || ''
-  form.name = props.item?.name || ''
-  form.code = props.item?.code || ''
-  form.type = props.item?.type || 'Warehouse'
-  form.address = props.item?.address || ''
-  form.city = props.item?.city || ''
-  form.country = props.item?.country || 'Myanmar'
-  form.contactPerson = props.item?.contactPerson || ''
-  form.phone = props.item?.phone || ''
-  form.operatingHours = props.item?.operatingHours || '08:00 - 18:00'
-  form.status = props.item?.status || 'Active'
-  form.notes = props.item?.notes || ''
-  formError.value = ''
-}
+  form.id = props.item?.id || "";
+  form.name = props.item?.name || "";
+  form.code = props.item?.code || "";
+  form.type = props.item?.type || "Warehouse";
+  form.address = props.item?.address || "";
+  form.city = props.item?.city || "";
+  form.country = props.item?.country || "Myanmar";
+  form.contactPerson = props.item?.contactPerson || "";
+  form.phone = props.item?.phone || "";
+  form.operatingHours = props.item?.operatingHours || "08:00 - 18:00";
+  form.status = props.item?.status || "Active";
+  form.notes = props.item?.notes || "";
+  formError.value = "";
+};
 
 watch(
   () => props.open,
   (value) => {
-    if (value) reset()
-  }
-)
+    if (value) reset();
+  },
+);
 
-const close = () => emit('close')
+const close = () => emit("close");
 
 const submit = () => {
   if (
@@ -174,13 +215,13 @@ const submit = () => {
     !form.phone ||
     !form.operatingHours
   ) {
-    formError.value = 'Please complete all required fields.'
-    return
+    formError.value = "Please complete all required fields.";
+    return;
   }
 
-  formError.value = ''
-  emit('save', { ...form })
-}
+  formError.value = "";
+  emit("save", { ...form });
+};
 </script>
 
 <style scoped src="../roles/roles_styles/RoleDialog.css"></style>

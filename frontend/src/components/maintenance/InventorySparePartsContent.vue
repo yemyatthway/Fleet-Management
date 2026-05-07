@@ -3,7 +3,9 @@
     <div class="page-header">
       <div>
         <h1 class="section-title">Inventory & Spare Parts</h1>
-        <p class="section-subtitle">Track stock levels, suppliers, and reorder points.</p>
+        <p class="section-subtitle">
+          Track stock levels, suppliers, and reorder points.
+        </p>
       </div>
     </div>
 
@@ -64,7 +66,11 @@
             <v-icon icon="mdi-shape-outline" />
             <select v-model="categoryFilter">
               <option value="All">All Categories</option>
-              <option v-for="category in categoryOptions" :key="category" :value="category">
+              <option
+                v-for="category in categoryOptions"
+                :key="category"
+                :value="category"
+              >
                 {{ category }}
               </option>
             </select>
@@ -79,7 +85,12 @@
             </select>
           </div>
 
-          <button v-if="canCreate" class="primary-button" type="button" @click="openPart">
+          <button
+            v-if="canCreate"
+            class="primary-button"
+            type="button"
+            @click="openPart"
+          >
             <v-icon icon="mdi-toolbox-outline" size="18" />
             Add Part
           </button>
@@ -108,7 +119,12 @@
         >
           <template #item.part="{ item }">
             <div class="part-cell">
-              <img v-if="item.image" class="part-image" :src="item.image" :alt="item.name" />
+              <img
+                v-if="item.image"
+                class="part-image"
+                :src="item.image"
+                :alt="item.name"
+              />
               <span v-else class="part-avatar">
                 <v-icon icon="mdi-cog-outline" size="18" />
               </span>
@@ -134,20 +150,34 @@
           </template>
 
           <template #item.unitCost="{ item }">
-            <span>{{ item.unitCost || '—' }}</span>
+            <span>{{ item.unitCost || "—" }}</span>
           </template>
 
           <template #item.actions="{ item }">
             <div class="inline-actions">
-              <button class="icon-button tooltip" type="button" @click="openPartDetails(item)">
+              <button
+                class="icon-button tooltip"
+                type="button"
+                @click="openPartDetails(item)"
+              >
                 <v-icon icon="mdi-eye-outline" size="18" />
                 <span class="tooltip-text">View details</span>
               </button>
-              <button v-if="canEdit" class="icon-button tooltip" type="button" @click="openPartEdit(item)">
+              <button
+                v-if="canEdit"
+                class="icon-button tooltip"
+                type="button"
+                @click="openPartEdit(item)"
+              >
                 <v-icon icon="mdi-pencil-outline" size="18" />
                 <span class="tooltip-text">Edit part</span>
               </button>
-              <button v-if="canDelete" class="icon-button danger tooltip" type="button" @click="deletePart(item.id)">
+              <button
+                v-if="canDelete"
+                class="icon-button danger tooltip"
+                type="button"
+                @click="deletePart(item.id)"
+              >
                 <v-icon icon="mdi-trash-can-outline" size="18" />
                 <span class="tooltip-text">Delete part</span>
               </button>
@@ -164,7 +194,9 @@
     <v-dialog v-model="partOpen" max-width="720">
       <div class="card-surface form-card">
         <div class="form-header">
-          <div class="form-title">{{ partMode === 'edit' ? 'Edit Spare Part' : 'Add Spare Part' }}</div>
+          <div class="form-title">
+            {{ partMode === "edit" ? "Edit Spare Part" : "Add Spare Part" }}
+          </div>
           <button class="icon-button" type="button" @click="partOpen = false">
             <v-icon icon="mdi-close" size="18" />
           </button>
@@ -175,38 +207,74 @@
         <div class="form-grid">
           <div class="form-field">
             <label>Part Name</label>
-            <input v-model="partForm.name" type="text" placeholder="e.g., Brake Pads" />
+            <input
+              v-model="partForm.name"
+              type="text"
+              placeholder="e.g., Brake Pads"
+            />
           </div>
           <div class="form-field">
             <label>Part Number</label>
-            <input v-model="partForm.partNo" type="text" placeholder="Part number" />
+            <input
+              v-model="partForm.partNo"
+              type="text"
+              placeholder="Part number"
+            />
           </div>
           <div class="form-field">
             <label>Category</label>
-            <input v-model="partForm.category" type="text" placeholder="e.g., Brakes" />
+            <input
+              v-model="partForm.category"
+              type="text"
+              placeholder="e.g., Brakes"
+            />
           </div>
           <div class="form-field">
             <label>Supplier</label>
             <select v-model="partForm.supplier">
               <option value="">Select supplier</option>
-              <option v-for="supplier in supplierOptions" :key="supplier" :value="supplier">{{ supplier }}</option>
+              <option
+                v-for="supplier in supplierOptions"
+                :key="supplier"
+                :value="supplier"
+              >
+                {{ supplier }}
+              </option>
             </select>
           </div>
           <div class="form-field">
             <label>Stock On Hand</label>
-            <input v-model="partForm.stock" type="number" min="0" placeholder="0" />
+            <input
+              v-model="partForm.stock"
+              type="number"
+              min="0"
+              placeholder="0"
+            />
           </div>
           <div class="form-field">
             <label>Reorder Point</label>
-            <input v-model="partForm.reorderPoint" type="number" min="0" placeholder="0" />
+            <input
+              v-model="partForm.reorderPoint"
+              type="number"
+              min="0"
+              placeholder="0"
+            />
           </div>
           <div class="form-field">
             <label>Unit Cost</label>
-            <input v-model="partForm.unitCost" type="text" placeholder="e.g., $42" />
+            <input
+              v-model="partForm.unitCost"
+              type="text"
+              placeholder="e.g., $42"
+            />
           </div>
           <div class="form-field">
             <label>Location / Bin</label>
-            <input v-model="partForm.location" type="text" placeholder="e.g., Bay 2 / Rack B" />
+            <input
+              v-model="partForm.location"
+              type="text"
+              placeholder="e.g., Bay 2 / Rack B"
+            />
           </div>
           <div class="form-field">
             <label>Part Image</label>
@@ -219,9 +287,16 @@
         </div>
 
         <div class="form-actions">
-          <button class="ghost-button" type="button" @click="partOpen = false">Cancel</button>
-          <button class="primary-button" type="button" :disabled="saving" @click="savePart">
-            {{ partMode === 'edit' ? 'Save Changes' : 'Save Part' }}
+          <button class="ghost-button" type="button" @click="partOpen = false">
+            Cancel
+          </button>
+          <button
+            class="primary-button"
+            type="button"
+            :disabled="saving"
+            @click="savePart"
+          >
+            {{ partMode === "edit" ? "Save Changes" : "Save Part" }}
           </button>
         </div>
       </div>
@@ -232,24 +307,47 @@
         <div class="details-header">
           <div>
             <div class="details-title">{{ selectedPart.name }}</div>
-            <div class="details-subtitle text-muted">{{ selectedPart.partNo }}</div>
+            <div class="details-subtitle text-muted">
+              {{ selectedPart.partNo }}
+            </div>
           </div>
-          <button class="icon-button" type="button" @click="partDetailsOpen = false">
+          <button
+            class="icon-button"
+            type="button"
+            @click="partDetailsOpen = false"
+          >
             <v-icon icon="mdi-close" size="18" />
           </button>
         </div>
         <div class="details-grid">
           <div class="details-section">
             <h4>Stock</h4>
-            <div class="details-row"><span>On Hand</span><strong>{{ selectedPart.stock }}</strong></div>
-            <div class="details-row"><span>Reorder Point</span><strong>{{ selectedPart.reorderPoint }}</strong></div>
-            <div class="details-row"><span>Unit Cost</span><strong>{{ selectedPart.unitCost || '—' }}</strong></div>
+            <div class="details-row">
+              <span>On Hand</span><strong>{{ selectedPart.stock }}</strong>
+            </div>
+            <div class="details-row">
+              <span>Reorder Point</span
+              ><strong>{{ selectedPart.reorderPoint }}</strong>
+            </div>
+            <div class="details-row">
+              <span>Unit Cost</span
+              ><strong>{{ selectedPart.unitCost || "—" }}</strong>
+            </div>
           </div>
           <div class="details-section">
             <h4>Supplier</h4>
-            <div class="details-row"><span>Supplier</span><strong>{{ selectedPart.supplier || '—' }}</strong></div>
-            <div class="details-row"><span>Category</span><strong>{{ selectedPart.category || '—' }}</strong></div>
-            <div class="details-row"><span>Location</span><strong>{{ selectedPart.location || '—' }}</strong></div>
+            <div class="details-row">
+              <span>Supplier</span
+              ><strong>{{ selectedPart.supplier || "—" }}</strong>
+            </div>
+            <div class="details-row">
+              <span>Category</span
+              ><strong>{{ selectedPart.category || "—" }}</strong>
+            </div>
+            <div class="details-row">
+              <span>Location</span
+              ><strong>{{ selectedPart.location || "—" }}</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -268,243 +366,272 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import ConfirmDialog from '../common/ConfirmDialog.vue'
-import PageMessage from '../common/PageMessage.vue'
-import { usePageMessage } from '../../composables/usePageMessage'
-import { createInventoryPart, deleteInventoryPart, getInventoryParts, updateInventoryPart } from '../../services/inventoryPartsApi'
-import { suppliersApi } from '../../services/tripSetupApi'
-import { canCreateModule, canDeleteModule, canEditModule } from '../../utils/authSession'
+import { computed, onMounted, ref } from "vue";
+import ConfirmDialog from "../common/ConfirmDialog.vue";
+import PageMessage from "../common/PageMessage.vue";
+import { usePageMessage } from "../../composables/usePageMessage";
+import {
+  createInventoryPart,
+  deleteInventoryPart,
+  getInventoryParts,
+  updateInventoryPart,
+} from "../../services/inventoryPartsApi";
+import { suppliersApi } from "../../services/tripSetupApi";
+import {
+  canCreateModule,
+  canDeleteModule,
+  canEditModule,
+} from "../../utils/authSession";
 
-const moduleKey = 'inventory-parts'
-const parts = ref([])
-const loading = ref(false)
-const saving = ref(false)
-const pageError = ref('')
-const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage(4000)
-const supplierOptions = ref([])
-const canCreate = computed(() => canCreateModule(moduleKey))
-const canEdit = computed(() => canEditModule(moduleKey))
-const canDelete = computed(() => canDeleteModule(moduleKey))
+const moduleKey = "inventory-parts";
+const parts = ref([]);
+const loading = ref(false);
+const saving = ref(false);
+const pageError = ref("");
+const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage(4000);
+const supplierOptions = ref([]);
+const canCreate = computed(() => canCreateModule(moduleKey));
+const canEdit = computed(() => canEditModule(moduleKey));
+const canDelete = computed(() => canDeleteModule(moduleKey));
 
-const searchQuery = ref('')
-const categoryFilter = ref('All')
-const stockFilter = ref('All')
-const partOpen = ref(false)
-const partMode = ref('add')
-const partError = ref('')
-const partForm = ref({})
-const partDetailsOpen = ref(false)
-const selectedPart = ref(null)
-const confirmOpen = ref(false)
-const confirmTitle = ref('Are you sure?')
-const confirmMessage = ref('')
-const confirmButton = ref('Confirm')
-const confirmTone = ref('danger')
-const pendingAction = ref(() => {})
+const searchQuery = ref("");
+const categoryFilter = ref("All");
+const stockFilter = ref("All");
+const partOpen = ref(false);
+const partMode = ref("add");
+const partError = ref("");
+const partForm = ref({});
+const partDetailsOpen = ref(false);
+const selectedPart = ref(null);
+const confirmOpen = ref(false);
+const confirmTitle = ref("Are you sure?");
+const confirmMessage = ref("");
+const confirmButton = ref("Confirm");
+const confirmTone = ref("danger");
+const pendingAction = ref(() => {});
 
 const partHeaders = [
-  { title: 'Part', key: 'part', sortable: false },
-  { title: 'Part No.', key: 'partNo', sortable: false },
-  { title: 'Category', key: 'category', sortable: false },
-  { title: 'Stock', key: 'stock', sortable: false },
-  { title: 'Reorder', key: 'reorderPoint', sortable: false },
-  { title: 'Supplier', key: 'supplier', sortable: false },
-  { title: 'Unit Cost', key: 'unitCost', align: 'end', sortable: false },
-  { title: 'Actions', key: 'actions', align: 'end', sortable: false }
-]
+  { title: "Part", key: "part", sortable: false },
+  { title: "Part No.", key: "partNo", sortable: false },
+  { title: "Category", key: "category", sortable: false },
+  { title: "Stock", key: "stock", sortable: false },
+  { title: "Reorder", key: "reorderPoint", sortable: false },
+  { title: "Supplier", key: "supplier", sortable: false },
+  { title: "Unit Cost", key: "unitCost", align: "end", sortable: false },
+  { title: "Actions", key: "actions", align: "end", sortable: false },
+];
 
 const categoryOptions = computed(() =>
-  [...new Set(parts.value.map((part) => part.category).filter(Boolean))].sort()
-)
+  [...new Set(parts.value.map((part) => part.category).filter(Boolean))].sort(),
+);
 
-const lowStockCount = computed(() =>
-  parts.value.filter((part) => Number(part.stock) <= Number(part.reorderPoint)).length
-)
+const lowStockCount = computed(
+  () =>
+    parts.value.filter(
+      (part) => Number(part.stock) <= Number(part.reorderPoint),
+    ).length,
+);
 
 const inventoryValue = computed(() => {
   const value = parts.value.reduce((total, part) => {
-    const unitCost = Number(String(part.unitCost || '').replace(/[^0-9.]/g, '')) || 0
-    return total + unitCost * Number(part.stock || 0)
-  }, 0)
+    const unitCost =
+      Number(String(part.unitCost || "").replace(/[^0-9.]/g, "")) || 0;
+    return total + unitCost * Number(part.stock || 0);
+  }, 0);
 
-  return value.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0
-  })
-})
+  return value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+});
 
 const filteredParts = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase()
+  const query = searchQuery.value.trim().toLowerCase();
 
   return parts.value.filter((part) => {
-    const matchesSearch = !query || [
-      part.name,
-      part.partNo,
-      part.category,
-      part.supplier,
-      part.location
-    ].some((value) => String(value || '').toLowerCase().includes(query))
+    const matchesSearch =
+      !query ||
+      [
+        part.name,
+        part.partNo,
+        part.category,
+        part.supplier,
+        part.location,
+      ].some((value) =>
+        String(value || "")
+          .toLowerCase()
+          .includes(query),
+      );
 
-    const matchesCategory = categoryFilter.value === 'All' || part.category === categoryFilter.value
-    const isLowStock = Number(part.stock) <= Number(part.reorderPoint)
+    const matchesCategory =
+      categoryFilter.value === "All" || part.category === categoryFilter.value;
+    const isLowStock = Number(part.stock) <= Number(part.reorderPoint);
     const matchesStock =
-      stockFilter.value === 'All' ||
-      (stockFilter.value === 'Low' && isLowStock) ||
-      (stockFilter.value === 'Healthy' && !isLowStock)
+      stockFilter.value === "All" ||
+      (stockFilter.value === "Low" && isLowStock) ||
+      (stockFilter.value === "Healthy" && !isLowStock);
 
-    return matchesSearch && matchesCategory && matchesStock
-  })
-})
+    return matchesSearch && matchesCategory && matchesStock;
+  });
+});
 
 const stockClass = (part) =>
-  Number(part.stock) <= Number(part.reorderPoint) ? 'role-mechanic' : 'role-driver'
+  Number(part.stock) <= Number(part.reorderPoint)
+    ? "role-mechanic"
+    : "role-driver";
 
 const buildEmptyPart = () => ({
-  id: '',
-  name: '',
-  partNo: '',
-  category: '',
+  id: "",
+  name: "",
+  partNo: "",
+  category: "",
   stock: 0,
   reorderPoint: 0,
-  supplier: '',
-  unitCost: '',
-  location: '',
-  image: '',
+  supplier: "",
+  unitCost: "",
+  location: "",
+  image: "",
   imageFile: null,
-  removeImage: false
-})
+  removeImage: false,
+});
 
 const loadParts = async () => {
-  loading.value = true
-  pageError.value = ''
+  loading.value = true;
+  pageError.value = "";
   try {
-    parts.value = await getInventoryParts()
+    parts.value = await getInventoryParts();
   } catch (error) {
-    pageError.value = error.message || 'Could not load inventory parts.'
+    pageError.value = error.message || "Could not load inventory parts.";
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const loadSuppliers = async () => {
   try {
-    supplierOptions.value = await suppliersApi.options()
+    supplierOptions.value = await suppliersApi.options();
   } catch (error) {
-    console.error(error)
+    console.error(error);
   }
-}
+};
 
 const openPart = () => {
-  partMode.value = 'add'
-  partForm.value = buildEmptyPart()
-  partError.value = ''
-  partOpen.value = true
-}
+  partMode.value = "add";
+  partForm.value = buildEmptyPart();
+  partError.value = "";
+  partOpen.value = true;
+};
 
 const openPartEdit = (part) => {
-  partMode.value = 'edit'
-  partForm.value = { ...buildEmptyPart(), ...part, imageFile: null, removeImage: false }
-  partError.value = ''
-  partOpen.value = true
-}
+  partMode.value = "edit";
+  partForm.value = {
+    ...buildEmptyPart(),
+    ...part,
+    imageFile: null,
+    removeImage: false,
+  };
+  partError.value = "";
+  partOpen.value = true;
+};
 
 const openPartDetails = (part) => {
-  selectedPart.value = part
-  partDetailsOpen.value = true
-}
+  selectedPart.value = part;
+  partDetailsOpen.value = true;
+};
 
 const savePart = async () => {
   if (!partForm.value.name || !partForm.value.partNo) {
-    partError.value = 'Part name and part number are required.'
+    partError.value = "Part name and part number are required.";
     showPageMessage({
-      tone: 'error',
-      title: 'Part was not saved',
-      message: partError.value
-    })
-    return
+      tone: "error",
+      title: "Part was not saved",
+      message: partError.value,
+    });
+    return;
   }
-  saving.value = true
-  partError.value = ''
-  pageError.value = ''
+  saving.value = true;
+  partError.value = "";
+  pageError.value = "";
   try {
-    const isEdit = partMode.value === 'edit'
-    if (partMode.value === 'add') {
-      await createInventoryPart(partForm.value)
+    const isEdit = partMode.value === "edit";
+    if (partMode.value === "add") {
+      await createInventoryPart(partForm.value);
     } else {
-      await updateInventoryPart(partForm.value.id, partForm.value)
+      await updateInventoryPart(partForm.value.id, partForm.value);
     }
-    partOpen.value = false
-    await loadParts()
+    partOpen.value = false;
+    await loadParts();
     showPageMessage({
-      tone: 'success',
-      title: isEdit ? 'Part updated' : 'Part created',
-      message: isEdit ? 'Inventory part was updated successfully.' : 'Inventory part was created successfully.'
-    })
+      tone: "success",
+      title: isEdit ? "Part updated" : "Part created",
+      message: isEdit
+        ? "Inventory part was updated successfully."
+        : "Inventory part was created successfully.",
+    });
   } catch (error) {
-    partError.value = error.message || 'Could not save part.'
+    partError.value = error.message || "Could not save part.";
     showPageMessage({
-      tone: 'error',
-      title: 'Part was not saved',
-      message: partError.value
-    })
+      tone: "error",
+      title: "Part was not saved",
+      message: partError.value,
+    });
   } finally {
-    saving.value = false
+    saving.value = false;
   }
-}
+};
 
 const handleImageChange = (event) => {
-  partForm.value.imageFile = event.target.files?.[0] || null
-}
+  partForm.value.imageFile = event.target.files?.[0] || null;
+};
 
 const openConfirm = ({ title, message, confirmText, tone, action }) => {
-  confirmTitle.value = title
-  confirmMessage.value = message
-  confirmButton.value = confirmText
-  confirmTone.value = tone
-  pendingAction.value = action
-  confirmOpen.value = true
-}
+  confirmTitle.value = title;
+  confirmMessage.value = message;
+  confirmButton.value = confirmText;
+  confirmTone.value = tone;
+  pendingAction.value = action;
+  confirmOpen.value = true;
+};
 
 const runConfirm = () => {
-  pendingAction.value()
-  confirmOpen.value = false
-}
+  pendingAction.value();
+  confirmOpen.value = false;
+};
 
 const deletePart = (id) => {
-  const part = parts.value.find((item) => item.id === id)
-  if (!part) return
+  const part = parts.value.find((item) => item.id === id);
+  if (!part) return;
   openConfirm({
-    title: 'Delete Part?',
+    title: "Delete Part?",
     message: `This will permanently remove ${part.name}.`,
-    confirmText: 'Delete',
-    tone: 'danger',
+    confirmText: "Delete",
+    tone: "danger",
     action: async () => {
       try {
-        pageError.value = ''
-        await deleteInventoryPart(id)
-        await loadParts()
+        pageError.value = "";
+        await deleteInventoryPart(id);
+        await loadParts();
         showPageMessage({
-          tone: 'success',
-          title: 'Part deleted',
-          message: `${part.name} was deleted successfully.`
-        })
+          tone: "success",
+          title: "Part deleted",
+          message: `${part.name} was deleted successfully.`,
+        });
       } catch (error) {
-        pageError.value = error.message || 'Could not delete part.'
+        pageError.value = error.message || "Could not delete part.";
         showPageMessage({
-          tone: 'error',
-          title: 'Part was not deleted',
-          message: pageError.value
-        })
+          tone: "error",
+          title: "Part was not deleted",
+          message: pageError.value,
+        });
       }
-    }
-  })
-}
+    },
+  });
+};
 
 onMounted(async () => {
-  await Promise.all([loadParts(), loadSuppliers()])
-})
+  await Promise.all([loadParts(), loadSuppliers()]);
+});
 </script>
 
 <style scoped src="../roles/roles_styles/RoleManagementContent.css"></style>

@@ -25,17 +25,17 @@
         </template>
 
         <template #item.vehicle="{ item }">
-          <span class="text-muted">{{ item.vehicle || '-' }}</span>
+          <span class="text-muted">{{ item.vehicle || "-" }}</span>
         </template>
 
         <template #item.driver="{ item }">
-          <span>{{ item.driver || '-' }}</span>
+          <span>{{ item.driver || "-" }}</span>
         </template>
 
         <template #item.route="{ item }">
           <div class="route">
             <v-icon icon="mdi-map-marker" size="18" />
-            <span class="text-muted">{{ item.route || '-' }}</span>
+            <span class="text-muted">{{ item.route || "-" }}</span>
           </div>
         </template>
 
@@ -47,7 +47,9 @@
         </template>
 
         <template #item.details="{ item }">
-          <span class="text-muted">{{ item.details || `${item.duration || '-'} • ${item.distance || '-'}` }}</span>
+          <span class="text-muted">{{
+            item.details || `${item.duration || "-"} • ${item.distance || "-"}`
+          }}</span>
         </template>
 
         <template #no-data>
@@ -56,78 +58,93 @@
       </v-data-table>
     </div>
     <div class="table-footer">
-      <button v-if="linkTo" class="link-button" type="button" @click="goToLink">{{ linkLabel }}</button>
+      <button v-if="linkTo" class="link-button" type="button" @click="goToLink">
+        {{ linkLabel }}
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 
 const props = defineProps({
   trips: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   title: {
     type: String,
-    default: 'Recent Trips'
+    default: "Recent Trips",
   },
   subtitle: {
     type: String,
-    default: 'Latest fleet activity'
+    default: "Latest fleet activity",
   },
   firstColumnLabel: {
     type: String,
-    default: 'Trip ID'
+    default: "Trip ID",
   },
   emptyText: {
     type: String,
-    default: 'No recent trips found'
+    default: "No recent trips found",
   },
   linkLabel: {
     type: String,
-    default: 'View All Trips ->'
+    default: "View All Trips ->",
   },
   linkTo: {
     type: String,
-    default: '/trips'
-  }
-})
+    default: "/trips",
+  },
+});
 
-const currentPage = ref(1)
-const itemsPerPage = ref(5)
-const router = useRouter()
-const trips = computed(() => props.trips)
+const currentPage = ref(1);
+const itemsPerPage = ref(5);
+const router = useRouter();
+const trips = computed(() => props.trips);
 const headers = computed(() => [
-  { title: props.firstColumnLabel, key: 'tripNumber', sortable: false },
-  { title: 'Vehicle', key: 'vehicle', sortable: false },
-  { title: 'Driver', key: 'driver', sortable: false },
-  { title: 'Route', key: 'route', sortable: false },
-  { title: 'Status', key: 'status', sortable: false },
-  { title: 'Details', key: 'details', sortable: false }
-])
+  { title: props.firstColumnLabel, key: "tripNumber", sortable: false },
+  { title: "Vehicle", key: "vehicle", sortable: false },
+  { title: "Driver", key: "driver", sortable: false },
+  { title: "Route", key: "route", sortable: false },
+  { title: "Status", key: "status", sortable: false },
+  { title: "Details", key: "details", sortable: false },
+]);
 
 const goToLink = () => {
-  if (props.linkTo) router.push(props.linkTo)
-}
+  if (props.linkTo) router.push(props.linkTo);
+};
 
 const statusClass = (status) => {
-  const normalized = String(status || '').toLowerCase()
-  if (normalized === 'completed') return 'success'
-  if (normalized === 'ongoing' || normalized === 'in transit' || normalized === 'active') return 'info'
-  return 'warning'
-}
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "completed") return "success";
+  if (
+    normalized === "ongoing" ||
+    normalized === "in transit" ||
+    normalized === "active"
+  )
+    return "info";
+  return "warning";
+};
 
 const statusIcon = (status) => {
-  const normalized = String(status || '').toLowerCase()
-  if (normalized === 'completed') return 'mdi-check-circle-outline'
-  if (normalized === 'ongoing' || normalized === 'in transit' || normalized === 'active') return 'mdi-timer-outline'
-  return 'mdi-alert-circle-outline'
-}
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "completed") return "mdi-check-circle-outline";
+  if (
+    normalized === "ongoing" ||
+    normalized === "in transit" ||
+    normalized === "active"
+  )
+    return "mdi-timer-outline";
+  return "mdi-alert-circle-outline";
+};
 
-const formatStatus = (status) => String(status || '').charAt(0).toUpperCase() + String(status || '').slice(1)
+const formatStatus = (status) =>
+  String(status || "")
+    .charAt(0)
+    .toUpperCase() + String(status || "").slice(1);
 </script>
 
 <style scoped src="./dashboard_styles/RecentTripsTable.css"></style>

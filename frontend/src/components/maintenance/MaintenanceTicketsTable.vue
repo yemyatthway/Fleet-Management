@@ -62,7 +62,12 @@
 
         <template #item.actions="{ item }">
           <div class="inline-actions">
-            <button v-if="canEdit" class="icon-button tooltip" type="button" @click="$emit('edit', item)">
+            <button
+              v-if="canEdit"
+              class="icon-button tooltip"
+              type="button"
+              @click="$emit('edit', item)"
+            >
               <v-icon icon="mdi-pencil-outline" size="18" />
               <span class="tooltip-text">Edit ticket</span>
             </button>
@@ -76,7 +81,12 @@
               <v-icon icon="mdi-progress-wrench" size="18" />
               <span class="tooltip-text">Advance status</span>
             </button>
-            <button v-if="canDelete" class="icon-button danger tooltip" type="button" @click="$emit('remove', item)">
+            <button
+              v-if="canDelete"
+              class="icon-button danger tooltip"
+              type="button"
+              @click="$emit('remove', item)"
+            >
               <v-icon icon="mdi-trash-can-outline" size="18" />
               <span class="tooltip-text">Delete ticket</span>
             </button>
@@ -95,81 +105,85 @@
 const props = defineProps({
   items: {
     type: Array,
-    required: true
+    required: true,
   },
   total: {
     type: Number,
-    default: 0
+    default: 0,
   },
   loading: {
     type: Boolean,
-    default: false
+    default: false,
   },
   itemsPerPage: {
     type: Number,
-    default: 10
+    default: 10,
   },
   page: {
     type: Number,
-    default: 1
+    default: 1,
   },
   sortBy: {
     type: String,
-    default: 'reportedDate'
+    default: "reportedDate",
   },
   sortOrder: {
     type: String,
-    default: 'desc'
+    default: "desc",
   },
   canEdit: {
     type: Boolean,
-    default: false
+    default: false,
   },
   canDelete: {
     type: Boolean,
-    default: false
-  }
-})
+    default: false,
+  },
+});
 
-defineEmits(['edit', 'advance-status', 'remove', 'update:options'])
+defineEmits(["edit", "advance-status", "remove", "update:options"]);
 
 const headers = [
-  { title: 'No.', key: 'displayNumber', sortable: false },
-  { title: 'Ticket ID', key: 'id', sortable: false },
-  { title: 'Vehicle', key: 'vehicle', sortable: false },
-  { title: 'Issue', key: 'issue', sortable: false },
-  { title: 'Reported Date', key: 'reportedDate', sortable: false },
-  { title: 'Mechanic', key: 'mechanic', sortable: false },
-  { title: 'Status', key: 'status', sortable: false },
-  { title: 'Actions', key: 'actions', align: 'end', sortable: false }
-]
+  { title: "No.", key: "displayNumber", sortable: false },
+  { title: "Ticket ID", key: "id", sortable: false },
+  { title: "Vehicle", key: "vehicle", sortable: false },
+  { title: "Issue", key: "issue", sortable: false },
+  { title: "Reported Date", key: "reportedDate", sortable: false },
+  { title: "Mechanic", key: "mechanic", sortable: false },
+  { title: "Status", key: "status", sortable: false },
+  { title: "Actions", key: "actions", align: "end", sortable: false },
+];
 
 const rowNumber = (index) => {
-  const currentPage = Math.max(Number(props.page) || 1, 1)
-  const perPage = Math.max(Number(props.itemsPerPage) || 1, 1)
-  const startIndex = (currentPage - 1) * perPage
+  const currentPage = Math.max(Number(props.page) || 1, 1);
+  const perPage = Math.max(Number(props.itemsPerPage) || 1, 1);
+  const startIndex = (currentPage - 1) * perPage;
 
-  if (props.sortOrder === 'desc') {
-    return Math.max(props.total - startIndex - index, 1)
+  if (props.sortOrder === "desc") {
+    return Math.max(props.total - startIndex - index, 1);
   }
 
-  return startIndex + index + 1
-}
+  return startIndex + index + 1;
+};
 
-const initials = (name) => name.split(' ').map((part) => part[0]).join('')
+const initials = (name) =>
+  name
+    .split(" ")
+    .map((part) => part[0])
+    .join("");
 
 const formatDate = (value) =>
-  new Date(value).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  })
+  new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
 const statusClass = (status) => {
-  if (status === 'Completed') return 'role-driver'
-  if (status === 'Repairing') return 'role-dispatcher'
-  return 'role-mechanic'
-}
+  if (status === "Completed") return "role-driver";
+  if (status === "Repairing") return "role-dispatcher";
+  return "role-mechanic";
+};
 </script>
 
 <style scoped src="../roles/roles_styles/RoleTable.css"></style>

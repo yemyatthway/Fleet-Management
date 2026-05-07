@@ -31,7 +31,12 @@
         >
           <v-icon icon="mdi-alert-circle-outline" size="20" />
           <span>Maintenance</span>
-          <v-icon class="chevron" :class="{ open: maintenanceOpen }" icon="mdi-chevron-down" size="18" />
+          <v-icon
+            class="chevron"
+            :class="{ open: maintenanceOpen }"
+            icon="mdi-chevron-down"
+            size="18"
+          />
         </button>
         <div v-show="maintenanceOpen" class="nav-sublist">
           <button
@@ -57,7 +62,12 @@
         >
           <v-icon icon="mdi-account-group" size="20" />
           <span>User Management</span>
-          <v-icon class="chevron" :class="{ open: userOpen }" icon="mdi-chevron-down" size="18" />
+          <v-icon
+            class="chevron"
+            :class="{ open: userOpen }"
+            icon="mdi-chevron-down"
+            size="18"
+          />
         </button>
         <div v-show="userOpen" class="nav-sublist">
           <button
@@ -83,7 +93,12 @@
         >
           <v-icon icon="mdi-cog-outline" size="20" />
           <span>Setup</span>
-          <v-icon class="chevron" :class="{ open: setupOpen }" icon="mdi-chevron-down" size="18" />
+          <v-icon
+            class="chevron"
+            :class="{ open: setupOpen }"
+            icon="mdi-chevron-down"
+            size="18"
+          />
         </button>
         <div v-show="setupOpen" class="nav-sublist">
           <button
@@ -101,137 +116,294 @@
       </div>
     </nav>
 
-    <button class="profile-card" type="button" :class="{ active: route.path === '/profile' }" @click="navigateTo('/profile')">
-        <div class="avatar">{{ userInitials }}</div>
-        <div class="profile-info">
-        <div class="profile-name">{{ currentUser?.name || 'Fleet User' }}</div>
-        <div class="profile-email">{{ currentUser?.role || currentUser?.email || '' }}</div>
+    <button
+      class="profile-card"
+      type="button"
+      :class="{ active: route.path === '/profile' }"
+      @click="navigateTo('/profile')"
+    >
+      <div class="avatar">{{ userInitials }}</div>
+      <div class="profile-info">
+        <div class="profile-name">{{ currentUser?.name || "Fleet User" }}</div>
+        <div class="profile-email">
+          {{ currentUser?.role || currentUser?.email || "" }}
+        </div>
       </div>
     </button>
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { canViewModule, getCurrentUser } from '../../utils/authSession'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { canViewModule, getCurrentUser } from "../../utils/authSession";
 
-const SIDEBAR_SCROLL_KEY = 'fleet-sidebar-scroll-top'
+const SIDEBAR_SCROLL_KEY = "fleet-sidebar-scroll-top";
 
-const route = useRoute()
-const router = useRouter()
-const sidebarRef = ref(null)
+const route = useRoute();
+const router = useRouter();
+const sidebarRef = ref(null);
 
 const menuItems = [
-  { icon: 'mdi-view-dashboard', label: 'Dashboard', path: '/dashboard', module: 'dashboard' },
-  { icon: 'mdi-truck', label: 'Vehicles', path: '/vehicles', module: 'vehicles' },
-  { icon: 'mdi-map-marker', label: 'Trips', path: '/trips', module: 'trips' },
-  { icon: 'mdi-file-document-outline', label: 'Reports', path: '/reports', module: 'reports' },
-  { icon: 'mdi-cash-multiple', label: 'Expenses', path: '/expenses', module: 'expenses' }
-]
+  {
+    icon: "mdi-view-dashboard",
+    label: "Dashboard",
+    path: "/dashboard",
+    module: "dashboard",
+  },
+  {
+    icon: "mdi-truck",
+    label: "Vehicles",
+    path: "/vehicles",
+    module: "vehicles",
+  },
+  { icon: "mdi-map-marker", label: "Trips", path: "/trips", module: "trips" },
+  {
+    icon: "mdi-file-document-outline",
+    label: "Reports",
+    path: "/reports",
+    module: "reports",
+  },
+  {
+    icon: "mdi-cash-multiple",
+    label: "Expenses",
+    path: "/expenses",
+    module: "expenses",
+  },
+];
 
 const userItems = [
-  { icon: 'mdi-account-multiple', label: 'Users', path: '/users', module: 'users' },
-  { icon: 'mdi-shield-account', label: 'Roles', path: '/roles', module: 'roles' },
-  { icon: 'mdi-shield-key-outline', label: 'Permissions', path: '/permissions', module: 'permissions' },
-  { icon: 'mdi-history', label: 'Audit Logs', path: '/audit-logs', module: 'audit-logs' }
-]
+  {
+    icon: "mdi-account-multiple",
+    label: "Users",
+    path: "/users",
+    module: "users",
+  },
+  {
+    icon: "mdi-shield-account",
+    label: "Roles",
+    path: "/roles",
+    module: "roles",
+  },
+  {
+    icon: "mdi-shield-key-outline",
+    label: "Permissions",
+    path: "/permissions",
+    module: "permissions",
+  },
+  {
+    icon: "mdi-history",
+    label: "Audit Logs",
+    path: "/audit-logs",
+    module: "audit-logs",
+  },
+];
 
 const setupItems = [
-  { icon: 'mdi-domain', label: 'Department Setup', path: '/user-code-setup/departments', module: 'department-setup' },
-  { icon: 'mdi-map-marker-multiple', label: 'Location Setup', path: '/user-code-setup/locations', module: 'location-setup' },
-  { icon: 'mdi-map-marker-radius-outline', label: 'Location Type Setup', path: '/user-code-setup/location-types', module: 'location-type-setup' },
-  { icon: 'mdi-truck-cargo-container', label: 'Vehicle Type Setup', path: '/user-code-setup/vehicle-types', module: 'vehicle-type-setup' },
-  { icon: 'mdi-fuel', label: 'Fuel Type Setup', path: '/user-code-setup/fuel-types', module: 'fuel-type-setup' },
-  { icon: 'mdi-map-marker-path', label: 'Trip Type Setup', path: '/user-code-setup/trip-types', module: 'trip-type-setup' },
-  { icon: 'mdi-package-variant-closed', label: 'Cargo Type Setup', path: '/user-code-setup/cargo-types', module: 'cargo-type-setup' },
-  { icon: 'mdi-list-status', label: 'Status Setup', path: '/user-code-setup/statuses', module: 'status-setup' },
-  { icon: 'mdi-priority-high', label: 'Trip Priority Setup', path: '/user-code-setup/trip-priorities', module: 'trip-priority-setup' },
-  { icon: 'mdi-alert-decagram-outline', label: 'Incident Type Setup', path: '/user-code-setup/incident-types', module: 'incident-type-setup' },
-  { icon: 'mdi-alert-outline', label: 'Severity Setup', path: '/user-code-setup/severities', module: 'severity-setup' },
-  { icon: 'mdi-cash-multiple', label: 'Expense Type Setup', path: '/user-code-setup/expense-types', module: 'expense-type-setup' },
-  { icon: 'mdi-wrench-clock', label: 'Maintenance Type Setup', path: '/user-code-setup/maintenance-types', module: 'maintenance-type-setup' },
-  { icon: 'mdi-file-certificate-outline', label: 'Document Type Setup', path: '/user-code-setup/document-types', module: 'document-type-setup' },
-  { icon: 'mdi-storefront-outline', label: 'Supplier Setup', path: '/user-code-setup/suppliers', module: 'supplier-setup' }
-]
+  {
+    icon: "mdi-domain",
+    label: "Department Setup",
+    path: "/user-code-setup/departments",
+    module: "department-setup",
+  },
+  {
+    icon: "mdi-map-marker-multiple",
+    label: "Location Setup",
+    path: "/user-code-setup/locations",
+    module: "location-setup",
+  },
+  {
+    icon: "mdi-map-marker-radius-outline",
+    label: "Location Type Setup",
+    path: "/user-code-setup/location-types",
+    module: "location-type-setup",
+  },
+  {
+    icon: "mdi-truck-cargo-container",
+    label: "Vehicle Type Setup",
+    path: "/user-code-setup/vehicle-types",
+    module: "vehicle-type-setup",
+  },
+  {
+    icon: "mdi-fuel",
+    label: "Fuel Type Setup",
+    path: "/user-code-setup/fuel-types",
+    module: "fuel-type-setup",
+  },
+  {
+    icon: "mdi-map-marker-path",
+    label: "Trip Type Setup",
+    path: "/user-code-setup/trip-types",
+    module: "trip-type-setup",
+  },
+  {
+    icon: "mdi-package-variant-closed",
+    label: "Cargo Type Setup",
+    path: "/user-code-setup/cargo-types",
+    module: "cargo-type-setup",
+  },
+  {
+    icon: "mdi-list-status",
+    label: "Status Setup",
+    path: "/user-code-setup/statuses",
+    module: "status-setup",
+  },
+  {
+    icon: "mdi-priority-high",
+    label: "Trip Priority Setup",
+    path: "/user-code-setup/trip-priorities",
+    module: "trip-priority-setup",
+  },
+  {
+    icon: "mdi-alert-decagram-outline",
+    label: "Incident Type Setup",
+    path: "/user-code-setup/incident-types",
+    module: "incident-type-setup",
+  },
+  {
+    icon: "mdi-alert-outline",
+    label: "Severity Setup",
+    path: "/user-code-setup/severities",
+    module: "severity-setup",
+  },
+  {
+    icon: "mdi-cash-multiple",
+    label: "Expense Type Setup",
+    path: "/user-code-setup/expense-types",
+    module: "expense-type-setup",
+  },
+  {
+    icon: "mdi-wrench-clock",
+    label: "Maintenance Type Setup",
+    path: "/user-code-setup/maintenance-types",
+    module: "maintenance-type-setup",
+  },
+  {
+    icon: "mdi-file-certificate-outline",
+    label: "Document Type Setup",
+    path: "/user-code-setup/document-types",
+    module: "document-type-setup",
+  },
+  {
+    icon: "mdi-storefront-outline",
+    label: "Supplier Setup",
+    path: "/user-code-setup/suppliers",
+    module: "supplier-setup",
+  },
+];
 
 const maintenanceItems = [
-  { icon: 'mdi-wrench-outline', label: 'Tickets', path: '/maintenance', module: 'maintenance-tickets' },
-  { icon: 'mdi-toolbox-outline', label: 'Inventory & Parts', path: '/maintenance/inventory', module: 'inventory-parts' },
-  { icon: 'mdi-clipboard-alert-outline', label: 'Incidents', path: '/incidents', module: 'incidents' }
-]
+  {
+    icon: "mdi-wrench-outline",
+    label: "Tickets",
+    path: "/maintenance",
+    module: "maintenance-tickets",
+  },
+  {
+    icon: "mdi-toolbox-outline",
+    label: "Inventory & Parts",
+    path: "/maintenance/inventory",
+    module: "inventory-parts",
+  },
+  {
+    icon: "mdi-clipboard-alert-outline",
+    label: "Incidents",
+    path: "/incidents",
+    module: "incidents",
+  },
+];
 
-const isVisible = (item) => canViewModule(item.module)
-const visibleMenuItems = computed(() => menuItems.filter(isVisible))
-const visibleUserItems = computed(() => userItems.filter(isVisible))
-const visibleSetupItems = computed(() => setupItems.filter(isVisible))
-const visibleMaintenanceItems = computed(() => maintenanceItems.filter(isVisible))
-const currentUser = computed(() => getCurrentUser())
+const isVisible = (item) => canViewModule(item.module);
+const visibleMenuItems = computed(() => menuItems.filter(isVisible));
+const visibleUserItems = computed(() => userItems.filter(isVisible));
+const visibleSetupItems = computed(() => setupItems.filter(isVisible));
+const visibleMaintenanceItems = computed(() =>
+  maintenanceItems.filter(isVisible),
+);
+const currentUser = computed(() => getCurrentUser());
 const userInitials = computed(() =>
-  String(currentUser.value?.name || 'FU')
-    .split(' ')
+  String(currentUser.value?.name || "FU")
+    .split(" ")
     .map((part) => part[0])
-    .join('')
+    .join("")
     .slice(0, 2)
-    .toUpperCase()
-)
+    .toUpperCase(),
+);
 
-const isMaintenanceRoute = (path) => path.startsWith('/maintenance') || path === '/incidents'
+const isMaintenanceRoute = (path) =>
+  path.startsWith("/maintenance") || path === "/incidents";
 const isUserManagementRoute = (path) =>
-  path.startsWith('/users') || path.startsWith('/roles') || path.startsWith('/permissions') || path.startsWith('/audit-logs')
+  path.startsWith("/users") ||
+  path.startsWith("/roles") ||
+  path.startsWith("/permissions") ||
+  path.startsWith("/audit-logs");
 
-const maintenanceOpen = ref(isMaintenanceRoute(route.path))
-const userOpen = ref(isUserManagementRoute(route.path))
-const setupOpen = ref(route.path.startsWith('/user-code-setup'))
+const maintenanceOpen = ref(isMaintenanceRoute(route.path));
+const userOpen = ref(isUserManagementRoute(route.path));
+const setupOpen = ref(route.path.startsWith("/user-code-setup"));
 
 const saveSidebarScroll = () => {
-  if (!sidebarRef.value) return
-  sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(sidebarRef.value.scrollTop))
-}
+  if (!sidebarRef.value) return;
+  sessionStorage.setItem(
+    SIDEBAR_SCROLL_KEY,
+    String(sidebarRef.value.scrollTop),
+  );
+};
 
 const restoreSidebarScroll = () => {
   nextTick(() => {
     requestAnimationFrame(() => {
-      const storedScrollTop = Number(sessionStorage.getItem(SIDEBAR_SCROLL_KEY) || 0)
+      const storedScrollTop = Number(
+        sessionStorage.getItem(SIDEBAR_SCROLL_KEY) || 0,
+      );
       if (sidebarRef.value) {
-        sidebarRef.value.scrollTop = storedScrollTop
+        sidebarRef.value.scrollTop = storedScrollTop;
       }
-    })
-  })
-}
+    });
+  });
+};
 
 const navigateTo = (path) => {
-  saveSidebarScroll()
+  saveSidebarScroll();
   if (route.path !== path) {
-    router.push(path)
+    router.push(path);
   }
-}
+};
 
 watch(
   () => route.path,
   (path) => {
     if (isMaintenanceRoute(path)) {
-      maintenanceOpen.value = true
+      maintenanceOpen.value = true;
     }
     if (isUserManagementRoute(path)) {
-      userOpen.value = true
+      userOpen.value = true;
     }
-    if (path.startsWith('/user-code-setup')) {
-      setupOpen.value = true
+    if (path.startsWith("/user-code-setup")) {
+      setupOpen.value = true;
     }
-    restoreSidebarScroll()
-  }
-)
+    restoreSidebarScroll();
+  },
+);
 
 onMounted(() => {
-  restoreSidebarScroll()
-  sidebarRef.value?.addEventListener('scroll', saveSidebarScroll, { passive: true })
-})
+  restoreSidebarScroll();
+  sidebarRef.value?.addEventListener("scroll", saveSidebarScroll, {
+    passive: true,
+  });
+});
 
 onBeforeUnmount(() => {
-  saveSidebarScroll()
-  sidebarRef.value?.removeEventListener('scroll', saveSidebarScroll)
-})
+  saveSidebarScroll();
+  sidebarRef.value?.removeEventListener("scroll", saveSidebarScroll);
+});
 </script>
 
 <style scoped src="./dashboard_styles/SidebarNav.css"></style>

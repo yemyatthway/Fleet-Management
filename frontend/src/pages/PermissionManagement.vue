@@ -4,9 +4,17 @@
       <div class="page-header">
         <div>
           <h1 class="section-title">Permission Management</h1>
-          <p class="section-subtitle">Control page access and actions for each fixed system role.</p>
+          <p class="section-subtitle">
+            Control page access and actions for each fixed system role.
+          </p>
         </div>
-        <button v-if="canEditPermissions" class="primary-button" type="button" :disabled="saving || loading" @click="savePermissions">
+        <button
+          v-if="canEditPermissions"
+          class="primary-button"
+          type="button"
+          :disabled="saving || loading"
+          @click="savePermissions"
+        >
           <v-icon icon="mdi-content-save-outline" size="18" />
           Save Permissions
         </button>
@@ -42,7 +50,11 @@
         <div class="toolbar-row">
           <div class="toolbar-search">
             <v-icon icon="mdi-magnify" />
-            <input v-model="searchQuery" type="text" placeholder="Search modules or categories..." />
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search modules or categories..."
+            />
             <button
               v-if="searchQuery"
               class="clear-button"
@@ -58,7 +70,11 @@
             <v-icon icon="mdi-filter-variant" />
             <select v-model="categoryFilter">
               <option value="All">All Categories</option>
-              <option v-for="category in categories" :key="category" :value="category">
+              <option
+                v-for="category in categories"
+                :key="category"
+                :value="category"
+              >
                 {{ category }}
               </option>
             </select>
@@ -66,7 +82,11 @@
         </div>
 
         <div class="toolbar-count text-muted">
-          {{ loading ? 'Loading permissions...' : `Showing ${filteredModules.length} of ${modules.length} modules` }}
+          {{
+            loading
+              ? "Loading permissions..."
+              : `Showing ${filteredModules.length} of ${modules.length} modules`
+          }}
         </div>
       </div>
 
@@ -83,7 +103,9 @@
             </thead>
             <tbody>
               <tr v-if="!loading && !filteredModules.length">
-                <td class="empty-state" :colspan="roles.length + 1">No modules found</td>
+                <td class="empty-state" :colspan="roles.length + 1">
+                  No modules found
+                </td>
               </tr>
               <tr v-for="module in filteredModules" :key="module.key">
                 <td class="module-cell">
@@ -92,12 +114,25 @@
                 </td>
                 <td v-for="role in roles" :key="`${module.key}-${role.id}`">
                   <div class="permission-switches">
-                    <label v-for="action in actions" :key="action.key" class="permission-toggle">
+                    <label
+                      v-for="action in actions"
+                      :key="action.key"
+                      class="permission-toggle"
+                    >
                       <input
                         type="checkbox"
                         :disabled="!canEditPermissions"
-                        :checked="getPermission(module.key, role.id, action.key)"
-                        @change="setPermission(module.key, role.id, action.key, $event.target.checked)"
+                        :checked="
+                          getPermission(module.key, role.id, action.key)
+                        "
+                        @change="
+                          setPermission(
+                            module.key,
+                            role.id,
+                            action.key,
+                            $event.target.checked,
+                          )
+                        "
                       />
                       <span>{{ action.label }}</span>
                     </label>
@@ -113,42 +148,46 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import DashboardLayout from '../layouts/DashboardLayout.vue'
-import PageMessage from '../components/common/PageMessage.vue'
-import { usePageMessage } from '../composables/usePageMessage'
-import { getPermissions, updatePermissions } from '../services/permissionsApi'
-import { canEditModule } from '../utils/authSession'
+import { computed, onMounted, ref } from "vue";
+import DashboardLayout from "../layouts/DashboardLayout.vue";
+import PageMessage from "../components/common/PageMessage.vue";
+import { usePageMessage } from "../composables/usePageMessage";
+import { getPermissions, updatePermissions } from "../services/permissionsApi";
+import { canEditModule } from "../utils/authSession";
 
 const actions = [
-  { key: 'canView', label: 'View' },
-  { key: 'canCreate', label: 'Create' },
-  { key: 'canEdit', label: 'Edit' },
-  { key: 'canDelete', label: 'Delete' }
-]
+  { key: "canView", label: "View" },
+  { key: "canCreate", label: "Create" },
+  { key: "canEdit", label: "Edit" },
+  { key: "canDelete", label: "Delete" },
+];
 
-const roles = ref([])
-const modules = ref([])
-const loading = ref(false)
-const saving = ref(false)
-const searchQuery = ref('')
-const categoryFilter = ref('All')
-const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage()
-const canEditPermissions = computed(() => canEditModule('permissions'))
+const roles = ref([]);
+const modules = ref([]);
+const loading = ref(false);
+const saving = ref(false);
+const searchQuery = ref("");
+const categoryFilter = ref("All");
+const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage();
+const canEditPermissions = computed(() => canEditModule("permissions"));
 
-const categories = computed(() => [...new Set(modules.value.map((module) => module.category))])
+const categories = computed(() => [
+  ...new Set(modules.value.map((module) => module.category)),
+]);
 
 const filteredModules = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase()
+  const query = searchQuery.value.trim().toLowerCase();
   return modules.value.filter((module) => {
-    const matchesCategory = categoryFilter.value === 'All' || module.category === categoryFilter.value
+    const matchesCategory =
+      categoryFilter.value === "All" ||
+      module.category === categoryFilter.value;
     const matchesSearch =
       !query ||
       module.name.toLowerCase().includes(query) ||
-      module.category.toLowerCase().includes(query)
-    return matchesCategory && matchesSearch
-  })
-})
+      module.category.toLowerCase().includes(query);
+    return matchesCategory && matchesSearch;
+  });
+});
 
 const enabledCount = computed(() =>
   modules.value.reduce(
@@ -158,43 +197,43 @@ const enabledCount = computed(() =>
         (permissionTotal, permission) =>
           permissionTotal +
           actions.filter((action) => Boolean(permission[action.key])).length,
-        0
+        0,
       ),
-    0
-  )
-)
+    0,
+  ),
+);
 
 const findPermission = (moduleKey, roleId) => {
-  const module = modules.value.find((item) => item.key === moduleKey)
-  return module?.permissions.find((permission) => permission.roleId === roleId)
-}
+  const module = modules.value.find((item) => item.key === moduleKey);
+  return module?.permissions.find((permission) => permission.roleId === roleId);
+};
 
 const getPermission = (moduleKey, roleId, action) =>
-  Boolean(findPermission(moduleKey, roleId)?.[action])
+  Boolean(findPermission(moduleKey, roleId)?.[action]);
 
 const setPermission = (moduleKey, roleId, action, value) => {
-  const permission = findPermission(moduleKey, roleId)
-  if (!permission) return
-  permission[action] = value
-}
+  const permission = findPermission(moduleKey, roleId);
+  if (!permission) return;
+  permission[action] = value;
+};
 
 const loadPermissions = async () => {
-  loading.value = true
-  clearPageMessage()
+  loading.value = true;
+  clearPageMessage();
   try {
-    const matrix = await getPermissions()
-    roles.value = matrix.roles || []
-    modules.value = matrix.modules || []
+    const matrix = await getPermissions();
+    roles.value = matrix.roles || [];
+    modules.value = matrix.modules || [];
   } catch (error) {
     showPageMessage({
-      tone: 'error',
-      title: 'Could not load permissions',
-      message: error.message
-    })
+      tone: "error",
+      title: "Could not load permissions",
+      message: error.message,
+    });
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const toPermissionPayload = () =>
   modules.value.flatMap((module) =>
@@ -204,36 +243,39 @@ const toPermissionPayload = () =>
       canView: Boolean(permission.canView),
       canCreate: Boolean(permission.canCreate),
       canEdit: Boolean(permission.canEdit),
-      canDelete: Boolean(permission.canDelete)
-    }))
-  )
+      canDelete: Boolean(permission.canDelete),
+    })),
+  );
 
 const savePermissions = async () => {
-  saving.value = true
-  clearPageMessage()
+  saving.value = true;
+  clearPageMessage();
   try {
-    const matrix = await updatePermissions(toPermissionPayload())
-    roles.value = matrix.roles || []
-    modules.value = matrix.modules || []
+    const matrix = await updatePermissions(toPermissionPayload());
+    roles.value = matrix.roles || [];
+    modules.value = matrix.modules || [];
     showPageMessage({
-      tone: 'success',
-      title: 'Permissions saved',
-      message: 'Role permissions have been updated.'
-    })
+      tone: "success",
+      title: "Permissions saved",
+      message: "Role permissions have been updated.",
+    });
   } catch (error) {
     showPageMessage({
-      tone: 'error',
-      title: 'Permissions were not saved',
-      message: error.message
-    })
+      tone: "error",
+      title: "Permissions were not saved",
+      message: error.message,
+    });
   } finally {
-    saving.value = false
+    saving.value = false;
   }
-}
+};
 
-onMounted(loadPermissions)
+onMounted(loadPermissions);
 </script>
 
-<style scoped src="../components/roles/roles_styles/RoleManagementContent.css"></style>
+<style
+  scoped
+  src="../components/roles/roles_styles/RoleManagementContent.css"
+></style>
 
 <style scoped src="./page_styles/PermissionManagement.css"></style>

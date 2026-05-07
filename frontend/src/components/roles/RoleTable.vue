@@ -24,7 +24,9 @@
 
         <template #item.name="{ item }">
           <div class="role-cell">
-            <div class="role-badge" :class="roleClass(item.name)">{{ item.name }}</div>
+            <div class="role-badge" :class="roleClass(item.name)">
+              {{ item.name }}
+            </div>
           </div>
         </template>
 
@@ -32,20 +34,25 @@
           <span class="text-muted">{{ item.description }}</span>
         </template>
 
-
         <template #item.members="{ item }">
           <strong>{{ item.members }}</strong>
         </template>
 
         <template #item.view="{ item }">
-          <button class="icon-button tooltip" type="button" @click="$emit('view', item)">
+          <button
+            class="icon-button tooltip"
+            type="button"
+            @click="$emit('view', item)"
+          >
             <v-icon icon="mdi-eye-outline" size="18" />
             <span class="tooltip-text">View members</span>
           </button>
         </template>
 
         <template #item.createdAt="{ item }">
-          <span class="text-muted">{{ formatDate(item.createdAt || item.updatedAt) }}</span>
+          <span class="text-muted">{{
+            formatDate(item.createdAt || item.updatedAt)
+          }}</span>
         </template>
 
         <template #no-data>
@@ -57,58 +64,58 @@
 </template>
 
 <script setup>
-import { roleClassFor } from '../../utils/roleClasses'
+import { roleClassFor } from "../../utils/roleClasses";
 
 const props = defineProps({
   roles: {
     type: Array,
-    required: true
+    required: true,
   },
   total: {
     type: Number,
-    default: 0
+    default: 0,
   },
   loading: {
     type: Boolean,
-    default: false
+    default: false,
   },
   itemsPerPage: {
     type: Number,
-    default: 10
+    default: 10,
   },
   page: {
     type: Number,
-    default: 1
+    default: 1,
   },
   sortBy: {
     type: String,
-    default: 'code'
+    default: "code",
   },
   sortOrder: {
     type: String,
-    default: 'asc'
-  }
-})
+    default: "asc",
+  },
+});
 
-defineEmits(['view', 'update:options'])
+defineEmits(["view", "update:options"]);
 
 const headers = [
-  { title: 'ID', key: 'code', sortable: false },
-  { title: 'Role', key: 'name', sortable: false },
-  { title: 'Description', key: 'description', sortable: false },
-  { title: 'Members', key: 'members', sortable: false },
-  { title: 'View', key: 'view', align: 'end', sortable: false },
-  { title: 'Created At', key: 'createdAt', sortable: false }
-]
+  { title: "ID", key: "code", sortable: false },
+  { title: "Role", key: "name", sortable: false },
+  { title: "Description", key: "description", sortable: false },
+  { title: "Members", key: "members", sortable: false },
+  { title: "View", key: "view", align: "end", sortable: false },
+  { title: "Created At", key: "createdAt", sortable: false },
+];
 
-const roleClass = (role) => roleClassFor(role)
+const roleClass = (role) => roleClassFor(role);
 
 const formatDate = (value) =>
-  new Date(value).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  })
+  new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 </script>
 
 <style scoped src="./roles_styles/RoleTable.css"></style>

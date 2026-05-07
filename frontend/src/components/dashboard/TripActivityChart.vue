@@ -20,7 +20,10 @@
           <span>{{ item.name }}</span>
         </div>
         <div class="bar-track">
-          <div class="bar-fill" :style="{ width: `${item.percent}%`, background: item.color }"></div>
+          <div
+            class="bar-fill"
+            :style="{ width: `${item.percent}%`, background: item.color }"
+          ></div>
         </div>
         <div class="bar-value">{{ item.value }}</div>
       </div>
@@ -30,41 +33,45 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed } from "vue";
 
 const props = defineProps({
   statuses: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   title: {
     type: String,
-    default: 'Trip Activity'
+    default: "Trip Activity",
   },
   subtitle: {
     type: String,
-    default: 'Trip totals by status'
+    default: "Trip totals by status",
   },
   totalLabel: {
     type: String,
-    default: 'Total Trips'
+    default: "Total Trips",
   },
   unitLabel: {
     type: String,
-    default: 'trips'
-  }
-})
+    default: "trips",
+  },
+});
 
-const palette = ['#2563eb', '#10b981', '#ef4444', '#f59e0b', '#7c3aed']
-const total = computed(() => props.statuses.reduce((sum, item) => sum + Number(item.value || 0), 0))
+const palette = ["#2563eb", "#10b981", "#ef4444", "#f59e0b", "#7c3aed"];
+const total = computed(() =>
+  props.statuses.reduce((sum, item) => sum + Number(item.value || 0), 0),
+);
 const data = computed(() =>
   props.statuses.map((item, index) => ({
     name: item.name,
     value: Number(item.value || 0),
-    percent: total.value ? Math.round((Number(item.value || 0) / total.value) * 100) : 0,
-    color: palette[index % palette.length]
-  }))
-)
+    percent: total.value
+      ? Math.round((Number(item.value || 0) / total.value) * 100)
+      : 0,
+    color: palette[index % palette.length],
+  })),
+);
 </script>
 
 <style scoped src="./dashboard_styles/ChartCard.css"></style>

@@ -20,16 +20,28 @@
       </div>
 
       <div class="welcome">
-        <h2>{{ otpRequired ? 'Verify Login' : 'Welcome Back' }}</h2>
-        <p>{{ otpRequired ? otpMessage : 'Sign in to your account to continue' }}</p>
+        <h2>{{ otpRequired ? "Verify Login" : "Welcome Back" }}</h2>
+        <p>
+          {{ otpRequired ? otpMessage : "Sign in to your account to continue" }}
+        </p>
       </div>
 
-      <form v-if="!otpRequired" class="login-form" @submit.prevent="handleSubmit">
+      <form
+        v-if="!otpRequired"
+        class="login-form"
+        @submit.prevent="handleSubmit"
+      >
         <div class="field">
           <label for="email">Email Address</label>
           <div class="field-input">
             <v-icon icon="mdi-email-outline" />
-            <input id="email" v-model="email" type="email" placeholder="you@company.com" required />
+            <input
+              id="email"
+              v-model="email"
+              type="email"
+              placeholder="you@company.com"
+              required
+            />
           </div>
         </div>
 
@@ -37,7 +49,13 @@
           <label for="password">Password</label>
           <div class="field-input">
             <v-icon icon="mdi-lock-outline" />
-            <input id="password" v-model="password" type="password" placeholder="••••••••" required />
+            <input
+              id="password"
+              v-model="password"
+              type="password"
+              placeholder="••••••••"
+              required
+            />
           </div>
         </div>
 
@@ -46,11 +64,10 @@
             <input type="checkbox" v-model="rememberMe" />
             Remember me
           </label>
-          
         </div>
 
         <button class="submit" type="submit" :disabled="loading">
-          {{ loading ? 'Signing In...' : 'Sign In' }}
+          {{ loading ? "Signing In..." : "Sign In" }}
         </button>
         <p v-if="errorMessage" class="login-error">{{ errorMessage }}</p>
       </form>
@@ -60,14 +77,26 @@
           <label for="otp">Email OTP</label>
           <div class="field-input">
             <v-icon icon="mdi-shield-key-outline" />
-            <input id="otp" v-model="otpCode" inputmode="numeric" maxlength="6" placeholder="123456" required />
+            <input
+              id="otp"
+              v-model="otpCode"
+              inputmode="numeric"
+              maxlength="6"
+              placeholder="123456"
+              required
+            />
           </div>
         </div>
 
         <button class="submit" type="submit" :disabled="loading">
-          {{ loading ? 'Verifying...' : 'Verify & Sign In' }}
+          {{ loading ? "Verifying..." : "Verify & Sign In" }}
         </button>
-        <button class="secondary-submit" type="button" :disabled="loading" @click="resetOtp">
+        <button
+          class="secondary-submit"
+          type="button"
+          :disabled="loading"
+          @click="resetOtp"
+        >
           Back to sign in
         </button>
         <p v-if="errorMessage" class="login-error">{{ errorMessage }}</p>
@@ -79,81 +108,94 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { login, verifyOtp } from '../services/authApi'
-import { clearRememberedLogin, getRememberedLogin, setAuthSession, setRememberedLogin } from '../utils/authSession'
+import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
+import { login, verifyOtp } from "../services/authApi";
+import {
+  clearRememberedLogin,
+  getRememberedLogin,
+  setAuthSession,
+  setRememberedLogin,
+} from "../utils/authSession";
 
-const router = useRouter()
-const email = ref('')
-const password = ref('')
-const rememberMe = ref(false)
-const loading = ref(false)
-const errorMessage = ref('')
-const otpRequired = ref(false)
-const otpCode = ref('')
-const otpChallengeId = ref('')
-const otpMessage = ref('')
+const router = useRouter();
+const email = ref("");
+const password = ref("");
+const rememberMe = ref(false);
+const loading = ref(false);
+const errorMessage = ref("");
+const otpRequired = ref(false);
+const otpCode = ref("");
+const otpChallengeId = ref("");
+const otpMessage = ref("");
 
 const persistRememberedLogin = () => {
   if (rememberMe.value) {
-    setRememberedLogin(email.value)
+    setRememberedLogin(email.value);
   } else {
-    clearRememberedLogin()
+    clearRememberedLogin();
   }
-}
+};
 
 const handleSubmit = async () => {
-  loading.value = true
-  errorMessage.value = ''
+  loading.value = true;
+  errorMessage.value = "";
   try {
-    const session = await login({ email: email.value, password: password.value, rememberMe: rememberMe.value })
-    persistRememberedLogin()
+    const session = await login({
+      email: email.value,
+      password: password.value,
+      rememberMe: rememberMe.value,
+    });
+    persistRememberedLogin();
     if (session.requiresTwoFactor) {
-      otpRequired.value = true
-      otpChallengeId.value = session.challengeId
-      otpMessage.value = session.message || 'Enter the verification code sent to your email.'
-      return
+      otpRequired.value = true;
+      otpChallengeId.value = session.challengeId;
+      otpMessage.value =
+        session.message || "Enter the verification code sent to your email.";
+      return;
     }
-    setAuthSession(session, rememberMe.value)
-    router.push('/dashboard')
+    setAuthSession(session, rememberMe.value);
+    router.push("/dashboard");
   } catch (error) {
-    errorMessage.value = error.message
+    errorMessage.value = error.message;
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const handleOtpSubmit = async () => {
-  loading.value = true
-  errorMessage.value = ''
+  loading.value = true;
+  errorMessage.value = "";
   try {
-    const session = await verifyOtp({ challengeId: otpChallengeId.value, code: otpCode.value })
-    persistRememberedLogin()
-    setAuthSession(session, rememberMe.value)
-    router.push('/dashboard')
+    const session = await verifyOtp({
+      challengeId: otpChallengeId.value,
+      code: otpCode.value,
+    });
+    persistRememberedLogin();
+    setAuthSession(session, rememberMe.value);
+    router.push("/dashboard");
   } catch (error) {
-    errorMessage.value = error.message
+    errorMessage.value = error.message;
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const resetOtp = () => {
-  otpRequired.value = false
-  otpCode.value = ''
-  otpChallengeId.value = ''
-  otpMessage.value = ''
-  errorMessage.value = ''
-}
+  otpRequired.value = false;
+  otpCode.value = "";
+  otpChallengeId.value = "";
+  otpMessage.value = "";
+  errorMessage.value = "";
+};
 
 onMounted(() => {
-  const rememberedLogin = getRememberedLogin()
+  const rememberedLogin = getRememberedLogin();
   if (rememberedLogin?.email) {
-    email.value = rememberedLogin.email
-    rememberMe.value = true
+    email.value = rememberedLogin.email;
+    rememberMe.value = true;
   }
-})
+});
 </script>
 
 <style scoped src="./page_styles/Login.css"></style>

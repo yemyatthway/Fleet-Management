@@ -3,7 +3,9 @@
     <div class="page-header">
       <div>
         <h1 class="section-title">Department Setup</h1>
-        <p class="section-subtitle">Manage department master data used by user forms.</p>
+        <p class="section-subtitle">
+          Manage department master data used by user forms.
+        </p>
       </div>
     </div>
 
@@ -30,7 +32,11 @@
       <div class="toolbar-row">
         <div class="toolbar-search">
           <v-icon icon="mdi-magnify" />
-          <input v-model="searchQuery" type="text" placeholder="Search department name or description..." />
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search department name or description..."
+          />
           <button
             v-if="searchQuery"
             class="clear-button"
@@ -42,14 +48,23 @@
           </button>
         </div>
 
-        <button v-if="canCreateDepartments" class="primary-button" type="button" @click="openAdd">
+        <button
+          v-if="canCreateDepartments"
+          class="primary-button"
+          type="button"
+          @click="openAdd"
+        >
           <v-icon icon="mdi-plus" size="18" />
           Add Department
         </button>
       </div>
 
       <div class="toolbar-count text-muted">
-        {{ loadingDepartments ? 'Loading departments...' : `Showing ${departments.length} of ${totalDepartments} departments` }}
+        {{
+          loadingDepartments
+            ? "Loading departments..."
+            : `Showing ${departments.length} of ${totalDepartments} departments`
+        }}
       </div>
     </div>
 
@@ -96,31 +111,39 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import ConfirmDialog from '../common/ConfirmDialog.vue'
-import PageMessage from '../common/PageMessage.vue'
-import { useConfirmDialog } from '../../composables/useConfirmDialog'
-import { useListPage } from '../../composables/useListPage'
-import { usePageMessage } from '../../composables/usePageMessage'
-import { useReferenceMetrics } from '../../composables/useReferenceMetrics'
-import { attachDisplayIds } from '../../utils/tableDisplayIds'
-import { canCreateModule, canDeleteModule, canEditModule } from '../../utils/authSession'
+import { computed, ref } from "vue";
+import ConfirmDialog from "../common/ConfirmDialog.vue";
+import PageMessage from "../common/PageMessage.vue";
+import { useConfirmDialog } from "../../composables/useConfirmDialog";
+import { useListPage } from "../../composables/useListPage";
+import { usePageMessage } from "../../composables/usePageMessage";
+import { useReferenceMetrics } from "../../composables/useReferenceMetrics";
+import { attachDisplayIds } from "../../utils/tableDisplayIds";
+import {
+  canCreateModule,
+  canDeleteModule,
+  canEditModule,
+} from "../../utils/authSession";
 import {
   createDepartmentCodeOption,
   deleteDepartmentCodeOption,
   getDepartmentCodeOptions,
-  updateDepartmentCodeOption
-} from '../../services/departmentsApi'
-import DepartmentSetupDialog from './DepartmentSetupDialog.vue'
-import DepartmentSetupTable from './DepartmentSetupTable.vue'
+  updateDepartmentCodeOption,
+} from "../../services/departmentsApi";
+import DepartmentSetupDialog from "./DepartmentSetupDialog.vue";
+import DepartmentSetupTable from "./DepartmentSetupTable.vue";
 
-const dialogOpen = ref(false)
-const dialogMode = ref('add')
-const selectedDepartment = ref(null)
-const canCreateDepartments = computed(() => canCreateModule('department-setup'))
-const canEditDepartments = computed(() => canEditModule('department-setup'))
-const canDeleteDepartments = computed(() => canDeleteModule('department-setup'))
-const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage()
+const dialogOpen = ref(false);
+const dialogMode = ref("add");
+const selectedDepartment = ref(null);
+const canCreateDepartments = computed(() =>
+  canCreateModule("department-setup"),
+);
+const canEditDepartments = computed(() => canEditModule("department-setup"));
+const canDeleteDepartments = computed(() =>
+  canDeleteModule("department-setup"),
+);
+const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage();
 const {
   confirmOpen,
   confirmTitle,
@@ -128,8 +151,8 @@ const {
   confirmButton,
   confirmTone,
   openConfirm,
-  runConfirm
-} = useConfirmDialog()
+  runConfirm,
+} = useConfirmDialog();
 const {
   items: departments,
   total: totalDepartments,
@@ -137,97 +160,105 @@ const {
   tableOptions,
   loading: loadingDepartments,
   loadItems: loadDepartments,
-  handleTableOptions
+  handleTableOptions,
 } = useListPage({
   fetchPage: ({ page, pageSize, search, sortBy, sortOrder }) =>
     getDepartmentCodeOptions({ page, pageSize, search, sortBy, sortOrder }),
   clearPageMessage,
   showPageMessage,
-  errorTitle: 'Could not load departments'
-})
+  errorTitle: "Could not load departments",
+});
 const {
   activeCount: activeDepartments,
   disabledCount: disabledDepartments,
-  recentlyUpdatedCount: recentlyUpdatedDepartments
-} = useReferenceMetrics(departments)
+  recentlyUpdatedCount: recentlyUpdatedDepartments,
+} = useReferenceMetrics(departments);
 const tableDepartments = computed(() =>
   attachDisplayIds(
     departments.value,
     tableOptions.value.page,
     tableOptions.value.itemsPerPage,
     false,
-    () => 'DEP',
+    () => "DEP",
     {
       total: totalDepartments.value,
       sortBy: tableOptions.value.sortBy,
-      sortOrder: tableOptions.value.sortOrder
-    }
-  )
-)
+      sortOrder: tableOptions.value.sortOrder,
+    },
+  ),
+);
 
 const openAdd = () => {
-  dialogMode.value = 'add'
-  selectedDepartment.value = { status: 'Active' }
-  dialogOpen.value = true
-}
+  dialogMode.value = "add";
+  selectedDepartment.value = { status: "Active" };
+  dialogOpen.value = true;
+};
 
 const openEdit = (item) => {
-  dialogMode.value = 'edit'
-  selectedDepartment.value = { ...item }
-  dialogOpen.value = true
-}
+  dialogMode.value = "edit";
+  selectedDepartment.value = { ...item };
+  dialogOpen.value = true;
+};
 
 const handleSave = async (payload) => {
-  clearPageMessage()
-  const isEdit = dialogMode.value === 'edit'
+  clearPageMessage();
+  const isEdit = dialogMode.value === "edit";
 
   try {
     const savedDepartment = isEdit
       ? await updateDepartmentCodeOption(payload.id, payload)
-      : await createDepartmentCodeOption(payload)
+      : await createDepartmentCodeOption(payload);
 
     if (isEdit) {
       departments.value = departments.value.map((item) =>
-        item.id === savedDepartment.id ? savedDepartment : item
-      )
+        item.id === savedDepartment.id ? savedDepartment : item,
+      );
     } else {
-      await loadDepartments()
+      await loadDepartments();
     }
 
-    dialogOpen.value = false
+    dialogOpen.value = false;
     showPageMessage({
-      tone: 'success',
-      title: isEdit ? 'Department updated' : 'Department created',
-      message: `${savedDepartment.name} has been ${isEdit ? 'updated' : 'created'} successfully.`
-    })
+      tone: "success",
+      title: isEdit ? "Department updated" : "Department created",
+      message: `${savedDepartment.name} has been ${isEdit ? "updated" : "created"} successfully.`,
+    });
   } catch (error) {
-    showPageMessage({ tone: 'error', title: 'Department was not saved', message: error.message })
+    showPageMessage({
+      tone: "error",
+      title: "Department was not saved",
+      message: error.message,
+    });
   }
-}
+};
 
 const handleDelete = (item) => {
   openConfirm({
-    title: 'Delete Department?',
+    title: "Delete Department?",
     message: `This will permanently remove ${item.name}.`,
-    confirmText: 'Delete',
-    tone: 'danger',
+    confirmText: "Delete",
+    tone: "danger",
     action: async () => {
-      clearPageMessage()
+      clearPageMessage();
 
       try {
-        await deleteDepartmentCodeOption(item.id)
-        await loadDepartments()
+        await deleteDepartmentCodeOption(item.id);
+        await loadDepartments();
         showPageMessage({
-          tone: 'warning',
-          title: 'Department deleted',
-          message: `${item.name} has been removed.`
-        })
+          tone: "warning",
+          title: "Department deleted",
+          message: `${item.name} has been removed.`,
+        });
       } catch (error) {
-        showPageMessage({ tone: 'error', title: 'Department was not deleted', message: error.message })
+        showPageMessage({
+          tone: "error",
+          title: "Department was not deleted",
+          message: error.message,
+        });
       }
-    }
-  })
-}
+    },
+  });
+};
 </script>
 
 <style scoped src="../roles/roles_styles/RoleManagementContent.css"></style>

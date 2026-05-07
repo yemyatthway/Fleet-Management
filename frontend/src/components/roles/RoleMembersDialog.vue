@@ -1,10 +1,16 @@
 <template>
-  <v-dialog :model-value="open" max-width="820" @update:model-value="updateOpen">
+  <v-dialog
+    :model-value="open"
+    max-width="820"
+    @update:model-value="updateOpen"
+  >
     <v-card class="dialog-card">
       <div class="dialog-header">
         <div>
           <h2>{{ role?.name }} Members</h2>
-          <p class="text-muted">{{ loading ? 'Loading members...' : `${members.length} members` }}</p>
+          <p class="text-muted">
+            {{ loading ? "Loading members..." : `${members.length} members` }}
+          </p>
         </div>
         <button class="icon-button" type="button" @click="updateOpen(false)">
           <v-icon icon="mdi-close" />
@@ -53,9 +59,15 @@
                     type="button"
                     @click="item.avatar && emit('view-avatar', item)"
                   >
-                    <img v-if="item.avatar" :src="item.avatar" :alt="item.name" />
+                    <img
+                      v-if="item.avatar"
+                      :src="item.avatar"
+                      :alt="item.name"
+                    />
                     <span v-else>{{ initials(item.name) }}</span>
-                    <span v-if="item.avatar" class="tooltip-text">View profile image</span>
+                    <span v-if="item.avatar" class="tooltip-text"
+                      >View profile image</span
+                    >
                   </button>
                   <strong>{{ item.name }}</strong>
                 </div>
@@ -70,7 +82,10 @@
               </template>
 
               <template #item.status="{ item }">
-                <span class="badge" :class="item.status === 'Active' ? 'success' : 'neutral'">
+                <span
+                  class="badge"
+                  :class="item.status === 'Active' ? 'success' : 'neutral'"
+                >
                   {{ item.status }}
                 </span>
               </template>
@@ -94,48 +109,48 @@
 defineProps({
   open: {
     type: Boolean,
-    default: false
+    default: false,
   },
   role: {
     type: Object,
-    default: null
+    default: null,
   },
   members: {
     type: Array,
-    required: true
+    required: true,
   },
   headers: {
     type: Array,
-    required: true
+    required: true,
   },
   loading: {
     type: Boolean,
-    default: false
+    default: false,
   },
   search: {
     type: String,
-    default: ''
-  }
-})
+    default: "",
+  },
+});
 
-const emit = defineEmits(['update:open', 'update:search', 'view-avatar'])
+const emit = defineEmits(["update:open", "update:search", "view-avatar"]);
 
-const updateOpen = (value) => emit('update:open', value)
+const updateOpen = (value) => emit("update:open", value);
 
-const updateSearch = (event) => emit('update:search', event.target.value)
+const updateSearch = (event) => emit("update:search", event.target.value);
 
 const initials = (name) =>
   name
-    .split(' ')
+    .split(" ")
     .map((part) => part[0])
-    .join('')
+    .join("");
 
 const formatDate = (value) =>
-  new Date(value).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  })
+  new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 </script>
 
 <style scoped src="./roles_styles/RoleMembersDialog.css"></style>

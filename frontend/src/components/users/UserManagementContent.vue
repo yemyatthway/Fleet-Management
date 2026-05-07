@@ -68,7 +68,11 @@
       </div>
 
       <div class="toolbar-count text-muted">
-        {{ loadingUsers ? 'Loading users...' : `Showing ${users.length} of ${totalUsers} users` }}
+        {{
+          loadingUsers
+            ? "Loading users..."
+            : `Showing ${users.length} of ${totalUsers} users`
+        }}
       </div>
     </div>
 
@@ -146,7 +150,11 @@ import { useConfirmDialog } from "../../composables/useConfirmDialog";
 import { useListPage } from "../../composables/useListPage";
 import { usePageMessage } from "../../composables/usePageMessage";
 import { attachDisplayIds } from "../../utils/tableDisplayIds";
-import { canCreateModule, canDeleteModule, canEditModule } from "../../utils/authSession";
+import {
+  canCreateModule,
+  canDeleteModule,
+  canEditModule,
+} from "../../utils/authSession";
 import { getDepartmentOptions } from "../../services/departmentsApi";
 import { getRoleOptions } from "../../services/rolesApi";
 import { statusesApi } from "../../services/tripSetupApi";
@@ -273,7 +281,11 @@ const loadUserRoles = async () => {
     userRoles.value = await getRoleOptions();
   } catch (error) {
     console.error("[users] failed to load role options", error);
-    showPageMessage({ tone: "error", title: "Could not load roles", message: error.message });
+    showPageMessage({
+      tone: "error",
+      title: "Could not load roles",
+      message: error.message,
+    });
   }
 };
 
@@ -283,13 +295,20 @@ const loadUserCodeOptions = async () => {
       getDepartmentOptions(),
       statusesApi.options(),
     ]);
-    if (departments.status === "fulfilled") departmentOptions.value = departments.value;
+    if (departments.status === "fulfilled")
+      departmentOptions.value = departments.value;
     if (statuses.status === "fulfilled") statusOptions.value = statuses.value;
-    const rejected = [departments, statuses].find((result) => result.status === "rejected");
+    const rejected = [departments, statuses].find(
+      (result) => result.status === "rejected",
+    );
     if (rejected) throw rejected.reason;
   } catch (error) {
     console.error("[users] failed to load code setup options", error);
-    showPageMessage({ tone: "error", title: "Could not load code setup", message: error.message });
+    showPageMessage({
+      tone: "error",
+      title: "Could not load code setup",
+      message: error.message,
+    });
   }
 };
 
@@ -306,7 +325,11 @@ const handleAdd = async (payload) => {
       message: `${savedUser.name} has been added successfully.`,
     });
   } catch (error) {
-    showPageMessage({ tone: "error", title: "User was not added", message: error.message });
+    showPageMessage({
+      tone: "error",
+      title: "User was not added",
+      message: error.message,
+    });
   }
 };
 
@@ -327,7 +350,8 @@ const openAvatar = (user) => {
 const handleToggle = (id) => {
   const user = findUserById(id);
   if (!user) return;
-  const nextStatus = user.status === ACTIVE_STATUS ? DISABLED_STATUS : ACTIVE_STATUS;
+  const nextStatus =
+    user.status === ACTIVE_STATUS ? DISABLED_STATUS : ACTIVE_STATUS;
 
   openConfirm({
     title: `${nextStatus} User?`,
@@ -344,11 +368,16 @@ const handleToggle = (id) => {
         );
         showPageMessage({
           tone: nextStatus === ACTIVE_STATUS ? "success" : "warning",
-          title: nextStatus === ACTIVE_STATUS ? "User enabled" : "User disabled",
+          title:
+            nextStatus === ACTIVE_STATUS ? "User enabled" : "User disabled",
           message: `${savedUser.name} is now ${nextStatus.toLowerCase()}.`,
         });
       } catch (error) {
-        showPageMessage({ tone: "error", title: "Status was not updated", message: error.message });
+        showPageMessage({
+          tone: "error",
+          title: "Status was not updated",
+          message: error.message,
+        });
       }
     },
   });
@@ -375,7 +404,11 @@ const handleDelete = (id) => {
           message: `${user.name} has been removed.`,
         });
       } catch (error) {
-        showPageMessage({ tone: "error", title: "User was not deleted", message: error.message });
+        showPageMessage({
+          tone: "error",
+          title: "User was not deleted",
+          message: error.message,
+        });
       }
     },
   });
@@ -396,7 +429,11 @@ const handleUpdate = async (payload) => {
       message: `${savedUser.name} has been updated successfully.`,
     });
   } catch (error) {
-    showPageMessage({ tone: "error", title: "User was not updated", message: error.message });
+    showPageMessage({
+      tone: "error",
+      title: "User was not updated",
+      message: error.message,
+    });
   }
 };
 

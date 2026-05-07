@@ -23,7 +23,7 @@
         </template>
 
         <template #item.employeeId="{ item }">
-          <span class="employee-id">{{ item.employeeId || '—' }}</span>
+          <span class="employee-id">{{ item.employeeId || "—" }}</span>
         </template>
 
         <template #item.name="{ item }">
@@ -33,9 +33,17 @@
               type="button"
               @click="item.avatar && $emit('view-avatar', item)"
             >
-              <img v-if="item.avatar" :src="item.avatar" :alt="item.name" loading="lazy" decoding="async" />
+              <img
+                v-if="item.avatar"
+                :src="item.avatar"
+                :alt="item.name"
+                loading="lazy"
+                decoding="async"
+              />
               <span v-else>{{ initials(item.name) }}</span>
-              <span v-if="item.avatar" class="tooltip-text">View profile image</span>
+              <span v-if="item.avatar" class="tooltip-text"
+                >View profile image</span
+              >
             </button>
             <strong>{{ item.name }}</strong>
           </div>
@@ -50,9 +58,19 @@
             v-if="item.nrcFront"
             class="document-thumb tooltip"
             type="button"
-            @click="$emit('view-avatar', { name: `${item.name} - NRC Front`, avatar: item.nrcFront })"
+            @click="
+              $emit('view-avatar', {
+                name: `${item.name} - NRC Front`,
+                avatar: item.nrcFront,
+              })
+            "
           >
-            <img :src="item.nrcFront" :alt="`${item.name} NRC front`" loading="lazy" decoding="async" />
+            <img
+              :src="item.nrcFront"
+              :alt="`${item.name} NRC front`"
+              loading="lazy"
+              decoding="async"
+            />
             <span class="tooltip-text">View NRC front</span>
           </button>
           <span v-else class="text-muted">—</span>
@@ -63,9 +81,19 @@
             v-if="item.nrcBack"
             class="document-thumb tooltip"
             type="button"
-            @click="$emit('view-avatar', { name: `${item.name} - NRC Back`, avatar: item.nrcBack })"
+            @click="
+              $emit('view-avatar', {
+                name: `${item.name} - NRC Back`,
+                avatar: item.nrcBack,
+              })
+            "
           >
-            <img :src="item.nrcBack" :alt="`${item.name} NRC back`" loading="lazy" decoding="async" />
+            <img
+              :src="item.nrcBack"
+              :alt="`${item.name} NRC back`"
+              loading="lazy"
+              decoding="async"
+            />
             <span class="tooltip-text">View NRC back</span>
           </button>
           <span v-else class="text-muted">—</span>
@@ -76,7 +104,9 @@
         </template>
 
         <template #item.role="{ item }">
-          <span class="role-pill" :class="roleClass(item.role)">{{ item.role }}</span>
+          <span class="role-pill" :class="roleClass(item.role)">{{
+            item.role
+          }}</span>
         </template>
 
         <template #item.phone="{ item }">
@@ -100,28 +130,42 @@
         </template>
 
         <template #item.status="{ item }">
-          <span class="badge" :class="item.status === 'Active' ? 'success' : 'neutral'">
+          <span
+            class="badge"
+            :class="item.status === 'Active' ? 'success' : 'neutral'"
+          >
             {{ item.status }}
           </span>
         </template>
 
         <template #item.joinDate="{ item }">
-          <span class="text-muted no-wrap-cell">{{ formatDate(item.joinDate) }}</span>
+          <span class="text-muted no-wrap-cell">{{
+            formatDate(item.joinDate)
+          }}</span>
         </template>
 
         <template #item.lastLogin="{ item }">
-          <span class="text-muted no-wrap-cell">{{ formatDateTime(item.lastLogin) }}</span>
+          <span class="text-muted no-wrap-cell">{{
+            formatDateTime(item.lastLogin)
+          }}</span>
         </template>
 
         <template #item.twoFactorEnabled="{ item }">
-          <span class="badge" :class="item.twoFactorEnabled ? 'success' : 'neutral'">
-            {{ item.twoFactorEnabled ? 'Enabled' : 'Off' }}
+          <span
+            class="badge"
+            :class="item.twoFactorEnabled ? 'success' : 'neutral'"
+          >
+            {{ item.twoFactorEnabled ? "Enabled" : "Off" }}
           </span>
         </template>
 
         <template #item.actions="{ item }">
           <div class="inline-actions">
-            <button v-if="canEdit" class="icon-button tooltip" @click="$emit('edit', item.id)">
+            <button
+              v-if="canEdit"
+              class="icon-button tooltip"
+              @click="$emit('edit', item.id)"
+            >
               <v-icon icon="mdi-pencil-outline" size="18" />
               <span class="tooltip-text">Edit user</span>
             </button>
@@ -133,10 +177,14 @@
             >
               <v-icon icon="mdi-power" size="18" />
               <span class="tooltip-text">
-                {{ item.status === 'Active' ? 'Disable user' : 'Enable user' }}
+                {{ item.status === "Active" ? "Disable user" : "Enable user" }}
               </span>
             </button>
-            <button v-if="canDelete" class="icon-button danger tooltip" @click="$emit('remove', item.id)">
+            <button
+              v-if="canDelete"
+              class="icon-button danger tooltip"
+              @click="$emit('remove', item.id)"
+            >
               <v-icon icon="mdi-trash-can-outline" size="18" />
               <span class="tooltip-text">Delete user</span>
             </button>
@@ -152,105 +200,109 @@
 </template>
 
 <script setup>
-import { roleClassFor } from '../../utils/roleClasses'
+import { roleClassFor } from "../../utils/roleClasses";
 
 const props = defineProps({
   users: {
     type: Array,
-    required: true
+    required: true,
   },
   total: {
     type: Number,
-    default: 0
+    default: 0,
   },
   loading: {
     type: Boolean,
-    default: false
+    default: false,
   },
   itemsPerPage: {
     type: Number,
-    default: 10
+    default: 10,
   },
   page: {
     type: Number,
-    default: 1
+    default: 1,
   },
   sortBy: {
     type: String,
-    default: 'name'
+    default: "name",
   },
   sortOrder: {
     type: String,
-    default: 'asc'
+    default: "asc",
   },
   canEdit: {
     type: Boolean,
-    default: false
+    default: false,
   },
   canDelete: {
     type: Boolean,
-    default: false
-  }
-})
+    default: false,
+  },
+});
 
-defineEmits(['edit', 'toggle', 'remove', 'view-avatar', 'update:options'])
+defineEmits(["edit", "toggle", "remove", "view-avatar", "update:options"]);
 
 const headers = [
-  { title: 'No.', key: 'displayId', sortable: false },
-  { title: 'Employee ID', key: 'employeeId', sortable: false },
-  { title: 'Name', key: 'name', sortable: false },
-  { title: 'NRC', key: 'nrcNumber', sortable: false },
-  { title: 'NRC Front', key: 'nrcFront', sortable: false },
-  { title: 'NRC Back', key: 'nrcBack', sortable: false },
-  { title: 'Email', key: 'email', sortable: false },
-  { title: 'Role', key: 'role', sortable: false },
-  { title: 'Phone', key: 'phone', sortable: false },
-  { title: 'Department', key: 'department', sortable: false },
-  { title: 'Title', key: 'title', sortable: false },
-  { title: 'Location', key: 'location', sortable: false },
-  { title: 'Manager', key: 'manager', sortable: false },
-  { title: 'Status', key: 'status', sortable: false },
-  { title: 'Join Date', key: 'joinDate', sortable: false },
-  { title: 'Last Login', key: 'lastLogin', sortable: false },
-  { title: '2FA', key: 'twoFactorEnabled', sortable: false },
-  { title: 'Actions', key: 'actions', align: 'end', sortable: false }
-]
+  { title: "No.", key: "displayId", sortable: false },
+  { title: "Employee ID", key: "employeeId", sortable: false },
+  { title: "Name", key: "name", sortable: false },
+  { title: "NRC", key: "nrcNumber", sortable: false },
+  { title: "NRC Front", key: "nrcFront", sortable: false },
+  { title: "NRC Back", key: "nrcBack", sortable: false },
+  { title: "Email", key: "email", sortable: false },
+  { title: "Role", key: "role", sortable: false },
+  { title: "Phone", key: "phone", sortable: false },
+  { title: "Department", key: "department", sortable: false },
+  { title: "Title", key: "title", sortable: false },
+  { title: "Location", key: "location", sortable: false },
+  { title: "Manager", key: "manager", sortable: false },
+  { title: "Status", key: "status", sortable: false },
+  { title: "Join Date", key: "joinDate", sortable: false },
+  { title: "Last Login", key: "lastLogin", sortable: false },
+  { title: "2FA", key: "twoFactorEnabled", sortable: false },
+  { title: "Actions", key: "actions", align: "end", sortable: false },
+];
 
 const rowNumber = (index) => {
-  const safePage = Math.max(Number(props.page) || 1, 1)
-  const safeItemsPerPage = Math.max(Number(props.itemsPerPage) || 1, 1)
-  const safeTotal = Math.max(Number(props.total) || 0, 0)
-  const startIndex = (safePage - 1) * safeItemsPerPage
-  const descending = String(props.sortOrder || '').toLowerCase() === 'desc'
+  const safePage = Math.max(Number(props.page) || 1, 1);
+  const safeItemsPerPage = Math.max(Number(props.itemsPerPage) || 1, 1);
+  const safeTotal = Math.max(Number(props.total) || 0, 0);
+  const startIndex = (safePage - 1) * safeItemsPerPage;
+  const descending = String(props.sortOrder || "").toLowerCase() === "desc";
   const value = descending
     ? Math.max(safeTotal - startIndex - index, 1)
-    : startIndex + index + 1
+    : startIndex + index + 1;
 
-  return String(value).padStart(3, '0')
-}
+  return String(value).padStart(3, "0");
+};
 
-const roleClass = (role) => roleClassFor(role)
+const roleClass = (role) => roleClassFor(role);
 
-const initials = (name) => name.split(' ').map((part) => part[0]).join('')
+const initials = (name) =>
+  name
+    .split(" ")
+    .map((part) => part[0])
+    .join("");
 
 const formatDate = (value) =>
-  new Date(value).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  })
+  new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
 const formatDateTime = (value) => {
-  if (!value) return '—'
-  return new Date(value).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  })
-}
+  if (!value) return "—";
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
 </script>
 
 <style scoped src="./users_styles/UserTable.css"></style>

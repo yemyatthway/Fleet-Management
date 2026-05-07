@@ -3,6 +3,6 @@ export function buildReferenceRequest(type, payload) {
     type,
     name: payload.name,
     description: payload.description || null,
-    status: payload.status || 'Active'
-  }
+    status: payload.status || "Active",
+  };
 }

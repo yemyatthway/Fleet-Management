@@ -12,7 +12,7 @@
 </template>
 
 <script setup>
-import DashboardLayout from '../layouts/DashboardLayout.vue'
-import TripSetupContent from '../components/tripSetup/TripSetupContent.vue'
-import { documentTypesApi } from '../services/tripSetupApi'
+import DashboardLayout from "../layouts/DashboardLayout.vue";
+import TripSetupContent from "../components/tripSetup/TripSetupContent.vue";
+import { documentTypesApi } from "../services/tripSetupApi";
 </script>

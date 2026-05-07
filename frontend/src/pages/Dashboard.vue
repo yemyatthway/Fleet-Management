@@ -5,6 +5,6 @@
 </template>
 
 <script setup>
-import DashboardLayout from '../layouts/DashboardLayout.vue'
-import DashboardContent from '../components/dashboard/DashboardContent.vue'
+import DashboardLayout from "../layouts/DashboardLayout.vue";
+import DashboardContent from "../components/dashboard/DashboardContent.vue";
 </script>

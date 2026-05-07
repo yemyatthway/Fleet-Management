@@ -1,5 +1,9 @@
 <template>
-  <v-dialog :model-value="open" max-width="720" @update:model-value="updateOpen">
+  <v-dialog
+    :model-value="open"
+    max-width="720"
+    @update:model-value="updateOpen"
+  >
     <v-card class="dialog-card">
       <div class="dialog-header">
         <h2>{{ name }}</h2>
@@ -18,21 +22,21 @@
 defineProps({
   open: {
     type: Boolean,
-    default: false
+    default: false,
   },
   name: {
     type: String,
-    default: ''
+    default: "",
   },
   url: {
     type: String,
-    default: ''
-  }
-})
+    default: "",
+  },
+});
 
-const emit = defineEmits(['update:open'])
+const emit = defineEmits(["update:open"]);
 
-const updateOpen = (value) => emit('update:open', value)
+const updateOpen = (value) => emit("update:open", value);
 </script>
 
 <style scoped src="./users_styles/UserAvatarDialog.css"></style>

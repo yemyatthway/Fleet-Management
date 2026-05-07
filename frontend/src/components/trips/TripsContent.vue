@@ -8,7 +8,12 @@
           fields teams use in the field.
         </p>
       </div>
-      <button v-if="canCreateTrips" class="primary-button" type="button" @click="openAddDialog">
+      <button
+        v-if="canCreateTrips"
+        class="primary-button"
+        type="button"
+        @click="openAddDialog"
+      >
         <v-icon icon="mdi-plus" size="18" />
         Create Trip
       </button>
@@ -85,7 +90,6 @@
               </option>
             </select>
           </div>
-
         </div>
       </div>
 
@@ -146,10 +150,25 @@ import { getDepartmentOptions } from "../../services/departmentsApi";
 import { getLocationOptions } from "../../services/locationsApi";
 import { getUsers } from "../../services/usersApi";
 import { getVehicles } from "../../services/vehiclesApi";
-import { createTrip, deleteTrip as deleteTripRecord, getTrips, updateTrip } from "../../services/tripsApi";
-import { cargoTypesApi, statusesApi, tripPrioritiesApi, tripTypesApi } from "../../services/tripSetupApi";
+import {
+  createTrip,
+  deleteTrip as deleteTripRecord,
+  getTrips,
+  updateTrip,
+} from "../../services/tripsApi";
+import {
+  cargoTypesApi,
+  statusesApi,
+  tripPrioritiesApi,
+  tripTypesApi,
+} from "../../services/tripSetupApi";
 import { usePageMessage } from "../../composables/usePageMessage";
-import { canCreateModule, canDeleteModule, canEditModule, getCurrentUser } from "../../utils/authSession";
+import {
+  canCreateModule,
+  canDeleteModule,
+  canEditModule,
+  getCurrentUser,
+} from "../../utils/authSession";
 import { validateTripLoadAgainstVehicle } from "../../utils/loadCapacity";
 
 const tripStatuses = ref([]);
@@ -205,8 +224,14 @@ const canCreateTrips = computed(() => canCreateModule("trips"));
 const canEditTrips = computed(() => canEditModule("trips"));
 const canDeleteTrips = computed(() => canDeleteModule("trips"));
 const currentUser = computed(() => getCurrentUser());
-const currentRole = computed(() => String(currentUser.value?.roleId || currentUser.value?.role || "").toLowerCase());
-const showScopeFilter = computed(() => currentRole.value === "driver" || currentRole.value === "dispatcher");
+const currentRole = computed(() =>
+  String(
+    currentUser.value?.roleId || currentUser.value?.role || "",
+  ).toLowerCase(),
+);
+const showScopeFilter = computed(
+  () => currentRole.value === "driver" || currentRole.value === "dispatcher",
+);
 
 const searchQuery = ref("");
 const scopeFilter = ref(showScopeFilter.value ? "mine" : "all");
@@ -226,7 +251,11 @@ const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage(4000);
 
 const loadTrips = async () => {
   try {
-    const result = await getTrips({ page: 1, pageSize: 500, scope: scopeFilter.value });
+    const result = await getTrips({
+      page: 1,
+      pageSize: 500,
+      scope: scopeFilter.value,
+    });
     trips.value = result.items || [];
   } catch (error) {
     formError.value = error.message || "Could not load trips.";
@@ -234,28 +263,52 @@ const loadTrips = async () => {
 };
 
 const loadReferenceOptions = async () => {
-  const [types, statuses, priorityOptions, cargoOptions, vehicles, drivers, dispatchers, locations, departments] =
-    await Promise.allSettled([
-      tripTypesApi.options(),
-      statusesApi.options(),
-      tripPrioritiesApi.options(),
-      cargoTypesApi.options(),
-      getVehicles(),
-      getUsers({ role: "Driver", status: "Active", pageSize: 500, sortBy: "name" }),
-      getUsers({ role: "Dispatcher", status: "Active", pageSize: 500, sortBy: "name" }),
-      getLocationOptions(),
-      getDepartmentOptions(),
-    ]);
+  const [
+    types,
+    statuses,
+    priorityOptions,
+    cargoOptions,
+    vehicles,
+    drivers,
+    dispatchers,
+    locations,
+    departments,
+  ] = await Promise.allSettled([
+    tripTypesApi.options(),
+    statusesApi.options(),
+    tripPrioritiesApi.options(),
+    cargoTypesApi.options(),
+    getVehicles(),
+    getUsers({
+      role: "Driver",
+      status: "Active",
+      pageSize: 500,
+      sortBy: "name",
+    }),
+    getUsers({
+      role: "Dispatcher",
+      status: "Active",
+      pageSize: 500,
+      sortBy: "name",
+    }),
+    getLocationOptions(),
+    getDepartmentOptions(),
+  ]);
 
   if (types.status === "fulfilled") tripTypes.value = types.value;
   if (statuses.status === "fulfilled") tripStatuses.value = statuses.value;
-  if (priorityOptions.status === "fulfilled") priorities.value = priorityOptions.value;
-  if (cargoOptions.status === "fulfilled") cargoTypes.value = cargoOptions.value;
+  if (priorityOptions.status === "fulfilled")
+    priorities.value = priorityOptions.value;
+  if (cargoOptions.status === "fulfilled")
+    cargoTypes.value = cargoOptions.value;
   if (vehicles.status === "fulfilled") vehicleOptions.value = vehicles.value;
-  if (drivers.status === "fulfilled") driverOptions.value = drivers.value.items || [];
-  if (dispatchers.status === "fulfilled") dispatcherOptions.value = dispatchers.value.items || [];
+  if (drivers.status === "fulfilled")
+    driverOptions.value = drivers.value.items || [];
+  if (dispatchers.status === "fulfilled")
+    dispatcherOptions.value = dispatchers.value.items || [];
   if (locations.status === "fulfilled") locationOptions.value = locations.value;
-  if (departments.status === "fulfilled") departmentOptions.value = departments.value;
+  if (departments.status === "fulfilled")
+    departmentOptions.value = departments.value;
 };
 
 onMounted(() => {
@@ -340,7 +393,9 @@ const closeForm = () => {
 };
 
 const submitForm = async () => {
-  const selectedVehicle = vehicleOptions.value.find((vehicle) => vehicle.id === form.vehicleId);
+  const selectedVehicle = vehicleOptions.value.find(
+    (vehicle) => vehicle.id === form.vehicleId,
+  );
   const assignedDriver = String(selectedVehicle?.driver || "").trim();
 
   const requiredFields = [
@@ -405,7 +460,8 @@ const submitForm = async () => {
   }
 
   if (!assignedDriver) {
-    formError.value = "Selected vehicle has no assigned driver. Assign a driver to the vehicle before creating a trip.";
+    formError.value =
+      "Selected vehicle has no assigned driver. Assign a driver to the vehicle before creating a trip.";
     showPageMessage({
       tone: "error",
       title: "Trip was not saved",
@@ -414,8 +470,14 @@ const submitForm = async () => {
     return;
   }
 
-  if (assignedDriver.toLowerCase() !== String(form.driverName || "").trim().toLowerCase()) {
-    formError.value = "Selected driver is not assigned to the selected vehicle.";
+  if (
+    assignedDriver.toLowerCase() !==
+    String(form.driverName || "")
+      .trim()
+      .toLowerCase()
+  ) {
+    formError.value =
+      "Selected driver is not assigned to the selected vehicle.";
     showPageMessage({
       tone: "error",
       title: "Trip was not saved",

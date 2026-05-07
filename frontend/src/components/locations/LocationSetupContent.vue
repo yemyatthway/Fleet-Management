@@ -3,7 +3,9 @@
     <div class="page-header">
       <div>
         <h1 class="section-title">Location / Depot Setup</h1>
-        <p class="section-subtitle">Manage warehouse, depot, and hub master data for operations.</p>
+        <p class="section-subtitle">
+          Manage warehouse, depot, and hub master data for operations.
+        </p>
       </div>
     </div>
 
@@ -30,7 +32,11 @@
       <div class="toolbar-row">
         <div class="toolbar-search">
           <v-icon icon="mdi-magnify" />
-          <input v-model="searchQuery" type="text" placeholder="Search location name, code, city, or notes..." />
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search location name, code, city, or notes..."
+          />
           <button
             v-if="searchQuery"
             class="clear-button"
@@ -42,14 +48,23 @@
           </button>
         </div>
 
-        <button v-if="canCreateLocations" class="primary-button" type="button" @click="openAdd">
+        <button
+          v-if="canCreateLocations"
+          class="primary-button"
+          type="button"
+          @click="openAdd"
+        >
           <v-icon icon="mdi-plus" size="18" />
           Add Location
         </button>
       </div>
 
       <div class="toolbar-count text-muted">
-        {{ loadingLocations ? 'Loading locations...' : `Showing ${locations.length} of ${totalLocations} locations` }}
+        {{
+          loadingLocations
+            ? "Loading locations..."
+            : `Showing ${locations.length} of ${totalLocations} locations`
+        }}
       </div>
     </div>
 
@@ -97,33 +112,43 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import ConfirmDialog from '../common/ConfirmDialog.vue'
-import PageMessage from '../common/PageMessage.vue'
-import { useConfirmDialog } from '../../composables/useConfirmDialog'
-import { useListPage } from '../../composables/useListPage'
-import { usePageMessage } from '../../composables/usePageMessage'
-import { useReferenceMetrics } from '../../composables/useReferenceMetrics'
-import { attachDisplayIds } from '../../utils/tableDisplayIds'
-import { canCreateModule, canDeleteModule, canEditModule } from '../../utils/authSession'
+import { computed, ref } from "vue";
+import ConfirmDialog from "../common/ConfirmDialog.vue";
+import PageMessage from "../common/PageMessage.vue";
+import { useConfirmDialog } from "../../composables/useConfirmDialog";
+import { useListPage } from "../../composables/useListPage";
+import { usePageMessage } from "../../composables/usePageMessage";
+import { useReferenceMetrics } from "../../composables/useReferenceMetrics";
+import { attachDisplayIds } from "../../utils/tableDisplayIds";
+import {
+  canCreateModule,
+  canDeleteModule,
+  canEditModule,
+} from "../../utils/authSession";
 import {
   createLocationCodeOption,
   deleteLocationCodeOption,
   getLocationCodeOptions,
-  updateLocationCodeOption
-} from '../../services/locationsApi'
-import { getLocationTypeOptions } from '../../services/locationTypesApi'
-import LocationSetupDialog from './LocationSetupDialog.vue'
-import LocationSetupTable from './LocationSetupTable.vue'
+  updateLocationCodeOption,
+} from "../../services/locationsApi";
+import { getLocationTypeOptions } from "../../services/locationTypesApi";
+import LocationSetupDialog from "./LocationSetupDialog.vue";
+import LocationSetupTable from "./LocationSetupTable.vue";
 
-const dialogOpen = ref(false)
-const dialogMode = ref('add')
-const selectedLocation = ref(null)
-const canCreateLocations = computed(() => canCreateModule('location-setup'))
-const canEditLocations = computed(() => canEditModule('location-setup'))
-const canDeleteLocations = computed(() => canDeleteModule('location-setup'))
-const locationTypeOptions = ref(['Warehouse', 'Depot', 'Hub', 'Yard', 'Office'])
-const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage()
+const dialogOpen = ref(false);
+const dialogMode = ref("add");
+const selectedLocation = ref(null);
+const canCreateLocations = computed(() => canCreateModule("location-setup"));
+const canEditLocations = computed(() => canEditModule("location-setup"));
+const canDeleteLocations = computed(() => canDeleteModule("location-setup"));
+const locationTypeOptions = ref([
+  "Warehouse",
+  "Depot",
+  "Hub",
+  "Yard",
+  "Office",
+]);
+const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage();
 const {
   confirmOpen,
   confirmTitle,
@@ -131,8 +156,8 @@ const {
   confirmButton,
   confirmTone,
   openConfirm,
-  runConfirm
-} = useConfirmDialog()
+  runConfirm,
+} = useConfirmDialog();
 const {
   items: locations,
   total: totalLocations,
@@ -140,108 +165,123 @@ const {
   tableOptions,
   loading: loadingLocations,
   loadItems: loadLocations,
-  handleTableOptions
+  handleTableOptions,
 } = useListPage({
   fetchPage: ({ page, pageSize, search, sortBy, sortOrder }) =>
     getLocationCodeOptions({ page, pageSize, search, sortBy, sortOrder }),
   clearPageMessage,
   showPageMessage,
-  errorTitle: 'Could not load locations'
-})
+  errorTitle: "Could not load locations",
+});
 
 const loadLocationTypeOptions = async () => {
   try {
-    const options = await getLocationTypeOptions()
-    if (options.length) locationTypeOptions.value = options
+    const options = await getLocationTypeOptions();
+    if (options.length) locationTypeOptions.value = options;
   } catch (error) {
-    showPageMessage({ tone: 'error', title: 'Could not load location types', message: error.message })
+    showPageMessage({
+      tone: "error",
+      title: "Could not load location types",
+      message: error.message,
+    });
   }
-}
+};
 const {
   activeCount: activeLocations,
   disabledCount: disabledLocations,
-  recentlyUpdatedCount: recentlyUpdatedLocations
-} = useReferenceMetrics(locations)
+  recentlyUpdatedCount: recentlyUpdatedLocations,
+} = useReferenceMetrics(locations);
 const tableLocations = computed(() =>
   attachDisplayIds(
     locations.value,
     tableOptions.value.page,
     tableOptions.value.itemsPerPage,
     false,
-    () => 'LOC',
+    () => "LOC",
     {
       total: totalLocations.value,
       sortBy: tableOptions.value.sortBy,
-      sortOrder: tableOptions.value.sortOrder
-    }
-  )
-)
+      sortOrder: tableOptions.value.sortOrder,
+    },
+  ),
+);
 
 const openAdd = () => {
-  dialogMode.value = 'add'
-  selectedLocation.value = { type: locationTypeOptions.value[0] || 'Warehouse', status: 'Active' }
-  loadLocationTypeOptions()
-  dialogOpen.value = true
-}
+  dialogMode.value = "add";
+  selectedLocation.value = {
+    type: locationTypeOptions.value[0] || "Warehouse",
+    status: "Active",
+  };
+  loadLocationTypeOptions();
+  dialogOpen.value = true;
+};
 
 const openEdit = (item) => {
-  dialogMode.value = 'edit'
-  selectedLocation.value = { ...item }
-  loadLocationTypeOptions()
-  dialogOpen.value = true
-}
+  dialogMode.value = "edit";
+  selectedLocation.value = { ...item };
+  loadLocationTypeOptions();
+  dialogOpen.value = true;
+};
 
 const handleSave = async (payload) => {
-  clearPageMessage()
-  const isEdit = dialogMode.value === 'edit'
+  clearPageMessage();
+  const isEdit = dialogMode.value === "edit";
 
   try {
     const savedLocation = isEdit
       ? await updateLocationCodeOption(payload.id, payload)
-      : await createLocationCodeOption(payload)
+      : await createLocationCodeOption(payload);
 
     if (isEdit) {
       locations.value = locations.value.map((item) =>
-        item.id === savedLocation.id ? savedLocation : item
-      )
+        item.id === savedLocation.id ? savedLocation : item,
+      );
     } else {
-      await loadLocations()
+      await loadLocations();
     }
 
-    dialogOpen.value = false
+    dialogOpen.value = false;
     showPageMessage({
-      tone: 'success',
-      title: isEdit ? 'Location updated' : 'Location created',
-      message: `${savedLocation.name} has been ${isEdit ? 'updated' : 'created'} successfully.`
-    })
+      tone: "success",
+      title: isEdit ? "Location updated" : "Location created",
+      message: `${savedLocation.name} has been ${isEdit ? "updated" : "created"} successfully.`,
+    });
   } catch (error) {
-    showPageMessage({ tone: 'error', title: 'Location was not saved', message: error.message })
+    showPageMessage({
+      tone: "error",
+      title: "Location was not saved",
+      message: error.message,
+    });
   }
-}
+};
 
 const handleDelete = (item) => {
   openConfirm({
-    title: 'Delete Location?',
+    title: "Delete Location?",
     message: `This will permanently remove ${item.name}.`,
-    confirmText: 'Delete',
-    tone: 'danger',
+    confirmText: "Delete",
+    tone: "danger",
     action: async () => {
-      clearPageMessage()
+      clearPageMessage();
 
       try {
-        await deleteLocationCodeOption(item.id)
-        await loadLocations()
+        await deleteLocationCodeOption(item.id);
+        await loadLocations();
         showPageMessage({
-          tone: 'warning',
-          title: 'Location deleted',
-          message: `${item.name} has been removed.`
-        })
+          tone: "warning",
+          title: "Location deleted",
+          message: `${item.name} has been removed.`,
+        });
       } catch (error) {
-        showPageMessage({ tone: 'error', title: 'Location was not deleted', message: error.message })
+        showPageMessage({
+          tone: "error",
+          title: "Location was not deleted",
+          message: error.message,
+        });
       }
-    }
-  })
-}
+    },
+  });
+};
 </script>
 
 <style scoped src="../roles/roles_styles/RoleManagementContent.css"></style>
