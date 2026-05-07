@@ -65,22 +65,22 @@
 
 .table-base :deep(thead th:nth-child(1)),
 .table-base :deep(tbody td:nth-child(1)) {
-  width: 220px;
+  width: 90px;
 }
 
 .table-base :deep(thead th:nth-child(2)),
 .table-base :deep(tbody td:nth-child(2)) {
-  width: 130px;
+  width: 150px;
 }
 
 .table-base :deep(thead th:nth-child(3)),
 .table-base :deep(tbody td:nth-child(3)) {
-  width: 190px;
+  width: 220px;
 }
 
 .table-base :deep(thead th:nth-child(4)),
 .table-base :deep(tbody td:nth-child(4)) {
-  width: 120px;
+  width: 190px;
 }
 
 .table-base :deep(thead th:nth-child(5)),
@@ -90,27 +90,27 @@
 
 .table-base :deep(thead th:nth-child(6)),
 .table-base :deep(tbody td:nth-child(6)) {
-  width: 260px;
+  width: 120px;
 }
 
 .table-base :deep(thead th:nth-child(7)),
 .table-base :deep(tbody td:nth-child(7)) {
-  width: 140px;
+  width: 260px;
 }
 
 .table-base :deep(thead th:nth-child(8)),
 .table-base :deep(tbody td:nth-child(8)) {
-  width: 170px;
+  width: 140px;
 }
 
 .table-base :deep(thead th:nth-child(9)),
 .table-base :deep(tbody td:nth-child(9)) {
-  width: 180px;
+  width: 170px;
 }
 
 .table-base :deep(thead th:nth-child(10)),
 .table-base :deep(tbody td:nth-child(10)) {
-  width: 160px;
+  width: 180px;
 }
 
 .table-base :deep(thead th:nth-child(11)),
@@ -120,31 +120,36 @@
 
 .table-base :deep(thead th:nth-child(12)),
 .table-base :deep(tbody td:nth-child(12)) {
-  width: 120px;
+  width: 160px;
 }
 
 .table-base :deep(thead th:nth-child(13)),
 .table-base :deep(tbody td:nth-child(13)) {
-  width: 140px;
+  width: 120px;
 }
 
 .table-base :deep(thead th:nth-child(14)),
 .table-base :deep(tbody td:nth-child(14)) {
-  width: 150px;
+  width: 140px;
 }
 
 .table-base :deep(thead th:nth-child(15)),
 .table-base :deep(tbody td:nth-child(15)) {
-  width: 210px;
+  width: 150px;
 }
 
 .table-base :deep(thead th:nth-child(16)),
 .table-base :deep(tbody td:nth-child(16)) {
-  width: 140px;
+  width: 210px;
 }
 
 .table-base :deep(thead th:nth-child(17)),
 .table-base :deep(tbody td:nth-child(17)) {
+  width: 140px;
+}
+
+.table-base :deep(thead th:nth-child(18)),
+.table-base :deep(tbody td:nth-child(18)) {
   width: 140px;
 }
 
@@ -176,6 +181,12 @@
   font-size: 12px;
   min-width: 28px;
   text-align: right;
+}
+
+.employee-id {
+  color: #475569;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .avatar {

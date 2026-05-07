@@ -7,6 +7,13 @@
       </div>
     </div>
 
+    <PageMessage
+      :tone="pageMessage.tone"
+      :title="pageMessage.title"
+      :message="pageMessage.message"
+      @close="clearPageMessage"
+    />
+
     <div v-if="pageError" class="form-error">{{ pageError }}</div>
 
     <div class="stats-grid">
@@ -263,6 +270,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
+import PageMessage from '../common/PageMessage.vue'
+import { usePageMessage } from '../../composables/usePageMessage'
 import { createInventoryPart, deleteInventoryPart, getInventoryParts, updateInventoryPart } from '../../services/inventoryPartsApi'
 import { suppliersApi } from '../../services/tripSetupApi'
 import { canCreateModule, canDeleteModule, canEditModule } from '../../utils/authSession'
@@ -272,6 +281,7 @@ const parts = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const pageError = ref('')
+const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage(4000)
 const supplierOptions = ref([])
 const canCreate = computed(() => canCreateModule(moduleKey))
 const canEdit = computed(() => canEditModule(moduleKey))
@@ -408,11 +418,18 @@ const openPartDetails = (part) => {
 const savePart = async () => {
   if (!partForm.value.name || !partForm.value.partNo) {
     partError.value = 'Part name and part number are required.'
+    showPageMessage({
+      tone: 'error',
+      title: 'Part was not saved',
+      message: partError.value
+    })
     return
   }
   saving.value = true
   partError.value = ''
+  pageError.value = ''
   try {
+    const isEdit = partMode.value === 'edit'
     if (partMode.value === 'add') {
       await createInventoryPart(partForm.value)
     } else {
@@ -420,8 +437,18 @@ const savePart = async () => {
     }
     partOpen.value = false
     await loadParts()
+    showPageMessage({
+      tone: 'success',
+      title: isEdit ? 'Part updated' : 'Part created',
+      message: isEdit ? 'Inventory part was updated successfully.' : 'Inventory part was created successfully.'
+    })
   } catch (error) {
     partError.value = error.message || 'Could not save part.'
+    showPageMessage({
+      tone: 'error',
+      title: 'Part was not saved',
+      message: partError.value
+    })
   } finally {
     saving.value = false
   }
@@ -455,10 +482,21 @@ const deletePart = (id) => {
     tone: 'danger',
     action: async () => {
       try {
+        pageError.value = ''
         await deleteInventoryPart(id)
         await loadParts()
+        showPageMessage({
+          tone: 'success',
+          title: 'Part deleted',
+          message: `${part.name} was deleted successfully.`
+        })
       } catch (error) {
         pageError.value = error.message || 'Could not delete part.'
+        showPageMessage({
+          tone: 'error',
+          title: 'Part was not deleted',
+          message: pageError.value
+        })
       }
     }
   })

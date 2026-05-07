@@ -18,13 +18,13 @@
         </div>
       </header>
 
-      <section class="toolbar">
+      <div v-if="pageError" class="page-error">{{ pageError }}</div>
+
+      <section class="toolbar card-surface">
         <select v-model="reportType" @change="loadReport">
-          <option value="vehicles">Vehicle Report</option>
-          <option value="trips">Trip Report</option>
-          <option value="maintenance">Maintenance Report</option>
-          <option value="drivers">Driver Report</option>
-          <option value="expenses">Fuel/Expense Report</option>
+          <option v-for="option in reportOptions" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </option>
         </select>
         <input v-model="filters.dateFrom" type="date" @change="loadReport" />
         <input v-model="filters.dateTo" type="date" @change="loadReport" />
@@ -51,38 +51,56 @@
         </div>
       </section>
 
-      <section class="table-card" id="report-output">
-        <table>
-          <thead>
-            <tr>
-              <th v-for="column in columns" :key="column.key">{{ column.label }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(row, index) in rows" :key="row.id || index">
-              <td v-for="column in columns" :key="column.key">{{ formatCell(row[column.key], column.key) }}</td>
-            </tr>
-            <tr v-if="!rows.length">
-              <td :colspan="columns.length" class="empty-cell">No report records found</td>
-            </tr>
-          </tbody>
-        </table>
+      <section class="table-card card-surface" id="report-output">
+        <v-data-table
+          class="report-table"
+          :headers="tableHeaders"
+          :items="formattedRows"
+          :items-per-page="10"
+          :items-per-page-options="[10, 20, 30]"
+          :mobile-breakpoint="0"
+          :mobile="false"
+          density="comfortable"
+        >
+          <template #no-data>
+            <div class="empty-cell">No report records found</div>
+          </template>
+        </v-data-table>
       </section>
     </main>
   </DashboardLayout>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import DashboardLayout from '../layouts/DashboardLayout.vue'
 import { getReport } from '../services/reportsApi'
 import { statusesApi } from '../services/tripSetupApi'
 import { exportRowsToPdf, exportRowsToXlsx } from '../utils/reportExport'
+import { getCurrentUser } from '../utils/authSession'
 
 const reportType = ref('vehicles')
 const rows = ref([])
+const pageError = ref('')
 const statusOptions = ref(['Active', 'Pending', 'Completed', 'Maintenance', 'Inactive'])
 const filters = reactive({ dateFrom: '', dateTo: '', status: '', vehicleId: '', driver: '' })
+const currentUser = computed(() => getCurrentUser())
+const isDispatcher = computed(() => String(currentUser.value?.roleId || currentUser.value?.role || '').toLowerCase() === 'dispatcher')
+
+const allReportOptions = [
+  { value: 'vehicles', label: 'Vehicle Report' },
+  { value: 'trips', label: 'Trip Report' },
+  { value: 'maintenance', label: 'Maintenance Report' },
+  { value: 'drivers', label: 'Driver Report' },
+  { value: 'expenses', label: 'Fuel/Expense Report' },
+  { value: 'audit-logs', label: 'Audit Log Report' }
+]
+
+const reportOptions = computed(() =>
+  isDispatcher.value
+    ? allReportOptions.filter((option) => option.value === 'vehicles' || option.value === 'trips')
+    : allReportOptions
+)
 
 const columnMap = {
   vehicles: [
@@ -125,6 +143,14 @@ const columnMap = {
     ['driverName', 'Driver'],
     ['amount', 'Amount'],
     ['status', 'Status']
+  ],
+  'audit-logs': [
+    ['createdAt', 'Time'],
+    ['roleId', 'Role'],
+    ['moduleKey', 'Module'],
+    ['action', 'Action'],
+    ['entityId', 'Entity'],
+    ['description', 'Description']
   ]
 }
 
@@ -133,10 +159,20 @@ const reportNames = {
   trips: 'Trip',
   maintenance: 'Maintenance',
   drivers: 'Driver',
-  expenses: 'Fuel/Expense'
+  expenses: 'Fuel/Expense',
+  'audit-logs': 'Audit Log'
 }
 
 const columns = computed(() => (columnMap[reportType.value] || []).map(([key, label]) => ({ key, label })))
+const tableHeaders = computed(() => columns.value.map((column) => ({ title: column.label, key: column.key, sortable: false })))
+const formattedRows = computed(() =>
+  rows.value.map((row) =>
+    columns.value.reduce((record, column) => {
+      record[column.key] = formatCell(row[column.key], column.key)
+      return record
+    }, {})
+  )
+)
 const activeReportName = computed(() => reportNames[reportType.value] || 'Report')
 const totalAmount = computed(() => rows.value.reduce((sum, row) => sum + Number(row.amount || 0), 0))
 
@@ -150,13 +186,38 @@ const loadOptions = async () => {
 }
 
 const loadReport = async () => {
-  rows.value = await getReport(reportType.value, filters)
+  pageError.value = ''
+  try {
+    rows.value = await getReport(reportType.value, filters)
+  } catch (error) {
+    rows.value = []
+    pageError.value = error.message || 'Could not load report.'
+  }
 }
 
 const formatCurrency = (value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0))
 const formatCell = (value, key) => {
   if (key === 'amount') return formatCurrency(value)
+  if (key === 'createdAt') return formatMyanmarDateTime(value)
   return value || '-'
+}
+
+const myanmarDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Yangon',
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true
+})
+
+const formatMyanmarDateTime = (value) => {
+  if (!value) return '-'
+  const text = String(value)
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)
+  const date = new Date(hasTimezone ? text : `${text}Z`)
+  return Number.isNaN(date.getTime()) ? '-' : myanmarDateTimeFormatter.format(date)
 }
 
 const exportExcel = () => exportRowsToXlsx({
@@ -179,6 +240,13 @@ onMounted(async () => {
   await loadOptions()
   await loadReport()
 })
+
+watch(reportOptions, async (options) => {
+  if (!options.some((option) => option.value === reportType.value)) {
+    reportType.value = options[0]?.value || 'vehicles'
+    await loadReport()
+  }
+})
 </script>
 
 <style scoped>
@@ -196,12 +264,25 @@ input, select { width: 100%; min-height: 44px; height: 44px; max-height: 44px; b
 .primary-button, .ghost-button { min-height: 44px; border: 0; border-radius: 10px; padding: 0 18px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
 .primary-button { background: #2563eb; color: white; }
 .ghost-button { background: #eef2f7; color: #334155; }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 14px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-th { color: #475569; font-weight: 700; }
+.page-error { padding: 12px 14px; border: 1px solid #fecaca; border-radius: 12px; background: #fef2f2; color: #b91c1c; }
+.table-card { overflow: hidden; }
+.report-table { width: 100%; }
+.report-table :deep(.v-table__wrapper) { overflow-x: auto; }
+.report-table :deep(table) { min-width: 980px; border-collapse: separate; border-spacing: 0; }
+.report-table :deep(thead th) { background: #f8fafc; color: #475569; font-size: 13px; letter-spacing: 0.02em; text-transform: uppercase; font-weight: 700; padding: 14px 16px; }
+.report-table :deep(tbody td) { padding: 14px 16px; background: #fff; }
+.report-table :deep(tbody tr) { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06); }
+.report-table :deep(tbody tr td) { border-bottom: 10px solid transparent; }
+.report-table :deep(tbody tr:last-child td) { border-bottom: 0; }
+.report-table :deep(tbody tr:nth-child(even) td) { background: #f8fafc; }
+.report-table :deep(thead th:first-child),
+.report-table :deep(tbody td:first-child) { border-radius: 12px 0 0 12px; }
+.report-table :deep(thead th:last-child),
+.report-table :deep(tbody td:last-child) { border-radius: 0 12px 12px 0; }
+.report-table :deep(.v-data-table-footer) { border-top: 1px solid #e5e7eb; padding-top: 10px; }
 .empty-cell { text-align: center; color: #64748b; padding: 48px; }
 @media print {
-  .records-header, .toolbar, .summary-grid { display: none; }
+  .records-header, .toolbar, .summary-grid, .report-table :deep(.v-data-table-footer) { display: none; }
   .records-page { padding: 0; }
   .table-card { border: 0; }
 }

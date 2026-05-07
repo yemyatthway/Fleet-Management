@@ -125,7 +125,11 @@ public static class InventoryEndpoints
       part.Supplier = NormalizeOptional(form.Supplier);
       part.UnitCost = NormalizeOptional(form.UnitCost);
       part.Location = NormalizeOptional(form.Location);
-      if (form.RemoveImage) part.Image = null;
+      if (form.RemoveImage)
+      {
+        UserAssetStorage.DeleteStoredAsset("inventory-parts", part.Id, part.Image, environment);
+        part.Image = null;
+      }
       if (form.ImageFile is not null)
       {
         part.Image = await UserAssetStorage.SaveImageAsync(form.ImageFile, "inventory-parts", part.Id, "part-image", environment);
@@ -137,7 +141,7 @@ public static class InventoryEndpoints
       return Results.Ok(ToInventoryPartDto(part, httpRequest));
     }).DisableAntiforgery();
 
-    app.MapDelete("/api/inventory-parts/{partId}", async (string partId, HttpRequest httpRequest, FleetDbContext db) =>
+    app.MapDelete("/api/inventory-parts/{partId}", async (string partId, HttpRequest httpRequest, IWebHostEnvironment environment, FleetDbContext db) =>
     {
       var permissionError = await PermissionChecks.RequirePermissionAsync(httpRequest, db, "inventory-parts", PermissionAction.Delete);
       if (permissionError is not null) return permissionError;
@@ -146,7 +150,9 @@ public static class InventoryEndpoints
       if (part is null) return Results.NotFound(new ApiError("Inventory part not found."));
 
       part.IsDeleted = 1;
+      part.Image = null;
       part.UpdatedAt = DateTime.UtcNow;
+      UserAssetStorage.DeleteEntityDirectory("inventory-parts", part.Id, environment);
       await AuditLogWriter.LogAuditAsync(db, httpRequest, "inventory-parts", "Delete", part.Id, $"Deleted inventory part {part.Name}.");
       await db.SaveChangesAsync();
       return Results.NoContent();

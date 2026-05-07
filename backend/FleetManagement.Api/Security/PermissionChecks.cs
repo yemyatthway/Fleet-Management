@@ -25,12 +25,19 @@ public static class PermissionChecks
         permission.ModuleKey == moduleKey);
 
     var defaultPermission = GetDefaultPermission(roleId, moduleKey);
+    var effectivePermission = ApplyHardRules(roleId, moduleKey, new RolePermissionDto(
+      roleId,
+      savedPermission?.CanView ?? defaultPermission.CanView,
+      savedPermission?.CanCreate ?? defaultPermission.CanCreate,
+      savedPermission?.CanEdit ?? defaultPermission.CanEdit,
+      savedPermission?.CanDelete ?? defaultPermission.CanDelete));
+
     var allowed = action switch
     {
-      PermissionAction.View => savedPermission?.CanView ?? defaultPermission.CanView,
-      PermissionAction.Create => savedPermission?.CanCreate ?? defaultPermission.CanCreate,
-      PermissionAction.Edit => savedPermission?.CanEdit ?? defaultPermission.CanEdit,
-      PermissionAction.Delete => savedPermission?.CanDelete ?? defaultPermission.CanDelete,
+      PermissionAction.View => effectivePermission.CanView,
+      PermissionAction.Create => effectivePermission.CanCreate,
+      PermissionAction.Edit => effectivePermission.CanEdit,
+      PermissionAction.Delete => effectivePermission.CanDelete,
       _ => false
     };
 
@@ -51,7 +58,7 @@ public static class PermissionChecks
 
     return roleId.ToLowerInvariant() switch
     {
-      "dispatcher" when moduleKey is "dashboard" or "vehicles" or "trips" or "reports" or "expenses" or "location-setup" => viewOnly with { CanCreate = moduleKey is "trips" or "expenses", CanEdit = moduleKey is "trips" or "expenses" },
+      "dispatcher" when moduleKey is "dashboard" or "vehicles" or "trips" or "reports" or "expenses" => viewOnly with { CanCreate = moduleKey is "trips" or "expenses", CanEdit = moduleKey is "trips" or "expenses" },
       "driver" when moduleKey is "dashboard" or "trips" or "vehicles" => viewOnly,
       "mechanic" when moduleKey is "dashboard" or "vehicles" or "maintenance-tickets" or "inventory-parts" or "incidents" => viewOnly with { CanCreate = moduleKey is "maintenance-tickets" or "incidents", CanEdit = moduleKey is "maintenance-tickets" or "inventory-parts" or "incidents" },
       _ => none
@@ -72,12 +79,29 @@ public static class PermissionChecks
     {
       var hasSaved = savedLookup.TryGetValue(module.Key, out var saved);
       var defaultPermission = GetDefaultPermission(roleId, module.Key);
-      return new UserPermissionDto(
-        module.Key,
+      var effectivePermission = ApplyHardRules(roleId, module.Key, new RolePermissionDto(
+        roleId,
         saved?.CanView ?? defaultPermission.CanView,
         saved?.CanCreate ?? defaultPermission.CanCreate,
         saved?.CanEdit ?? defaultPermission.CanEdit,
-        saved?.CanDelete ?? defaultPermission.CanDelete);
+        saved?.CanDelete ?? defaultPermission.CanDelete));
+
+      return new UserPermissionDto(
+        module.Key,
+        effectivePermission.CanView,
+        effectivePermission.CanCreate,
+        effectivePermission.CanEdit,
+        effectivePermission.CanDelete);
     }).ToList();
+  }
+
+  private static RolePermissionDto ApplyHardRules(string roleId, string moduleKey, RolePermissionDto permission)
+  {
+    if (roleId.Equals("dispatcher", StringComparison.OrdinalIgnoreCase) && moduleKey.EndsWith("-setup", StringComparison.OrdinalIgnoreCase))
+    {
+      return permission with { CanView = false, CanCreate = false, CanEdit = false, CanDelete = false };
+    }
+
+    return permission;
   }
 }

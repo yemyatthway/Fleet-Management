@@ -1,6 +1,8 @@
 using FleetManagement.Api.Assets;
 using FleetManagement.Api.Data;
+using FleetManagement.Api.Email;
 using FleetManagement.Api.Endpoints;
+using FleetManagement.Api.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 
@@ -20,10 +22,24 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<OtpChallengeStore>();
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 
 var app = builder.Build();
 
 app.UseCors("frontend");
+app.Use(async (context, next) =>
+{
+  var token = JwtTokenService.GetBearerToken(context.Request);
+  if (JwtTokenService.TryValidateToken(context.RequestServices.GetRequiredService<IConfiguration>(), token, out var user))
+  {
+    context.Request.Headers.TryAdd("X-Fleet-User-Id", user.UserId);
+    context.Request.Headers.TryAdd("X-Fleet-User-Name", user.Name);
+    context.Request.Headers.TryAdd("X-Fleet-Role-Id", user.RoleId);
+  }
+
+  await next();
+});
 app.UseStaticFiles();
 var uploadsRoot = UserAssetStorage.GetUploadsRootPath(app.Environment);
 Directory.CreateDirectory(uploadsRoot);
@@ -44,7 +60,10 @@ using (var scope = app.Services.CreateScope())
   var db = scope.ServiceProvider.GetRequiredService<FleetDbContext>();
   var environment = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
   await SchemaBootstrapper.EnsureRolesSchemaAsync(db);
-  await SeedData.InitializeAsync(db);
+  if (app.Configuration.GetValue("SeedData:Enabled", true))
+  {
+    await SeedData.InitializeAsync(db);
+  }
   await UserAssetStorage.RepairStoredUserAssetPathsAsync(db, environment);
 }
 

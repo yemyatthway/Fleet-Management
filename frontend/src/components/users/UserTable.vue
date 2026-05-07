@@ -22,6 +22,10 @@
           <span class="user-id">{{ rowNumber(index) }}</span>
         </template>
 
+        <template #item.employeeId="{ item }">
+          <span class="employee-id">{{ item.employeeId || '—' }}</span>
+        </template>
+
         <template #item.name="{ item }">
           <div class="name-cell">
             <button
@@ -193,6 +197,7 @@ defineEmits(['edit', 'toggle', 'remove', 'view-avatar', 'update:options'])
 
 const headers = [
   { title: 'No.', key: 'displayId', sortable: false },
+  { title: 'Employee ID', key: 'employeeId', sortable: false },
   { title: 'Name', key: 'name', sortable: false },
   { title: 'NRC', key: 'nrcNumber', sortable: false },
   { title: 'NRC Front', key: 'nrcFront', sortable: false },

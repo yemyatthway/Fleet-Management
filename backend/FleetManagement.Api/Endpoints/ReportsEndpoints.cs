@@ -1,4 +1,5 @@
 using FleetManagement.Api.Data;
+using FleetManagement.Api.Dtos;
 using FleetManagement.Api.Security;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,11 +21,20 @@ public static class ReportsEndpoints
     {
       var permissionError = await PermissionChecks.RequirePermissionAsync(httpRequest, db, "reports", PermissionAction.View);
       if (permissionError is not null) return permissionError;
+      var roleId = httpRequest.Headers["X-Fleet-Role-Id"].FirstOrDefault();
+      var normalizedReportType = reportType.ToLowerInvariant();
+      if (string.Equals(roleId, "dispatcher", StringComparison.OrdinalIgnoreCase) &&
+          normalizedReportType is not ("vehicles" or "trips"))
+      {
+        return Results.Json(
+          new ApiError("Dispatchers can only access vehicle and trip reports."),
+          statusCode: StatusCodes.Status403Forbidden);
+      }
 
       DateTime? parsedDateFrom = DateTime.TryParse(dateFrom, out var startDate) ? startDate.Date : null;
       DateTime? parsedDateTo = DateTime.TryParse(dateTo, out var endDate) ? endDate.Date.AddDays(1).AddTicks(-1) : null;
 
-      object rows = reportType.ToLowerInvariant() switch
+      object rows = normalizedReportType switch
       {
         "vehicles" => await db.Vehicles.AsNoTracking()
           .Where(item => item.IsDeleted == 0 && (string.IsNullOrWhiteSpace(status) || item.Status == status) && (parsedDateFrom == null || item.CreatedAt >= parsedDateFrom) && (parsedDateTo == null || item.CreatedAt <= parsedDateTo))
@@ -45,6 +55,11 @@ public static class ReportsEndpoints
         "expenses" => await db.Expenses.AsNoTracking()
           .Where(item => item.IsDeleted == 0 && (string.IsNullOrWhiteSpace(status) || item.Status == status) && (string.IsNullOrWhiteSpace(vehicleId) || item.VehicleId == vehicleId) && (string.IsNullOrWhiteSpace(driver) || item.DriverName == driver) && (string.IsNullOrWhiteSpace(dateFrom) || string.Compare(item.ExpenseDate, dateFrom) >= 0) && (string.IsNullOrWhiteSpace(dateTo) || string.Compare(item.ExpenseDate, dateTo) <= 0))
           .Select(item => new { item.ExpenseDate, item.ExpenseType, item.VehicleId, item.TripNumber, item.DriverName, item.Amount, item.Status })
+          .ToListAsync(),
+        "audit-logs" => await db.AuditLogs.AsNoTracking()
+          .Where(item => (parsedDateFrom == null || item.CreatedAt >= parsedDateFrom) && (parsedDateTo == null || item.CreatedAt <= parsedDateTo))
+          .OrderByDescending(item => item.CreatedAt)
+          .Select(item => new { item.CreatedAt, item.RoleId, item.ModuleKey, item.Action, item.EntityId, item.Description })
           .ToListAsync(),
         _ => Array.Empty<object>()
       };

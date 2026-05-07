@@ -7,6 +7,13 @@
       </div>
     </div>
 
+    <PageMessage
+      :tone="pageMessage.tone"
+      :title="pageMessage.title"
+      :message="pageMessage.message"
+      @close="clearPageMessage"
+    />
+
     <div class="stats-grid">
       <div class="stat-card">
         <p>Total Vehicles</p>
@@ -545,6 +552,8 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
+import PageMessage from '../common/PageMessage.vue'
+import { usePageMessage } from '../../composables/usePageMessage'
 import { getFuelTypeOptions } from '../../services/fuelTypesApi'
 import { getLocationOptions } from '../../services/locationsApi'
 import { statusesApi } from '../../services/tripSetupApi'
@@ -582,6 +591,7 @@ const imageTitle = ref('')
 const formOpen = ref(false)
 const formMode = ref('add')
 const formError = ref('')
+const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage(4000)
 const formData = ref({})
 const formStep = ref(1)
 const vehicleImageInput = ref(null)
@@ -919,6 +929,11 @@ const saveForm = async () => {
   ) {
     formError.value = 'Plate, region, type, model, status, driver, and fuel type are required.'
     formStep.value = 1
+    showPageMessage({
+      tone: 'error',
+      title: 'Vehicle was not saved',
+      message: formError.value
+    })
     return
   }
 
@@ -926,6 +941,7 @@ const saveForm = async () => {
   formError.value = ''
   try {
     const payload = toVehiclePayload(formData.value)
+    const isEdit = formMode.value === 'edit'
 
     const savedVehicle = formMode.value === 'add'
       ? await createVehicle(payload)
@@ -941,8 +957,18 @@ const saveForm = async () => {
     }
 
     formOpen.value = false
+    showPageMessage({
+      tone: 'success',
+      title: isEdit ? 'Vehicle updated' : 'Vehicle created',
+      message: `${savedVehicle.id} was ${isEdit ? 'updated' : 'created'} successfully.`
+    })
   } catch (error) {
     formError.value = error.message || 'Unable to save vehicle.'
+    showPageMessage({
+      tone: 'error',
+      title: 'Vehicle was not saved',
+      message: formError.value
+    })
   } finally {
     loading.value = false
   }
@@ -980,8 +1006,18 @@ const toggleStatus = (id) => {
           item.id === id ? savedVehicle : item
         )
         if (selectedVehicle.value?.id === id) selectedVehicle.value = savedVehicle
+        showPageMessage({
+          tone: 'success',
+          title: 'Vehicle status updated',
+          message: `${savedVehicle.id} was marked ${nextStatus.toLowerCase()}.`
+        })
       } catch (error) {
         formError.value = error.message || 'Unable to update vehicle status.'
+        showPageMessage({
+          tone: 'error',
+          title: 'Vehicle status was not updated',
+          message: formError.value
+        })
       } finally {
         loading.value = false
       }
@@ -1007,8 +1043,18 @@ const deleteVehicle = (id) => {
           selectedVehicle.value = null
           detailsOpen.value = false
         }
+        showPageMessage({
+          tone: 'success',
+          title: 'Vehicle deleted',
+          message: `${vehicle.id} was deleted successfully.`
+        })
       } catch (error) {
         formError.value = error.message || 'Unable to delete vehicle.'
+        showPageMessage({
+          tone: 'error',
+          title: 'Vehicle was not deleted',
+          message: formError.value
+        })
       } finally {
         loading.value = false
       }

@@ -269,7 +269,7 @@ public static class UsersEndpoints
       return Results.Ok(ToUserDto(user, user.Role!.Name, httpRequest));
     });
 
-    app.MapDelete("/api/users/{userId}", async (string userId, HttpRequest httpRequest, FleetDbContext db) =>
+    app.MapDelete("/api/users/{userId}", async (string userId, HttpRequest httpRequest, IWebHostEnvironment environment, FleetDbContext db) =>
     {
       var permissionError = await PermissionChecks.RequirePermissionAsync(httpRequest, db, "users", PermissionAction.Delete);
       if (permissionError is not null) return permissionError;
@@ -279,7 +279,11 @@ public static class UsersEndpoints
 
       user.IsDeleted = 1;
       user.Status = "Disabled";
+      user.Avatar = string.Empty;
+      user.NrcFront = string.Empty;
+      user.NrcBack = string.Empty;
       user.UpdatedAt = DateTime.UtcNow;
+      UserAssetStorage.DeleteEntityDirectory("users", user.Id, environment);
       await AuditLogWriter.LogAuditAsync(db, httpRequest, "users", "Delete", user.Id, $"Deleted user {user.Name}.");
       await db.SaveChangesAsync();
       return Results.NoContent();

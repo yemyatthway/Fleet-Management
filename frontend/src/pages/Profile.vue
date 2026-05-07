@@ -57,17 +57,62 @@
 
           <label>
             Current Password
-            <input v-model="passwordForm.currentPassword" type="password" autocomplete="current-password" required />
+            <span class="password-field">
+              <input
+                v-model="passwordForm.currentPassword"
+                :type="passwordVisibility.currentPassword ? 'text' : 'password'"
+                autocomplete="current-password"
+                required
+              />
+              <button
+                class="password-toggle"
+                type="button"
+                :aria-label="passwordVisibility.currentPassword ? 'Hide current password' : 'Show current password'"
+                @click="passwordVisibility.currentPassword = !passwordVisibility.currentPassword"
+              >
+                <v-icon :icon="passwordVisibility.currentPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" size="20" />
+              </button>
+            </span>
           </label>
 
           <label>
             New Password
-            <input v-model="passwordForm.newPassword" type="password" autocomplete="new-password" required />
+            <span class="password-field">
+              <input
+                v-model="passwordForm.newPassword"
+                :type="passwordVisibility.newPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                required
+              />
+              <button
+                class="password-toggle"
+                type="button"
+                :aria-label="passwordVisibility.newPassword ? 'Hide new password' : 'Show new password'"
+                @click="passwordVisibility.newPassword = !passwordVisibility.newPassword"
+              >
+                <v-icon :icon="passwordVisibility.newPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" size="20" />
+              </button>
+            </span>
           </label>
 
           <label>
             Confirm Password
-            <input v-model="passwordForm.confirmPassword" type="password" autocomplete="new-password" required />
+            <span class="password-field">
+              <input
+                v-model="passwordForm.confirmPassword"
+                :type="passwordVisibility.confirmPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                required
+              />
+              <button
+                class="password-toggle"
+                type="button"
+                :aria-label="passwordVisibility.confirmPassword ? 'Hide confirm password' : 'Show confirm password'"
+                @click="passwordVisibility.confirmPassword = !passwordVisibility.confirmPassword"
+              >
+                <v-icon :icon="passwordVisibility.confirmPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" size="20" />
+              </button>
+            </span>
           </label>
 
           <button class="primary-button" type="submit" :disabled="saving">
@@ -91,6 +136,8 @@ const profile = ref(null)
 const saving = ref(false)
 const message = reactive({ tone: '', text: '' })
 const passwordForm = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' })
+const passwordVisibility = reactive({ currentPassword: false, newPassword: false, confirmPassword: false })
+let messageTimer = null
 
 const initials = computed(() =>
   String(profile.value?.name || currentUser.value?.name || 'FU')
@@ -102,8 +149,17 @@ const initials = computed(() =>
 )
 
 const showMessage = (tone, text) => {
+  if (messageTimer) {
+    window.clearTimeout(messageTimer)
+  }
+
   message.tone = tone
   message.text = text
+  messageTimer = window.setTimeout(() => {
+    message.tone = ''
+    message.text = ''
+    messageTimer = null
+  }, 4000)
 }
 
 const loadProfile = async () => {
@@ -121,7 +177,7 @@ const loadProfile = async () => {
           status: profile.value.status,
           avatar: profile.value.avatar
         }
-      })
+      }, Boolean(session.remember))
     }
   } catch (error) {
     showMessage('error', error.message || 'Could not load profile.')
@@ -132,6 +188,9 @@ const resetPasswordForm = () => {
   passwordForm.currentPassword = ''
   passwordForm.newPassword = ''
   passwordForm.confirmPassword = ''
+  passwordVisibility.currentPassword = false
+  passwordVisibility.newPassword = false
+  passwordVisibility.confirmPassword = false
 }
 
 const savePassword = async () => {
@@ -168,6 +227,11 @@ h2 { margin: 0; font-size: 20px; }
 .password-card { display: grid; gap: 14px; }
 label { display: grid; gap: 7px; font-weight: 700; }
 input { width: 100%; min-height: 44px; border: 1px solid #dfe3ea; border-radius: 10px; padding: 0 12px; font: inherit; background: #fff; box-sizing: border-box; }
+.password-field { position: relative; display: block; }
+.password-field input { padding-right: 46px; }
+.password-toggle { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); width: 34px; height: 34px; border: 0; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; color: #64748b; background: transparent; cursor: pointer; }
+.password-toggle:hover { background: #eff6ff; color: #2563eb; }
+.password-toggle:focus-visible { outline: 2px solid rgba(37, 99, 235, 0.35); outline-offset: 2px; }
 .primary-button { min-height: 44px; border: 0; border-radius: 10px; padding: 0 18px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; background: #2563eb; color: white; }
 .primary-button:disabled { opacity: 0.6; cursor: not-allowed; }
 .page-message { padding: 12px 14px; border-radius: 12px; border: 1px solid #dbe3ef; background: #fff; }

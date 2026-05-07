@@ -39,23 +39,17 @@ public static class DashboardEndpoints
         tickets = tickets.Where(ticket => ticket.Mechanic.ToLower() == normalizedUserName);
       }
 
-      var vehicleStatuses = await SafeDashboardValueAsync(async () => await vehicles
-        .GroupBy(vehicle => vehicle.Status)
-        .Select(group => new NamedCountDto(group.Key, group.Count()))
-        .OrderByDescending(item => item.Value)
-        .ToListAsync(), new List<NamedCountDto>());
+      var vehicleStatuses = await SafeDashboardValueAsync(
+        () => BuildVehicleStatusCountsAsync(vehicles),
+        new List<NamedCountDto>());
 
       var primaryStatuses = normalizedRoleId == "mechanic"
-        ? await SafeDashboardValueAsync(async () => await tickets
-          .GroupBy(ticket => ticket.Status)
-          .Select(group => new NamedCountDto(group.Key, group.Count()))
-          .OrderByDescending(item => item.Value)
-          .ToListAsync(), new List<NamedCountDto>())
-        : await SafeDashboardValueAsync(async () => await trips
-        .GroupBy(trip => trip.Status)
-        .Select(group => new NamedCountDto(group.Key, group.Count()))
-        .OrderByDescending(item => item.Value)
-        .ToListAsync(), new List<NamedCountDto>());
+        ? await SafeDashboardValueAsync(
+          () => BuildMaintenanceStatusCountsAsync(tickets),
+          new List<NamedCountDto>())
+        : await SafeDashboardValueAsync(
+          () => BuildTripStatusCountsAsync(trips),
+          new List<NamedCountDto>());
 
       var recentTripRows = await SafeDashboardValueAsync(async () => await trips
         .OrderByDescending(trip => trip.UpdatedAt)
@@ -122,6 +116,33 @@ public static class DashboardEndpoints
       return fallback;
     }
   }
+
+  private static async Task<List<NamedCountDto>> BuildVehicleStatusCountsAsync(IQueryable<Vehicle> vehicles)
+  {
+    var statuses = await vehicles.Select(vehicle => vehicle.Status).ToListAsync();
+    return CountStatuses(statuses);
+  }
+
+  private static async Task<List<NamedCountDto>> BuildTripStatusCountsAsync(IQueryable<Trip> trips)
+  {
+    var statuses = await trips.Select(trip => trip.Status).ToListAsync();
+    return CountStatuses(statuses);
+  }
+
+  private static async Task<List<NamedCountDto>> BuildMaintenanceStatusCountsAsync(IQueryable<MaintenanceTicket> tickets)
+  {
+    var statuses = await tickets.Select(ticket => ticket.Status).ToListAsync();
+    return CountStatuses(statuses);
+  }
+
+  private static List<NamedCountDto> CountStatuses(IEnumerable<string?> statuses) =>
+    statuses
+      .Select(status => string.IsNullOrWhiteSpace(status) ? "Unknown" : status.Trim())
+      .GroupBy(status => status, StringComparer.OrdinalIgnoreCase)
+      .Select(group => new NamedCountDto(group.First(), group.Count()))
+      .OrderByDescending(item => item.Value)
+      .ThenBy(item => item.Name)
+      .ToList();
 
   private static async Task<IReadOnlyList<DashboardMetricDto>> BuildMetricsAsync(
     string roleId,

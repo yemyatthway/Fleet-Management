@@ -9,7 +9,7 @@
 
     <MetricCards :metrics="summary?.metrics || []" />
 
-    <div class="grid grid-two">
+    <div class="grid graph-stack">
       <TripActivityChart
         :statuses="summary?.tripStatuses || []"
         :title="dashboardCopy.primaryChartTitle"
@@ -149,8 +149,8 @@ onMounted(loadSummary)
   gap: 24px;
 }
 
-.grid-two {
-  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+.graph-stack {
+  grid-template-columns: 1fr;
 }
 
 .dashboard-error {
@@ -159,12 +159,6 @@ onMounted(loadSummary)
   border-radius: 12px;
   background: #fef2f2;
   color: #b91c1c;
-}
-
-@media (max-width: 1100px) {
-  .grid-two {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 900px) {

@@ -59,6 +59,47 @@ public static class UserAssetStorage
     return $"/uploads/{entityFolder}/{entityId}/{fileName}";
   }
 
+  public static void DeleteStoredAsset(
+    string entityFolder,
+    string entityId,
+    string? storedPath,
+    IWebHostEnvironment environment)
+  {
+    if (string.IsNullOrWhiteSpace(storedPath)) return;
+    if (storedPath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+        storedPath.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+        storedPath.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+    {
+      return;
+    }
+
+    var normalizedPath = storedPath.Replace('\\', '/');
+    if (normalizedPath.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+    {
+      normalizedPath = normalizedPath.Replace("file://", "", StringComparison.OrdinalIgnoreCase);
+    }
+
+    var expectedPrefix = $"/uploads/{entityFolder}/{entityId}/";
+    if (!normalizedPath.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase)) return;
+
+    var rootPath = GetWebRootPath(environment);
+    var relativePath = normalizedPath.TrimStart('/');
+    var fullPath = Path.Combine(rootPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
+    if (File.Exists(fullPath))
+    {
+      File.Delete(fullPath);
+    }
+  }
+
+  public static void DeleteEntityDirectory(string entityFolder, string entityId, IWebHostEnvironment environment)
+  {
+    var directory = GetEntityDirectoryPath(entityFolder, entityId, environment);
+    if (Directory.Exists(directory))
+    {
+      Directory.Delete(directory, recursive: true);
+    }
+  }
+
   public static async Task RepairStoredUserAssetPathsAsync(FleetDbContext db, IWebHostEnvironment environment)
   {
     var users = await db.Users

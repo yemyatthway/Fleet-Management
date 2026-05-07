@@ -7,6 +7,13 @@
       </div>
     </div>
 
+    <PageMessage
+      :tone="pageMessage.tone"
+      :title="pageMessage.title"
+      :message="pageMessage.message"
+      @close="clearPageMessage"
+    />
+
     <div class="stats-grid">
       <div class="stat-card">
         <p>Total Incidents</p>
@@ -272,6 +279,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
+import PageMessage from '../common/PageMessage.vue'
+import { usePageMessage } from '../../composables/usePageMessage'
 import { incidentTypesApi, severitiesApi, statusesApi } from '../../services/tripSetupApi'
 import { createIncident, deleteIncident as deleteIncidentRecord, getIncidents, updateIncident } from '../../services/incidentsApi'
 import { getVehicles } from '../../services/vehiclesApi'
@@ -290,6 +299,7 @@ const loadingIncidents = ref(false)
 const incidentOpen = ref(false)
 const incidentMode = ref('add')
 const incidentError = ref('')
+const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage(4000)
 const incidentForm = ref({})
 const incidentDetailsOpen = ref(false)
 const selectedIncident = ref(null)
@@ -417,9 +427,16 @@ const syncSelectedVehicle = () => {
 const saveIncident = async () => {
   if (!incidentForm.value.vehicleId || !incidentForm.value.type || !incidentForm.value.date || !incidentForm.value.status) {
     incidentError.value = 'Vehicle, date, type, and status are required.'
+    showPageMessage({
+      tone: 'error',
+      title: 'Incident was not saved',
+      message: incidentError.value
+    })
     return
   }
   try {
+    incidentError.value = ''
+    const isEdit = incidentMode.value === 'edit'
     if (incidentMode.value === 'add') {
       const saved = await createIncident(incidentForm.value)
       incidents.value = [saved, ...incidents.value]
@@ -429,8 +446,18 @@ const saveIncident = async () => {
       if (selectedIncident.value?.id === saved.id) selectedIncident.value = saved
     }
     incidentOpen.value = false
+    showPageMessage({
+      tone: 'success',
+      title: isEdit ? 'Incident updated' : 'Incident created',
+      message: isEdit ? 'Incident record was updated successfully.' : 'Incident record was created successfully.'
+    })
   } catch (error) {
     incidentError.value = error.message || 'Unable to save incident.'
+    showPageMessage({
+      tone: 'error',
+      title: 'Incident was not saved',
+      message: incidentError.value
+    })
   }
 }
 
@@ -444,10 +471,21 @@ const deleteIncident = (id) => {
     tone: 'danger',
     action: async () => {
       try {
+        incidentError.value = ''
         await deleteIncidentRecord(id)
         incidents.value = incidents.value.filter((item) => item.id !== id)
+        showPageMessage({
+          tone: 'success',
+          title: 'Incident deleted',
+          message: `${incident.id} was deleted successfully.`
+        })
       } catch (error) {
         incidentError.value = error.message || 'Unable to delete incident.'
+        showPageMessage({
+          tone: 'error',
+          title: 'Incident was not deleted',
+          message: incidentError.value
+        })
       }
     }
   })

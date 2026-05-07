@@ -23,6 +23,13 @@ public static class VehiclesEndpoints
         .Where(vehicle => vehicle.IsDeleted == 0)
         .AsNoTracking()
         .AsQueryable();
+      var roleId = AuditLogWriter.GetRequestRoleId(request);
+      var userName = request.Headers["X-Fleet-User-Name"].FirstOrDefault();
+      if (string.Equals(roleId, "driver", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(userName))
+      {
+        var normalizedUserName = userName.Trim().ToLower();
+        query = query.Where(vehicle => vehicle.Driver.ToLower() == normalizedUserName);
+      }
 
       if (!string.IsNullOrWhiteSpace(search))
       {
@@ -157,16 +164,19 @@ public static class VehiclesEndpoints
 
       if (form.RemoveVehicleImage)
       {
+        UserAssetStorage.DeleteStoredAsset("vehicles", vehicle.Id, vehicle.Image, environment);
         vehicle.Image = string.Empty;
       }
 
       if (form.RemoveDriverImage)
       {
+        UserAssetStorage.DeleteStoredAsset("vehicles", vehicle.Id, vehicle.DriverImage, environment);
         vehicle.DriverImage = string.Empty;
       }
 
       if (form.DriverImageFile is null && !form.RemoveDriverImage)
       {
+        UserAssetStorage.DeleteStoredAsset("vehicles", vehicle.Id, vehicle.DriverImage, environment);
         vehicle.DriverImage = await FindDriverAvatarAsync(db, vehicle.Driver);
       }
 
@@ -212,7 +222,7 @@ public static class VehiclesEndpoints
       return Results.Ok(ToVehicleDto(vehicle, httpRequest));
     });
 
-    app.MapDelete("/api/vehicles/{vehicleId}", async (string vehicleId, HttpRequest httpRequest, FleetDbContext db) =>
+    app.MapDelete("/api/vehicles/{vehicleId}", async (string vehicleId, HttpRequest httpRequest, IWebHostEnvironment environment, FleetDbContext db) =>
     {
       var permissionError = await PermissionChecks.RequirePermissionAsync(httpRequest, db, "vehicles", PermissionAction.Delete);
       if (permissionError is not null) return permissionError;
@@ -221,7 +231,10 @@ public static class VehiclesEndpoints
       if (vehicle is null) return Results.NotFound(new ApiError("Vehicle not found."));
 
       vehicle.IsDeleted = 1;
+      vehicle.Image = string.Empty;
+      vehicle.DriverImage = string.Empty;
       vehicle.UpdatedAt = DateTime.UtcNow;
+      UserAssetStorage.DeleteEntityDirectory("vehicles", vehicle.Id, environment);
       await AuditLogWriter.LogAuditAsync(db, httpRequest, "vehicles", "Delete", vehicle.Id, $"Deleted vehicle {vehicle.Id}.");
       await db.SaveChangesAsync();
       return Results.NoContent();

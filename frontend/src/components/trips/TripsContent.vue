@@ -86,6 +86,13 @@
       </div>
     </div>
 
+    <PageMessage
+      :tone="pageMessage.tone"
+      :title="pageMessage.title"
+      :message="pageMessage.message"
+      @close="clearPageMessage"
+    />
+
     <TripsTable
       :items="filteredTrips"
       :page="tablePage"
@@ -114,6 +121,7 @@
       :dispatcher-options="dispatcherOptions"
       :location-options="locationOptions"
       :department-options="departmentOptions"
+      :saving="formSaving"
       @close="closeForm"
       @submit="submitForm"
     />
@@ -122,6 +130,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
+import PageMessage from "../common/PageMessage.vue";
 import TripDetailsDialog from "./TripDetailsDialog.vue";
 import TripFormDialog from "./TripFormDialog.vue";
 import TripsTable from "./TripsTable.vue";
@@ -131,6 +140,7 @@ import { getUsers } from "../../services/usersApi";
 import { getVehicles } from "../../services/vehiclesApi";
 import { createTrip, deleteTrip as deleteTripRecord, getTrips, updateTrip } from "../../services/tripsApi";
 import { cargoTypesApi, statusesApi, tripPrioritiesApi, tripTypesApi } from "../../services/tripSetupApi";
+import { usePageMessage } from "../../composables/usePageMessage";
 import { canCreateModule, canDeleteModule, canEditModule } from "../../utils/authSession";
 
 const tripStatuses = ref([]);
@@ -194,10 +204,12 @@ const detailsOpen = ref(false);
 const formOpen = ref(false);
 const formMode = ref("create");
 const formError = ref("");
+const formSaving = ref(false);
 const editingTripId = ref(null);
 const tablePage = ref(1);
 const itemsPerPage = ref(10);
 const form = reactive(createEmptyTrip());
+const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage(4000);
 
 const loadTrips = async () => {
   try {
@@ -298,7 +310,6 @@ const openDetails = (trip) => {
 const openAddDialog = () => {
   formMode.value = "create";
   resetForm();
-  form.tripNumber = `TRP-${String(3100 + trips.value.length + 1)}`;
   formOpen.value = true;
 };
 
@@ -353,6 +364,8 @@ const submitForm = async () => {
   };
 
   try {
+    formSaving.value = true;
+    formError.value = "";
     const savedTrip =
       formMode.value === "edit" && editingTripId.value !== null
         ? await updateTrip(editingTripId.value, payload)
@@ -366,22 +379,48 @@ const submitForm = async () => {
       trips.value = [savedTrip, ...trips.value];
     }
 
+    showPageMessage({
+      tone: "success",
+      title: formMode.value === "edit" ? "Trip updated" : "Trip created",
+      message:
+        formMode.value === "edit"
+          ? `${savedTrip.tripNumber} was updated and the assigned driver will be notified.`
+          : `${savedTrip.tripNumber} was created and the assigned driver will be notified.`,
+    });
     closeForm();
   } catch (error) {
     formError.value = error.message || "Could not save trip.";
+    showPageMessage({
+      tone: "error",
+      title: "Trip was not saved",
+      message: formError.value,
+    });
+  } finally {
+    formSaving.value = false;
   }
 };
 
 const deleteTrip = async (id) => {
   try {
+    const trip = trips.value.find((item) => item.id === id);
     await deleteTripRecord(id);
     trips.value = trips.value.filter((trip) => trip.id !== id);
     if (selectedTrip.value?.id === id) {
       detailsOpen.value = false;
       selectedTrip.value = null;
     }
+    showPageMessage({
+      tone: "success",
+      title: "Trip deleted",
+      message: `${trip?.tripNumber || "Trip"} was deleted successfully.`,
+    });
   } catch (error) {
     formError.value = error.message || "Could not delete trip.";
+    showPageMessage({
+      tone: "error",
+      title: "Trip was not deleted",
+      message: formError.value,
+    });
   }
 };
 </script>

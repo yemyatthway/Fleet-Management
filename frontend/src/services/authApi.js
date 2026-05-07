@@ -9,11 +9,20 @@ const parseResponse = async (response) => {
   return body
 }
 
-export const login = async ({ email, password }) => {
+export const login = async ({ email, password, rememberMe = false }) => {
   const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password, rememberMe })
+  })
+  return parseResponse(response)
+}
+
+export const verifyOtp = async ({ challengeId, code }) => {
+  const response = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challengeId, code })
   })
   return parseResponse(response)
 }

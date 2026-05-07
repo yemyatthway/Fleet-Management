@@ -12,6 +12,13 @@
         </button>
       </header>
 
+      <PageMessage
+        :tone="pageMessage.tone"
+        :title="pageMessage.title"
+        :message="pageMessage.message"
+        @close="clearPageMessage"
+      />
+
       <div v-if="pageError" class="page-error">{{ pageError }}</div>
 
       <section class="toolbar">
@@ -118,7 +125,9 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import PageMessage from '../components/common/PageMessage.vue'
 import DashboardLayout from '../layouts/DashboardLayout.vue'
+import { usePageMessage } from '../composables/usePageMessage'
 import { createExpense, deleteExpense, getExpenses, updateExpense } from '../services/expensesApi'
 import { expenseTypesApi, statusesApi } from '../services/tripSetupApi'
 import { canCreateModule, canDeleteModule, canEditModule } from '../utils/authSession'
@@ -134,6 +143,7 @@ const statusOptions = ref(['Active', 'Pending', 'Approved', 'Paid'])
 const filters = reactive({ search: '', status: '', dateFrom: '', dateTo: '' })
 const pagination = reactive({ page: 1, pageSize: 10 })
 const form = reactive({ expenseDate: '', expenseType: '', vehicleId: '', tripNumber: '', driverName: '', amount: 0, status: 'Active', notes: '' })
+const { pageMessage, clearPageMessage, showPageMessage } = usePageMessage(4000)
 
 const canCreate = computed(() => canCreateModule(moduleKey))
 const canEdit = computed(() => canEditModule(moduleKey))
@@ -206,16 +216,47 @@ const cancelForm = () => {
 }
 
 const saveRecord = async () => {
-  if (editingId.value) await updateExpense(editingId.value, form)
-  else await createExpense(form)
-  showForm.value = false
-  resetForm()
-  await loadRecords()
+  const isEdit = Boolean(editingId.value)
+  pageError.value = ''
+  try {
+    if (isEdit) await updateExpense(editingId.value, form)
+    else await createExpense(form)
+    showForm.value = false
+    resetForm()
+    await loadRecords()
+    showPageMessage({
+      tone: 'success',
+      title: isEdit ? 'Expense updated' : 'Expense created',
+      message: isEdit ? 'Expense record was updated successfully.' : 'Expense record was created successfully.'
+    })
+  } catch (error) {
+    pageError.value = error.message || 'Could not save expense.'
+    showPageMessage({
+      tone: 'error',
+      title: 'Expense was not saved',
+      message: pageError.value
+    })
+  }
 }
 
 const removeRecord = async (id) => {
-  await deleteExpense(id)
-  await loadRecords()
+  pageError.value = ''
+  try {
+    await deleteExpense(id)
+    await loadRecords()
+    showPageMessage({
+      tone: 'success',
+      title: 'Expense deleted',
+      message: 'Expense record was deleted successfully.'
+    })
+  } catch (error) {
+    pageError.value = error.message || 'Could not delete expense.'
+    showPageMessage({
+      tone: 'error',
+      title: 'Expense was not deleted',
+      message: pageError.value
+    })
+  }
 }
 
 const formatCurrency = (value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0))

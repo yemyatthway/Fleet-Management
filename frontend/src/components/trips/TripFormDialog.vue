@@ -4,7 +4,7 @@
       <div class="form-header">
         <div>
           <div class="form-title">{{ mode === 'edit' ? 'Edit Trip' : 'Create Trip' }}</div>
-          <div class="text-muted">Frontend-only first pass for real dispatch operations.</div>
+          <div class="text-muted">Create and update backend trip records.</div>
         </div>
         <button class="icon-button" type="button" @click="$emit('close')">
           <v-icon icon="mdi-close" size="18" />
@@ -20,7 +20,7 @@
             <div class="form-grid">
               <div class="field">
                 <label class="required">Trip Number</label>
-                <input v-model.trim="form.tripNumber" type="text" placeholder="TRP-3101" required />
+                <input v-model.trim="form.tripNumber" type="text" placeholder="TRIP-3001" required />
               </div>
               <div class="field">
                 <label class="required">Trip Type</label>
@@ -213,9 +213,10 @@
         </div>
 
         <div class="form-actions">
-          <button class="ghost-button" type="button" @click="$emit('close')">Cancel</button>
-          <button class="primary-button" type="submit">
-            {{ mode === 'edit' ? 'Save Changes' : 'Create Trip' }}
+          <button class="ghost-button" type="button" :disabled="saving" @click="$emit('close')">Cancel</button>
+          <button class="primary-button" type="submit" :disabled="saving">
+            <v-icon v-if="saving" class="spin-icon" icon="mdi-loading" size="18" />
+            <span>{{ saving ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Trip' }}</span>
           </button>
         </div>
       </form>
@@ -276,6 +277,10 @@ const props = defineProps({
   departmentOptions: {
     type: Array,
     required: true
+  },
+  saving: {
+    type: Boolean,
+    default: false
   }
 })
 

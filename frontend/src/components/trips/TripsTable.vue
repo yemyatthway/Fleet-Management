@@ -128,8 +128,11 @@ const rowNumber = (index) => {
 }
 
 const statusClass = (status) => {
+  if (status === 'Active') return 'success'
   if (status === 'Completed') return 'success'
   if (status === 'In Transit') return 'info'
+  if (status === 'Pending') return 'warning'
+  if (status === 'Maintenance') return 'warning'
   if (status === 'Delayed') return 'warning'
   if (status === 'Cancelled') return 'danger'
   return 'neutral'
