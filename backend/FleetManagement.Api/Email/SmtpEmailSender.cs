@@ -5,12 +5,12 @@ namespace FleetManagement.Api.Email;
 
 public interface IEmailSender
 {
-  Task SendAsync(string toEmail, string subject, string body);
+  Task SendAsync(string toEmail, string subject, string body, bool isHtml = false);
 }
 
 public class SmtpEmailSender(IConfiguration configuration, ILogger<SmtpEmailSender> logger) : IEmailSender
 {
-  public async Task SendAsync(string toEmail, string subject, string body)
+  public async Task SendAsync(string toEmail, string subject, string body, bool isHtml = false)
   {
     var host = configuration["Smtp:Host"];
     var username = configuration["Smtp:UserName"];
@@ -34,7 +34,7 @@ public class SmtpEmailSender(IConfiguration configuration, ILogger<SmtpEmailSend
       From = new MailAddress(fromEmail, fromName),
       Subject = subject,
       Body = body,
-      IsBodyHtml = false
+      IsBodyHtml = isHtml
     };
     message.To.Add(toEmail);
 

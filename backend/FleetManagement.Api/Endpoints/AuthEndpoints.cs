@@ -52,7 +52,8 @@ public static class AuthEndpoints
           await emailSender.SendAsync(
             user.Email,
             "FleetManager login verification code",
-            $"Your FleetManager verification code is {challenge.Code}. It expires in 10 minutes.");
+            EmailTemplates.OtpCode(user.Name, challenge.Code),
+            isHtml: true);
         }
         catch
         {

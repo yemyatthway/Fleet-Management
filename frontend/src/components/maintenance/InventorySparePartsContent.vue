@@ -302,7 +302,11 @@
       </div>
     </v-dialog>
 
-    <v-dialog v-model="partDetailsOpen" max-width="720">
+    <v-dialog
+      v-model="partDetailsOpen"
+      max-width="720"
+      content-class="inventory-details-overlay"
+    >
       <div v-if="selectedPart" class="card-surface details-card">
         <div class="details-header">
           <div>

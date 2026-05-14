@@ -362,21 +362,8 @@ public static class TripsEndpoints
       emailSender,
       driver.Email,
       $"New trip assignment: {trip.TripNumber}",
-      $"""
-      Hello {driver.Name},
-
-      You have been assigned to trip {trip.TripNumber}.
-
-      Vehicle: {trip.VehiclePlate} ({trip.VehicleId})
-      Route: {trip.PickupLocation} to {trip.DropoffLocation}
-      Departure: {FormatTripDateTime(trip.DepartureDateTime)}
-      ETA: {FormatTripDateTime(trip.EstimatedArrival)}
-      Priority: {trip.Priority}
-      Status: {trip.Status}
-      {FormatChangesSection(changes)}
-
-      Please open FleetManager to review the trip details.
-      """);
+      EmailTemplates.TripAssignment(driver, trip, changes),
+      isHtml: true);
   }
 
   private static async Task SendTripUpdatedEmailAsync(FleetDbContext db, IEmailSender emailSender, Trip trip, HttpRequest request, IReadOnlyList<string> changes)
@@ -394,30 +381,17 @@ public static class TripsEndpoints
       emailSender,
       driver.Email,
       $"Trip updated: {trip.TripNumber}",
-      $"""
-      Hello {driver.Name},
-
-      Your assigned trip {trip.TripNumber} has been updated by {updater}.
-
-      Vehicle: {trip.VehiclePlate} ({trip.VehicleId})
-      Route: {trip.PickupLocation} to {trip.DropoffLocation}
-      Departure: {FormatTripDateTime(trip.DepartureDateTime)}
-      ETA: {FormatTripDateTime(trip.EstimatedArrival)}
-      Status: {trip.Status}
-      Priority: {trip.Priority}
-      {FormatChangesSection(changes)}
-
-      Please open FleetManager to review the latest trip details.
-      """);
+      EmailTemplates.TripUpdated(driver, trip, updater, changes),
+      isHtml: true);
   }
 
-  private static void QueueEmail(IEmailSender emailSender, string to, string subject, string body)
+  private static void QueueEmail(IEmailSender emailSender, string to, string subject, string body, bool isHtml = false)
   {
     _ = Task.Run(async () =>
     {
       try
       {
-        await emailSender.SendAsync(to, subject, body);
+        await emailSender.SendAsync(to, subject, body, isHtml);
       }
       catch
       {
@@ -471,12 +445,6 @@ public static class TripsEndpoints
     var newText = FormatText(newValue);
     if (string.Equals(oldText, newText, StringComparison.OrdinalIgnoreCase)) return;
     changes.Add($"- {label}: {oldText} -> {newText}");
-  }
-
-  private static string FormatChangesSection(IReadOnlyList<string>? changes)
-  {
-    if (changes is null || changes.Count == 0) return string.Empty;
-    return $"{Environment.NewLine}Changes:{Environment.NewLine}{string.Join(Environment.NewLine, changes)}";
   }
 
   private static string FormatText(string? value) =>
