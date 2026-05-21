@@ -10,7 +10,8 @@ public static class UserAssetStorage
     ".jpeg",
     ".png",
     ".webp",
-    ".gif"
+    ".gif",
+    ".avif"
   };
 
   public static async Task<string> SaveImageAsync(
@@ -29,18 +30,10 @@ public static class UserAssetStorage
     string assetName,
     IWebHostEnvironment environment)
   {
-    if (file.Length <= 0) throw new InvalidOperationException("Uploaded file is empty.");
-    if (string.IsNullOrWhiteSpace(file.ContentType) || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-    {
-      throw new InvalidOperationException("Only image uploads are allowed.");
-    }
+    var validationError = ValidateImageFile(file);
+    if (validationError is not null) throw new InvalidOperationException(validationError);
 
     var extension = Path.GetExtension(file.FileName);
-    if (string.IsNullOrWhiteSpace(extension) || !AllowedExtensions.Contains(extension))
-    {
-      throw new InvalidOperationException("Unsupported image format.");
-    }
-
     var userDirectory = GetEntityDirectoryPath(entityFolder, entityId, environment);
 
     Directory.CreateDirectory(userDirectory);
@@ -57,6 +50,24 @@ public static class UserAssetStorage
     await file.CopyToAsync(stream);
 
     return $"/uploads/{entityFolder}/{entityId}/{fileName}";
+  }
+
+  public static string? ValidateImageFile(IFormFile? file)
+  {
+    if (file is null) return null;
+    if (file.Length <= 0) return "Uploaded file is empty.";
+    if (string.IsNullOrWhiteSpace(file.ContentType) || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+    {
+      return "Only image uploads are allowed.";
+    }
+
+    var extension = Path.GetExtension(file.FileName);
+    if (string.IsNullOrWhiteSpace(extension) || !AllowedExtensions.Contains(extension))
+    {
+      return "Unsupported image format.";
+    }
+
+    return null;
   }
 
   public static void DeleteStoredAsset(

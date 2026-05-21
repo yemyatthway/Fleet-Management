@@ -16,28 +16,45 @@
               v-model.trim="form.vehicle"
               type="text"
               placeholder="Box Truck"
+              readonly
               required
             />
           </div>
 
           <div class="field">
             <label class="required">Vehicle ID</label>
-            <input
-              v-model.trim="form.vehicleId"
-              type="text"
-              placeholder="VH-2048"
+            <select
+              v-model="form.vehicleId"
               required
-            />
+              @change="syncSelectedVehicle"
+            >
+              <option value="" disabled>Select vehicle</option>
+              <option
+                v-for="vehicle in vehicleOptions"
+                :key="vehicle.id"
+                :value="vehicle.id"
+              >
+                {{ vehicle.id }} •
+                {{ vehicle.plate || vehicle.model || vehicle.type }}
+              </option>
+            </select>
           </div>
 
           <div class="field">
             <label class="required">Issue</label>
-            <input
-              v-model.trim="form.issue"
-              type="text"
-              placeholder="Brake Inspection"
+            <select
+              v-model="form.issue"
               required
-            />
+            >
+              <option value="" disabled>Select issue</option>
+              <option
+                v-for="issue in issueOptions"
+                :key="issue"
+                :value="issue"
+              >
+                {{ issue }}
+              </option>
+            </select>
           </div>
 
           <div class="field">
@@ -117,6 +134,14 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  vehicles: {
+    type: Array,
+    default: () => [],
+  },
+  issues: {
+    type: Array,
+    default: () => [],
+  },
   statuses: {
     type: Array,
     default: () => [],
@@ -153,6 +178,33 @@ const mechanicOptions = computed(() => {
   return options;
 });
 
+const vehicleOptions = computed(() => {
+  const options = props.vehicles.filter((vehicle) => vehicle?.id);
+  const hasSelectedVehicle = options.some(
+    (vehicle) => vehicle.id === form.vehicleId,
+  );
+  if (form.vehicleId && !hasSelectedVehicle) {
+    return [
+      {
+        id: form.vehicleId,
+        type: form.vehicle,
+        model: form.vehicle,
+        plate: form.vehicle,
+      },
+      ...options,
+    ];
+  }
+  return options;
+});
+
+const issueOptions = computed(() => {
+  const options = props.issues.filter(Boolean);
+  if (form.issue && !options.includes(form.issue)) {
+    return [form.issue, ...options];
+  }
+  return options;
+});
+
 const statusOptions = computed(() => {
   const options = props.statuses.filter(Boolean);
   if (form.status && !options.includes(form.status)) {
@@ -181,6 +233,17 @@ watch(
 );
 
 const close = () => emit("close");
+
+const getVehicleLabel = (vehicle) =>
+  vehicle?.type || vehicle?.model || vehicle?.plate || vehicle?.id || "";
+
+const syncSelectedVehicle = () => {
+  const selectedVehicle = vehicleOptions.value.find(
+    (vehicle) => vehicle.id === form.vehicleId,
+  );
+  if (!selectedVehicle) return;
+  form.vehicle = getVehicleLabel(selectedVehicle);
+};
 
 const submit = () => {
   if (

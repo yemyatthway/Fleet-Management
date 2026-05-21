@@ -69,6 +69,12 @@ public static class VehiclesEndpoints
       var validationError = ValidateVehicleRequest(form);
       if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
 
+      var vehicleImageError = UserAssetStorage.ValidateImageFile(form.VehicleImageFile);
+      if (vehicleImageError is not null) return Results.BadRequest(new ApiError(vehicleImageError));
+
+      var driverImageError = UserAssetStorage.ValidateImageFile(form.DriverImageFile);
+      if (driverImageError is not null) return Results.BadRequest(new ApiError(driverImageError));
+
       var normalizedPlate = form.Plate!.Trim().ToUpperInvariant();
       var duplicatePlate = await db.Vehicles.AnyAsync(vehicle =>
         vehicle.IsDeleted == 0 && vehicle.Plate.ToLower() == normalizedPlate.ToLower());
@@ -151,6 +157,12 @@ public static class VehiclesEndpoints
 
       var validationError = ValidateVehicleRequest(form);
       if (validationError is not null) return Results.BadRequest(new ApiError(validationError));
+
+      var vehicleImageError = UserAssetStorage.ValidateImageFile(form.VehicleImageFile);
+      if (vehicleImageError is not null) return Results.BadRequest(new ApiError(vehicleImageError));
+
+      var driverImageError = UserAssetStorage.ValidateImageFile(form.DriverImageFile);
+      if (driverImageError is not null) return Results.BadRequest(new ApiError(driverImageError));
 
       var vehicle = await db.Vehicles.FirstOrDefaultAsync(item => item.Id == vehicleId && item.IsDeleted == 0);
       if (vehicle is null) return Results.NotFound(new ApiError("Vehicle not found."));

@@ -120,6 +120,8 @@
       :mode="dialogMode"
       :ticket="selectedTicket"
       :mechanics="mechanicOptions"
+      :vehicles="vehicleOptions"
+      :issues="issueOptions"
       :statuses="statusOptions"
       @close="dialogOpen = false"
       @save="handleSave"
@@ -158,7 +160,8 @@ import {
   updateMaintenanceTicketStatus,
 } from "../../services/maintenanceTicketsApi";
 import { getUserOptions } from "../../services/usersApi";
-import { statusesApi } from "../../services/tripSetupApi";
+import { getVehicles } from "../../services/vehiclesApi";
+import { maintenanceTypesApi, statusesApi } from "../../services/tripSetupApi";
 import MaintenanceTicketDialog from "./MaintenanceTicketDialog.vue";
 import MaintenanceTicketsTable from "./MaintenanceTicketsTable.vue";
 
@@ -177,6 +180,8 @@ const dialogOpen = ref(false);
 const dialogMode = ref("create");
 const selectedTicket = ref(null);
 const mechanicOptions = ref([]);
+const vehicleOptions = ref([]);
+const issueOptions = ref([]);
 const statusOptions = ref([]);
 const canCreateTickets = computed(() => canCreateModule("maintenance-tickets"));
 const canEditTickets = computed(() => canEditModule("maintenance-tickets"));
@@ -246,6 +251,30 @@ const loadMechanicOptions = async () => {
     showPageMessage({
       tone: "error",
       title: "Could not load mechanics",
+      message: error.message,
+    });
+  }
+};
+
+const loadVehicleOptions = async () => {
+  try {
+    vehicleOptions.value = await getVehicles();
+  } catch (error) {
+    showPageMessage({
+      tone: "error",
+      title: "Could not load vehicles",
+      message: error.message,
+    });
+  }
+};
+
+const loadIssueOptions = async () => {
+  try {
+    issueOptions.value = await maintenanceTypesApi.options();
+  } catch (error) {
+    showPageMessage({
+      tone: "error",
+      title: "Could not load maintenance types",
       message: error.message,
     });
   }
@@ -384,6 +413,8 @@ const deleteTicket = (ticket) => {
 onMounted(async () => {
   await Promise.all([
     loadMechanicOptions(),
+    loadVehicleOptions(),
+    loadIssueOptions(),
     loadStatusOptions(),
     loadTickets(),
   ]);
