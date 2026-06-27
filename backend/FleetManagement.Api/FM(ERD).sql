@@ -386,7 +386,6 @@ CREATE TABLE StatusHistories (
   CONSTRAINT FK_StatusHistories_Roles FOREIGN KEY (RoleId) REFERENCES Roles(Id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- Minimal seed rows so Workbench can display FK links clearly if browsing data.
 INSERT INTO Roles (Id, Code, Name, Description, Status) VALUES
 ('admin', 'ADMIN', 'Admin', 'System administrator role', 'Active'),
 ('dispatcher', 'DISPATCHER', 'Dispatcher', 'Trip dispatcher role', 'Active'),
